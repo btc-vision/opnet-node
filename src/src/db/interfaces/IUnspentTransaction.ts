@@ -9,7 +9,7 @@ export interface ShortScriptPubKey {
 export interface IUnspentTransaction {
     blockHeight: Long;
 
-    readonly transactionId: Binary | Buffer;
+    readonly transactionId: Binary | Uint8Array;
     readonly outputIndex: number;
     value: Long;
 
@@ -19,7 +19,7 @@ export interface IUnspentTransaction {
 }
 
 export interface ISpentTransaction {
-    readonly transactionId: Buffer;
+    readonly transactionId: Uint8Array;
     readonly outputIndex: number;
     readonly deletedAtBlock?: Long;
 }

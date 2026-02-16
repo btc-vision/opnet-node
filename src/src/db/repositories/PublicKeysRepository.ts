@@ -11,7 +11,7 @@ import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { ProcessUnspentTransactionList } from './UnspentTransactionRepository.js';
-import { Network, networks, payments, toXOnly } from '@btc-vision/bitcoin';
+import { fromHex, Network, networks, payments, toHex, toXOnly } from '@btc-vision/bitcoin';
 import { createPublicKey } from '@btc-vision/ecpair';
 import { TransactionOutput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
@@ -69,13 +69,13 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 const key = addressOrPublicKeys[i].replace('0x', '');
                 if (!AddressVerificator.isValidPublicKey(key, this.network)) continue;
 
-                const bufferKey = Buffer.from(key, 'hex');
+                const keyBytes = fromHex(key);
                 if (key.length === 64) {
                     // 32 bytes = mldsaHashedPublicKey, lookup by hashedPublicKey
-                    mldsaLookups.set(i, { type: 'hashed', key: new Binary(bufferKey) });
+                    mldsaLookups.set(i, { type: 'hashed', key: new Binary(keyBytes) });
                 } else if (key.length === 66) {
                     // 33 bytes = compressed EC pubkey, tweak and lookup by legacyPublicKey
-                    const tweakedXOnly = toXOnly(createPublicKey(this.tweakPublicKey(bufferKey)));
+                    const tweakedXOnly = toXOnly(createPublicKey(this.tweakPublicKey(keyBytes)));
                     mldsaLookups.set(i, { type: 'legacy', key: new Binary(tweakedXOnly) });
                 }
             }
@@ -110,37 +110,37 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                     continue;
                 }
 
-                const bufferKey = Buffer.from(key, 'hex');
+                const keyBytes = fromHex(key);
                 const mldsa = mldsaMap.get(i) ?? null;
 
                 if (key.length === 64) {
                     // 32 bytes = mldsaHashedPublicKey input, always derive p2op from it
                     const info: PublicKeyInfo = {
-                        p2op: this.p2op(bufferKey, this.network),
+                        p2op: this.p2op(keyBytes, this.network),
                         mldsaHashedPublicKey: key,
                     };
 
                     if (mldsa) {
                         info.mldsaLevel = mldsa.level;
                         info.mldsaPublicKey = mldsa.publicKey
-                            ? Buffer.from(mldsa.publicKey.buffer).toString('hex')
+                            ? toHex(new Uint8Array(mldsa.publicKey.buffer))
                             : null;
 
                         if (mldsa.tweakedPublicKey) {
-                            const tweakedKeyBuffer = Buffer.from(mldsa.tweakedPublicKey.buffer);
-                            info.tweakedPubkey = tweakedKeyBuffer.toString('hex');
-                            info.p2tr = this.tweakedPubKeyToAddress(tweakedKeyBuffer, this.network);
+                            const tweakedKeyBytes = new Uint8Array(mldsa.tweakedPublicKey.buffer);
+                            info.tweakedPubkey = toHex(tweakedKeyBytes);
+                            info.p2tr = this.tweakedPubKeyToAddress(tweakedKeyBytes, this.network);
                         }
 
                         if (mldsa.legacyPublicKey) {
-                            const legacyKeyBuffer = Buffer.from(mldsa.legacyPublicKey.buffer);
-                            if (legacyKeyBuffer.length === 33) {
+                            const legacyKeyBytes = new Uint8Array(mldsa.legacyPublicKey.buffer);
+                            if (legacyKeyBytes.length === 33) {
                                 const ecKeyPair = EcKeyPair.fromPublicKey(
-                                    legacyKeyBuffer,
+                                    legacyKeyBytes,
                                     this.network,
                                 );
-                                const tweakedKey = this.tweakPublicKey(legacyKeyBuffer);
-                                info.originalPubKey = legacyKeyBuffer.toString('hex');
+                                const tweakedKey = this.tweakPublicKey(legacyKeyBytes);
+                                info.originalPubKey = toHex(legacyKeyBytes);
                                 info.p2pkh = EcKeyPair.getLegacyAddress(ecKeyPair, this.network);
                                 /*info.p2shp2wpkh = EcKeyPair.getLegacySegwitAddress(
                                     ecKeyPair,
@@ -155,7 +155,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                     pubKeyData[key] = info;
                 } else if (key.length === 66) {
                     // 33 bytes = compressed EC pubkey, derive all address types
-                    pubKeyData[key] = this.buildPublicKeyInfo(bufferKey, key, mldsa);
+                    pubKeyData[key] = this.buildPublicKeyInfo(keyBytes, key, mldsa);
                 } else {
                     pubKeyData[key] = result;
                 }
@@ -167,7 +167,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return pubKeyData;
     }
 
-    public async addTweakedPublicKey(tweaked: Buffer, session?: ClientSession): Promise<void> {
+    public async addTweakedPublicKey(tweaked: Uint8Array, session?: ClientSession): Promise<void> {
         const filter = {
             tweakedPublicKey: new Binary(tweaked),
             p2tr: this.tweakedPubKeyToAddress(tweaked, this.network),
@@ -223,7 +223,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         }
     }
 
-    protected tweakedPubKeyToAddress(tweakedPubKeyBuffer: Buffer, network: Network): string {
+    protected tweakedPubKeyToAddress(tweakedPubKeyBuffer: Uint8Array, network: Network): string {
         const { address } = payments.p2tr({
             pubkey: toXOnly(createPublicKey(tweakedPubKeyBuffer)),
             network: network,
@@ -236,12 +236,12 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return address;
     }
 
-    protected tweakPublicKey(publicKey: Buffer): Buffer {
+    protected tweakPublicKey(publicKey: Uint8Array): Uint8Array {
         if (publicKey.length === 65) {
-            publicKey = Buffer.from(EcKeyPair.fromPublicKey(publicKey).publicKey);
+            publicKey = EcKeyPair.fromPublicKey(publicKey).publicKey;
         }
 
-        return Buffer.from(EcKeyPair.tweakPublicKey(publicKey));
+        return EcKeyPair.tweakPublicKey(publicKey);
     }
 
     protected async addPubKeys(documents: PublicKeyDocument[]): Promise<void> {
@@ -299,7 +299,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     }*/
 
     private buildPublicKeyInfo(
-        bufferKey: Buffer,
+        keyBytes: Uint8Array,
         originalPubKey: string | null,
         mldsa: MLDSAPublicKeyDocument | null,
     ): PublicKeyInfo {
@@ -307,16 +307,16 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         // tweaked from originalPubKey -> p2tr
         // mldsa.hashedPublicKey -> p2op (when MLDSA exists)
         const isCompressed = originalPubKey !== null;
-        const tweakedKey = isCompressed ? this.tweakPublicKey(bufferKey) : null;
-        const tweakedXOnly = tweakedKey ? Buffer.from(toXOnly(createPublicKey(tweakedKey))) : bufferKey;
+        const tweakedKey = isCompressed ? this.tweakPublicKey(keyBytes) : null;
+        const tweakedXOnly = tweakedKey ? toXOnly(createPublicKey(tweakedKey)) : keyBytes;
 
         const info: PublicKeyInfo = {
-            tweakedPubkey: tweakedXOnly.toString('hex'),
+            tweakedPubkey: toHex(tweakedXOnly),
             p2tr: this.tweakedPubKeyToAddress(tweakedXOnly, this.network),
         };
 
         if (isCompressed && tweakedKey) {
-            const ecKeyPair = EcKeyPair.fromPublicKey(bufferKey, this.network);
+            const ecKeyPair = EcKeyPair.fromPublicKey(keyBytes, this.network);
             info.originalPubKey = originalPubKey;
             info.p2pkh = EcKeyPair.getLegacyAddress(ecKeyPair, this.network);
             //info.p2shp2wpkh = EcKeyPair.getLegacySegwitAddress(ecKeyPair, this.network);
@@ -325,20 +325,20 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         }
 
         if (mldsa) {
-            info.mldsaHashedPublicKey = Buffer.from(mldsa.hashedPublicKey.buffer).toString('hex');
+            info.mldsaHashedPublicKey = toHex(new Uint8Array(mldsa.hashedPublicKey.buffer));
             info.mldsaLevel = mldsa.level;
             info.mldsaPublicKey = mldsa.publicKey
-                ? Buffer.from(mldsa.publicKey.buffer).toString('hex')
+                ? toHex(new Uint8Array(mldsa.publicKey.buffer))
                 : null;
             info.p2op = mldsa?.hashedPublicKey
-                ? this.p2op(Buffer.from(mldsa.hashedPublicKey.buffer), this.network)
+                ? this.p2op(new Uint8Array(mldsa.hashedPublicKey.buffer), this.network)
                 : undefined;
         }
 
         return info;
     }
 
-    private p2op(hashedKey: Buffer, network: Network): string | undefined {
+    private p2op(hashedKey: Uint8Array, network: Network): string | undefined {
         const realAddress = toXOnly(createPublicKey(hashedKey));
 
         const addy = new Address(realAddress);
@@ -352,8 +352,10 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     private convertToPublicKeysInfo(publicKey: PublicKeyWithMLDSA): PublicKeyInfo {
         const base: PublicKeyInfo = {
             lowByte: publicKey.lowByte,
-            originalPubKey: publicKey.publicKey?.toString('hex'),
-            tweakedPubkey: publicKey.tweakedPublicKey.toString('hex'),
+            originalPubKey: publicKey.publicKey
+                ? toHex(new Uint8Array(publicKey.publicKey.buffer))
+                : undefined,
+            tweakedPubkey: toHex(new Uint8Array(publicKey.tweakedPublicKey.buffer)),
             p2pkh: publicKey.p2pkh,
             //p2pkhUncompressed: publicKey.p2pkhUncompressed,
             //p2pkhHybrid: publicKey.p2pkhHybrid,
@@ -364,12 +366,12 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         };
 
         if (publicKey.mldsa) {
-            base.mldsaHashedPublicKey = Buffer.from(
-                publicKey.mldsa.hashedPublicKey.buffer,
-            ).toString('hex');
+            base.mldsaHashedPublicKey = toHex(
+                new Uint8Array(publicKey.mldsa.hashedPublicKey.buffer),
+            );
             base.mldsaLevel = publicKey.mldsa.level;
             base.mldsaPublicKey = publicKey.mldsa.publicKey
-                ? Buffer.from(publicKey.mldsa.publicKey.buffer).toString('hex')
+                ? toHex(new Uint8Array(publicKey.mldsa.publicKey.buffer))
                 : null;
         }
 
@@ -383,7 +385,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             const filter: Filter<IContractDocument> = {
                 $or: [
                     { contractAddress: key },
-                    { contractPublicKey: new Binary(Buffer.from(key, 'hex')) },
+                    { contractPublicKey: new Binary(fromHex(key)) },
                 ],
             };
 
@@ -409,8 +411,8 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     private async convertContractObjectToPublicKeyDocument(
         contract: IContractDocument,
     ): Promise<PublicKeyWithMLDSA> {
-        const contractPublicKeyBuffer = Buffer.from((contract.contractPublicKey as Binary).buffer);
-        const p2tr = this.tweakedPubKeyToAddress(contractPublicKeyBuffer, this.network);
+        const contractPublicKeyBytes = new Uint8Array((contract.contractPublicKey as Binary).buffer);
+        const p2tr = this.tweakedPubKeyToAddress(contractPublicKeyBytes, this.network);
 
         const baseDocument: PublicKeyWithMLDSA = {
             tweakedPublicKey: contract.contractPublicKey as Binary,
@@ -452,13 +454,13 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
     private async getKeyInfo(key: string): Promise<PublicKeyWithMLDSA | IPubKeyNotFoundError> {
         try {
-            const keyBuffer = new Binary(Buffer.from(key, 'hex'));
+            const keyBinary = new Binary(fromHex(key));
             const filter: Filter<PublicKeyDocument> = {
                 $or: [
                     { p2op: key },
                     { p2tr: key },
-                    { tweakedPublicKey: keyBuffer },
-                    { publicKey: keyBuffer },
+                    { tweakedPublicKey: keyBinary },
+                    { publicKey: keyBinary },
                     { p2pkh: key },
                     //{ p2shp2wpkh: key },
                     { p2wpkh: key },
@@ -504,8 +506,8 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return results[0];
     }
 
-    private addSchnorrPublicKey(publicKeys: PublicKeyDocument[], publicKey: Buffer): void {
-        const publicKeyHex = publicKey.toString('hex');
+    private addSchnorrPublicKey(publicKeys: PublicKeyDocument[], publicKey: Uint8Array): void {
+        const publicKeyHex = toHex(publicKey);
         if (this.cache.has(publicKeyHex)) {
             return;
         }
@@ -519,19 +521,19 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         });
     }
 
-    private isTaprootControlBlock(data: Buffer): boolean {
+    private isTaprootControlBlock(data: Uint8Array): boolean {
         const controlByte = data[0];
 
         return controlByte === 0xc0 || controlByte === 0xc1;
     }
 
-    private addPubKey(publicKeys: PublicKeyDocument[], publicKey: Buffer, txId: Buffer): void {
-        const str = publicKey.toString('hex');
+    private addPubKey(publicKeys: PublicKeyDocument[], publicKey: Uint8Array, txId: Uint8Array): void {
+        const str = toHex(publicKey);
         if (this.cache.has(str)) return;
 
         try {
             const tweakedPublicKey = this.tweakPublicKey(publicKey);
-            const tweakedPublicKeyStr = tweakedPublicKey.toString('hex').slice(2);
+            const tweakedPublicKeyStr = toHex(tweakedPublicKey).slice(2);
             if (this.cache.has(tweakedPublicKeyStr)) {
                 return;
             }
@@ -575,14 +577,14 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             }
 
             this.error(
-                `error in tx (${txId.toString('hex')}) (${msgOrStack})`,
-                publicKey.toString('hex'),
+                `error in tx (${toHex(txId)}) (${msgOrStack})`,
+                toHex(publicKey),
             );
         }
     }
 
-    private getP2PKH(publicKey: Buffer | Uint8Array, network: Network = networks.bitcoin): string {
-        const wallet = payments.p2pkh({ pubkey: createPublicKey(Buffer.from(publicKey)), network: network });
+    private getP2PKH(publicKey: Uint8Array, network: Network = networks.bitcoin): string {
+        const wallet = payments.p2pkh({ pubkey: createPublicKey(publicKey), network: network });
         if (!wallet.address) {
             throw new Error('Failed to generate wallet');
         }
@@ -602,7 +604,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         publicKeys: PublicKeyDocument[],
         output: TransactionOutput,
         type: string,
-        txId: Buffer,
+        txId: Uint8Array,
     ): void {
         switch (type) {
             case 'pubkey': {

@@ -59,7 +59,7 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
      * Get epoch by epoch hash
      */
     public async getEpochByHash(
-        epochHash: Buffer | Binary,
+        epochHash: Uint8Array | Binary,
         currentSession?: ClientSession,
     ): Promise<IEpochDocument | undefined> {
         const binaryHash = epochHash instanceof Binary ? epochHash : new Binary(epochHash);
@@ -119,7 +119,7 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
      * Get epochs by proposer public key
      */
     public async getEpochsByProposer(
-        proposerPublicKey: Buffer | Binary,
+        proposerPublicKey: Uint8Array | Binary,
         currentSession?: ClientSession,
     ): Promise<IEpochDocument[]> {
         const binaryKey =
@@ -188,11 +188,11 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
 
             const minerAddress = new Address(epoch.proposer.mldsaPublicKey.buffer);
             const solutionArray = challengeSolution.solutions.get(minerAddress) || [];
-            solutionArray.push(Buffer.from(epoch.proposer.solution.buffer));
+            solutionArray.push(new Uint8Array(epoch.proposer.solution.buffer));
 
             challengeSolution.legacyPublicKeys.set(
                 minerAddress,
-                Buffer.from(epoch.proposer.legacyPublicKey.buffer),
+                new Uint8Array(epoch.proposer.legacyPublicKey.buffer),
             );
 
             challengeSolution.solutions.set(minerAddress, solutionArray);
@@ -205,7 +205,7 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
      * Get epochs by target hash
      */
     public async getEpochsByTargetHash(
-        targetHash: Buffer | Binary,
+        targetHash: Uint8Array | Binary,
         currentSession?: ClientSession,
     ): Promise<IEpochDocument[]> {
         const binaryHash = targetHash instanceof Binary ? targetHash : new Binary(targetHash);
@@ -223,7 +223,7 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
      * Count epochs by proposer
      */
     public async countEpochsByProposer(
-        proposerPublicKey: Buffer | Binary,
+        proposerPublicKey: Uint8Array | Binary,
         currentSession?: ClientSession,
     ): Promise<number> {
         const binaryKey =

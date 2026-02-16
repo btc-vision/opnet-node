@@ -33,7 +33,7 @@ export interface IMempoolTransactionObj
         IMempoolTransaction,
         'data' | 'blockHeight' | 'outputs' | 'inputs' | 'theoreticalGasLimit' | 'priorityFee'
     > {
-    readonly data: Buffer;
+    readonly data: Uint8Array;
     readonly blockHeight: bigint;
 
     isOPNet: boolean;
@@ -46,7 +46,7 @@ export interface IMempoolTransactionObj
     }[];
 
     readonly outputs: {
-        readonly data: Buffer;
+        readonly data: Uint8Array;
         readonly address: string | null;
         readonly outputIndex: number;
         value: Long;

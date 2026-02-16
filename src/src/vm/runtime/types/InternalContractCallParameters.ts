@@ -21,12 +21,12 @@ export interface InternalContractCallParameters {
     readonly mldsaLoadCounter: MutableNumber;
     readonly gasTracker: GasTracker;
 
-    readonly calldata: Buffer;
+    readonly calldata: Uint8Array;
     readonly externalCall: boolean;
 
-    readonly transactionId: Buffer;
-    readonly transactionHash: Buffer;
-    readonly blockHash: Buffer;
+    readonly transactionId: Uint8Array;
+    readonly transactionHash: Uint8Array;
+    readonly blockHash: Uint8Array;
 
     readonly blockHeight: bigint;
     readonly blockMedian: bigint;
@@ -66,9 +66,9 @@ export interface ExecutionParameters {
     readonly txOrigin: Address;
     readonly msgSender: Address;
 
-    readonly transactionId: Buffer;
-    readonly transactionHash: Buffer;
-    readonly blockHash: Buffer;
+    readonly transactionId: Uint8Array;
+    readonly transactionHash: Uint8Array;
+    readonly blockHash: Uint8Array;
 
     readonly blockNumber: bigint;
     readonly blockMedian: bigint;

@@ -43,7 +43,7 @@ import {
 import { ContractEvaluation } from './runtime/classes/ContractEvaluation.js';
 import { GasTracker } from './runtime/GasTracker.js';
 import { OPNetConsensus } from '../poc/configurations/OPNetConsensus.js';
-import bitcoin, { Network } from '@btc-vision/bitcoin';
+import bitcoin, { alloc, equals, fromHex, Network } from '@btc-vision/bitcoin';
 import { NetworkConverter } from '../config/network/NetworkConverter.js';
 import { Blockchain } from './Blockchain.js';
 import { BlockHeaderValidator } from './BlockHeaderValidator.js';
@@ -58,26 +58,23 @@ import { IMLDSAPublicKey, MLDSAUpdateData } from '../db/interfaces/IMLDSAPublicK
 
 Globals.register();
 
-const EMPTY_BLOCK_HASH = Buffer.alloc(32);
-const SIMULATION_TRANSACTION_ID = Buffer.from(
+const EMPTY_BLOCK_HASH = alloc(32);
+const SIMULATION_TRANSACTION_ID = fromHex(
     '61e1ca05754b6990c56d8f0f06c33da411f086c5abae59572e63549361c8f5fc',
-    'hex',
 );
 
-const SIMULATION_TRANSACTION_HASH = Buffer.from(
+const SIMULATION_TRANSACTION_HASH = fromHex(
     '947d267bb393648af57e3a498b4cfa30f50e7b3263223b8077416f342133ec9c',
-    'hex',
 );
 
-const SIMULATION_DEFAULT_INPUT_TX_HASH = Buffer.from(
+const SIMULATION_DEFAULT_INPUT_TX_HASH = fromHex(
     '61e1ca05754b6990c56d8f0f06c33da411f086c5abae59572e63549361c8f5fc',
-    'hex',
 );
 
 const SIMULATION_DEFAULT_INPUT: StrippedTransactionInput = {
     txId: SIMULATION_DEFAULT_INPUT_TX_HASH,
     outputIndex: 0,
-    scriptSig: Buffer.alloc(0),
+    scriptSig: new Uint8Array(0),
     witnesses: [],
     coinbase: undefined,
     flags: 0,
@@ -118,7 +115,7 @@ export class VMManager extends Logger {
 
     private mldsaToStore: AddressMap<MLDSAUpdateData> = new AddressMap();
     private mldsaToStoreLegacy: AddressMap<Address> = new AddressMap();
-    private mldsaToStoreByHash: AddressMap<Buffer> = new AddressMap();
+    private mldsaToStoreByHash: AddressMap<Uint8Array> = new AddressMap();
 
     constructor(
         private readonly config: IBtcIndexerConfig,
@@ -222,7 +219,7 @@ export class VMManager extends Logger {
     public async execute(
         to: string,
         from: Address,
-        calldata: Buffer,
+        calldata: Uint8Array,
         height?: bigint,
         transaction?: ParsedSimulatedTransaction,
         accessList?: AccessList,
@@ -245,7 +242,7 @@ export class VMManager extends Logger {
                 throw new Error('Contract not found');
             }
 
-            let blockHash: Buffer;
+            let blockHash: Uint8Array;
             let currentHeight: BlockHeader;
             let median: bigint;
             if (height != undefined) {
@@ -336,7 +333,7 @@ export class VMManager extends Logger {
     }
 
     public async executeTransaction(
-        blockHash: Buffer,
+        blockHash: Uint8Array,
         blockHeight: bigint,
         blockMedian: bigint,
         baseGas: bigint,
@@ -443,7 +440,7 @@ export class VMManager extends Logger {
     }
 
     public async deployContract(
-        blockHash: Buffer,
+        blockHash: Uint8Array,
         blockHeight: bigint,
         median: bigint,
         baseGas: bigint,
@@ -678,7 +675,7 @@ export class VMManager extends Logger {
         }
 
         const publicKeyData = this.vmStorage.getMLDSAPublicKeyFromHash(
-            Buffer.from(address.toBuffer()),
+            address.toBuffer(),
             this.vmBitcoinBlock.height,
         );
 
@@ -688,7 +685,7 @@ export class VMManager extends Logger {
     }
 
     public async getMLDSAPublicKeyFromLegacyKey(
-        tweakedPublicKey: Buffer,
+        tweakedPublicKey: Uint8Array,
     ): Promise<IMLDSAPublicKey | null> {
         const tweakedAddress = new Address(tweakedPublicKey);
 
@@ -785,7 +782,7 @@ export class VMManager extends Logger {
         // Verify no conflicting pending write for this MLDSA hashed public key
         const existingEntry = this.mldsaToStore.get(address);
         if (existingEntry) {
-            if (existingEntry.data.legacyPublicKey.equals(mldsaPublicKey.legacyPublicKey)) {
+            if (equals(existingEntry.data.legacyPublicKey, mldsaPublicKey.legacyPublicKey)) {
                 return null; // Same user sending duplicate tx, first one will be stored
             }
 
@@ -805,7 +802,7 @@ export class VMManager extends Logger {
 
         // Defense in depth (verify hashedPublicKey not claimed by different legacy key)
         const existingLegacyKey = this.mldsaToStoreByHash.get(hashedAddress);
-        if (existingLegacyKey && !existingLegacyKey.equals(mldsaPublicKey.legacyPublicKey)) {
+        if (existingLegacyKey && !equals(existingLegacyKey, mldsaPublicKey.legacyPublicKey)) {
             throw new Error(
                 'MLDSA hashed public key is already pending to be linked to a different legacy key in current block.',
             );
@@ -815,8 +812,8 @@ export class VMManager extends Logger {
     }
 
     private async shouldInsertMLDSAKey(
-        hashedPublicKey: Buffer,
-        legacyPublicKey: Buffer,
+        hashedPublicKey: Uint8Array,
+        legacyPublicKey: Uint8Array,
         level: MLDSASecurityLevel,
         isExpose: boolean = false,
     ): Promise<boolean> {
@@ -989,7 +986,7 @@ export class VMManager extends Logger {
     private convertAPIBlockHeaderToBlockHeader(block: BlockHeaderAPIBlockDocument): BlockHeader {
         return {
             ...block,
-            hash: Buffer.from(block.hash, 'hex'),
+            hash: fromHex(block.hash),
             height: BigInt(block.height),
         };
     }
@@ -1015,9 +1012,9 @@ export class VMManager extends Logger {
         return this.cachedLastBlockHeight;
     }
 
-    private generateAddress(salt: Buffer, deployer: Address, bytecode: Buffer): Address {
+    private generateAddress(salt: Uint8Array, deployer: Address, bytecode: Uint8Array): Address {
         const contractPublicKey = TapscriptVerificator.getContractSeed(
-            bitcoin.crypto.hash256(Buffer.from(deployer)),
+            bitcoin.crypto.hash256(deployer),
             bytecode,
             salt,
         );
@@ -1027,7 +1024,7 @@ export class VMManager extends Logger {
 
     private async deployContractAtAddress(
         address: Address,
-        salt: Buffer,
+        salt: Uint8Array,
         evaluation: ContractEvaluation,
     ): Promise<
         | {
@@ -1070,16 +1067,16 @@ export class VMManager extends Logger {
         const deployerKeyPair = contractInfo.contractPublicKey;
         const bytecodeLength: number = contractInfo.bytecode.byteLength;
 
-        const contractSaltHash = Buffer.from(bitcoin.crypto.hash256(salt));
+        const contractSaltHash = bitcoin.crypto.hash256(salt);
         const contractInformation: ContractInformation = new ContractInformation(
             evaluation.blockNumber,
             deployResult.p2op(this.network),
             deployResult,
             contractInfo.bytecode,
             false,
-            evaluation.transactionId || Buffer.alloc(32),
-            evaluation.transactionHash || Buffer.alloc(32),
-            Buffer.from(deployerKeyPair),
+            evaluation.transactionId || alloc(32),
+            evaluation.transactionHash || alloc(32),
+            deployerKeyPair,
             salt,
             contractSaltHash,
             evaluation.contractAddress,
@@ -1179,17 +1176,17 @@ export class VMManager extends Logger {
             );
 
         if (lastChecksum && lastChecksum !== ZERO_HASH) {
-            const checksumBuffer = Buffer.from(lastChecksum.replace('0x', ''), 'hex');
+            const checksumBuffer = fromHex(lastChecksum.replace('0x', ''));
             if (checksumBuffer.length !== 32) {
                 throw new Error('Invalid checksum length retrieved from block header validator.');
             }
 
             this.receiptState.updateValue(BTC_FAKE_ADDRESS, MAX_HASH, checksumBuffer);
         } else {
-            this.receiptState.updateValue(BTC_FAKE_ADDRESS, MAX_HASH, Buffer.alloc(0));
+            this.receiptState.updateValue(BTC_FAKE_ADDRESS, MAX_HASH, new Uint8Array(0));
         }
 
-        this.receiptState.updateValue(BTC_FAKE_ADDRESS, MAX_MINUS_ONE, Buffer.from([1])); // version
+        this.receiptState.updateValue(BTC_FAKE_ADDRESS, MAX_MINUS_ONE, new Uint8Array([1])); // version
         this.receiptState.freeze();
     }
 

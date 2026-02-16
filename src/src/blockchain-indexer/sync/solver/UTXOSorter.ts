@@ -48,7 +48,7 @@ const solverCache: LRUCache<string, Uint8Array> = new LRUCache<string, Uint8Arra
     max: 65_536,
 });
 
-const h256 = (u: Uint8Array) => toHex(btcCrypto.sha256(Buffer.from(u)));
+const h256 = (u: Uint8Array) => toHex(btcCrypto.sha256(u));
 
 export class UtxoSorter extends Logger {
     public readonly logColor: string = '#ff9100'; // Bright green for UTXO sorter logs

@@ -78,11 +78,11 @@ export class AnyoneCanSpendDetector extends Logger {
 
     private readonly truthCache = new LRUCache<string, boolean>({ max: 65_536 });
     private readonly ENABLED_WITNESS_VERSIONS = new Set<number>([0, 1]);
-    private readonly TRUE_SCRIPTS: Buffer[] = [
-        Buffer.from([opcodes.OP_1]),
-        Buffer.from([0x01, 0x01]),
-        Buffer.from([0x50]),
-        Buffer.from([opcodes.OP_0, opcodes.OP_0, opcodes.OP_WITHIN]),
+    private readonly TRUE_SCRIPTS: Uint8Array[] = [
+        new Uint8Array([opcodes.OP_1]),
+        new Uint8Array([0x01, 0x01]),
+        new Uint8Array([0x50]),
+        new Uint8Array([opcodes.OP_0, opcodes.OP_0, opcodes.OP_WITHIN]),
     ];
     private readonly P2SH_H160: Set<string>;
     private readonly P2WSH_SHA256: Set<string>;
@@ -290,7 +290,7 @@ export class AnyoneCanSpendDetector extends Logger {
     private detectHashedTrue(out: TransactionOutput): AnyoneCanSpendHit | undefined {
         const t = out.scriptPubKey.type;
         if (t === 'scripthash') {
-            const h = out.scriptPubKeyBuffer.subarray(2, 22).toString('hex');
+            const h = toHex(out.scriptPubKeyBuffer.subarray(2, 22));
             if (this.P2SH_H160.has(h)) {
                 this.log('[detectHashedTrue] matched P2SH hash of known TRUE script');
                 return { reason: AnyoneCanSpendReason.P2SH_True };
@@ -298,7 +298,7 @@ export class AnyoneCanSpendDetector extends Logger {
         }
 
         if (t === 'witness_v0_scripthash') {
-            const h = out.scriptPubKeyBuffer.subarray(2, 34).toString('hex');
+            const h = toHex(out.scriptPubKeyBuffer.subarray(2, 34));
             if (this.P2WSH_SHA256.has(h)) {
                 this.log('[detectHashedTrue] matched P2WSH hash of known TRUE script');
                 return { reason: AnyoneCanSpendReason.P2WSH_True };
@@ -306,8 +306,8 @@ export class AnyoneCanSpendDetector extends Logger {
         }
     }
 
-    private evaluatesTrue(lock: Buffer): boolean {
-        const key = lock.length > 80 ? '' : lock.toString('hex');
+    private evaluatesTrue(lock: Uint8Array): boolean {
+        const key = lock.length > 80 ? '' : toHex(lock);
         if (key) {
             const memo = this.truthCache.get(key);
             if (memo !== undefined) {
@@ -357,7 +357,7 @@ export class AnyoneCanSpendDetector extends Logger {
     private readScriptNum(buf: Uint8Array): bigint {
         if (!buf.length) return 0n;
         const neg = (buf[buf.length - 1] & 0x80) !== 0;
-        const clone = Buffer.from(buf);
+        const clone = new Uint8Array(buf);
         clone[clone.length - 1] &= 0x7f;
         let v = 0n;
         for (let i = 0; i < clone.length; i++) v |= BigInt(clone[i]) << (8n * BigInt(i));

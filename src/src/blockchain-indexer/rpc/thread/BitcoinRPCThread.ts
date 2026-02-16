@@ -1,4 +1,5 @@
 import { BitcoinRawTransactionParams, BitcoinRPC } from '@btc-vision/bitcoin-rpc';
+import { fromHex } from '@btc-vision/bitcoin';
 import { DataConverter } from '@btc-vision/bsi-common';
 import { Config } from '../../../config/Config.js';
 import {
@@ -114,7 +115,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
             if (response.revert) {
                 revertData =
                     typeof response.revert === 'string'
-                        ? Uint8Array.from(Buffer.from(response.revert, 'hex'))
+                        ? fromHex(response.revert)
                         : response.revert;
             }
 
@@ -131,7 +132,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
                     : undefined,
                 result:
                     typeof response.result === 'string'
-                        ? Uint8Array.from(Buffer.from(response.result, 'hex'))
+                        ? fromHex(response.result)
                         : response.result,
                 revert: revertData,
                 deployedContracts: [],
@@ -155,7 +156,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
                 const innerValue = value[i];
                 const event: NetEvent = new NetEvent(
                     innerValue[0],
-                    Uint8Array.from(Buffer.from(innerValue[1], 'hex')),
+                    fromHex(innerValue[1]),
                 );
 
                 events.push(event);

@@ -1,6 +1,6 @@
 import { ScriptPubKey, VOut } from '@btc-vision/bitcoin-rpc';
 import BigNumber from 'bignumber.js';
-import { opcodes, script } from '@btc-vision/bitcoin';
+import { fromHex, opcodes, script } from '@btc-vision/bitcoin';
 import { Decimal128 } from 'mongodb';
 import { TransactionOutputFlags } from '../../../../poc/configurations/types/IOPNetConsensus.js';
 import { OPNetConsensus } from '../../../../poc/configurations/OPNetConsensus.js';
@@ -45,12 +45,12 @@ export class TransactionOutput {
 
     public readonly scriptPubKey: ScriptPubKey;
     public readonly script: Array<number | Uint8Array> | null;
-    public readonly scriptPubKeyBuffer: Buffer;
+    public readonly scriptPubKeyBuffer: Uint8Array;
 
     // New properties to hold the decoded public key or hash
-    public readonly decodedPubKeyHash: Buffer | null;
-    public readonly decodedPublicKeys: Buffer[] | null;
-    public readonly decodedSchnorrPublicKey: Buffer | null; // For Taproot
+    public readonly decodedPubKeyHash: Uint8Array | null;
+    public readonly decodedPublicKeys: Uint8Array[] | null;
+    public readonly decodedSchnorrPublicKey: Uint8Array | null; // For Taproot
 
     constructor(data: VOut) {
         this.value = this.convertValue(data.value);
@@ -64,7 +64,7 @@ export class TransactionOutput {
                 ? (this.scriptPubKey.addresses || [])[0]
                 : undefined);
 
-        this.scriptPubKeyBuffer = Buffer.from(this.scriptPubKey.hex, 'hex');
+        this.scriptPubKeyBuffer = fromHex(this.scriptPubKey.hex);
         this.script = script.decompile(this.scriptPubKeyBuffer);
 
         // Decode the public key hash or public keys based on the script type
@@ -125,7 +125,7 @@ export class TransactionOutput {
         };
     }
 
-    private decodeSchnorrPublicKey(): Buffer | null {
+    private decodeSchnorrPublicKey(): Uint8Array | null {
         if (!this.script) return null;
 
         // Check for Taproot (P2TR): OP_1 <32-byte Schnorr public key>
@@ -135,14 +135,14 @@ export class TransactionOutput {
             this.script[1] instanceof Uint8Array &&
             this.script[1].length === 32
         ) {
-            return Buffer.from(this.script[1]); // Return the Schnorr public key
+            return this.script[1]; // Return the Schnorr public key
         }
 
         return null; // Not a Taproot output
     }
 
     // for P2PKH or P2WPKH
-    private decodePubKeyHash(): Buffer | null {
+    private decodePubKeyHash(): Uint8Array | null {
         if (!this.script) return null;
 
         // Check for P2PKH: OP_DUP OP_HASH160 <20-byte pubKeyHash> OP_EQUALVERIFY OP_CHECKSIG
@@ -155,7 +155,7 @@ export class TransactionOutput {
             this.script[3] === opcodes.OP_EQUALVERIFY &&
             this.script[4] === opcodes.OP_CHECKSIG
         ) {
-            return Buffer.from(this.script[2]); // Return the public key hash
+            return this.script[2]; // Return the public key hash
         }
 
         // Check for P2WPKH: OP_0 <20-byte pubKeyHash>
@@ -165,14 +165,14 @@ export class TransactionOutput {
             this.script[1] instanceof Uint8Array &&
             this.script[1].length === 20
         ) {
-            return Buffer.from(this.script[1]); // Return the public key hash
+            return this.script[1]; // Return the public key hash
         }
 
         return null; // No public key hash found
     }
 
     // for P2MS multisig
-    private decodePublicKeys(): Buffer[] | null {
+    private decodePublicKeys(): Uint8Array[] | null {
         if (!this.script) return null;
 
         // Check for P2MS (multisig) output: OP_M <pubKey1> <pubKey2> ... <pubKeyN> OP_N OP_CHECKMULTISIG
@@ -180,11 +180,11 @@ export class TransactionOutput {
             this.script.length >= 4 &&
             this.script[this.script.length - 1] === opcodes.OP_CHECKMULTISIG
         ) {
-            const pubKeys: Buffer[] = [];
+            const pubKeys: Uint8Array[] = [];
             for (let i = 1; i < this.script.length - 2; i++) {
                 const next = this.script[i];
                 if (next instanceof Uint8Array && next.length === 33) {
-                    pubKeys.push(Buffer.from(next)); // Add each public key
+                    pubKeys.push(next); // Add each public key
                 }
             }
             return pubKeys.length > 0 ? pubKeys : null;
@@ -197,7 +197,7 @@ export class TransactionOutput {
             this.script[0].length === 33 && // Compressed public key
             this.script[1] === opcodes.OP_CHECKSIG
         ) {
-            return [Buffer.from(this.script[0])]; // Return the public key
+            return [this.script[0]]; // Return the public key
         }
 
         return null; // No public keys found

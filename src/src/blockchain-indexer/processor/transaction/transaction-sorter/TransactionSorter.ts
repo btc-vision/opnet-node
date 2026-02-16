@@ -1,3 +1,4 @@
+import { compare, toHex } from '@btc-vision/bitcoin';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { Transaction } from '../Transaction.js';
 import { PriorityQueue } from '@datastructures-js/priority-queue';
@@ -245,12 +246,12 @@ export class TransactionSorter {
         txA: Transaction<OPNetTransactionTypes>,
         txB: Transaction<OPNetTransactionTypes>,
     ): number {
-        return Buffer.compare(txA.computedIndexingHash, txB.computedIndexingHash);
+        return compare(txA.computedIndexingHash, txB.computedIndexingHash);
     }
 
-    private getInputTransactionId(originalTransactionId?: Buffer): string | undefined {
+    private getInputTransactionId(originalTransactionId?: Uint8Array): string | undefined {
         if (!originalTransactionId || originalTransactionId.length === 0) return;
-        return originalTransactionId.toString('hex');
+        return toHex(originalTransactionId);
     }
 
     private getTransactionPriority(tx: Transaction<OPNetTransactionTypes>): bigint {

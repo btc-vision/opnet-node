@@ -13,8 +13,8 @@ export interface ScriptAddress {
     /** Single address when one exists (P2PKH, P2SH, bech32, …) */
     address?: string;
     /**
-     * For bare‐multisig we expose every constituent key’s P2PKH address
-     * (same idea as Bitcoin Core’s “addresses” array).
+     * For bare‐multisig we expose every constituent key's P2PKH address
+     * (same idea as Bitcoin Core's "addresses" array).
      */
     addresses?: string[];
     /** Bitcoin Core–style script classification */
@@ -34,8 +34,8 @@ export interface ScriptAddress {
         | 'nonstandard';
 }
 
-export function scriptToAddress(output: Buffer, network: Network): ScriptAddress {
-    const outputScript = new Uint8Array(output) as Script;
+export function scriptToAddress(output: Uint8Array, network: Network): ScriptAddress {
+    const outputScript = output as Script;
 
     if (output[0] === opcodes.OP_RETURN) {
         return { type: 'nulldata' };
@@ -94,7 +94,7 @@ export function scriptToAddress(output: Buffer, network: Network): ScriptAddress
             .filter((addr): addr is string => typeof addr === 'string');
 
         return { addresses: addresses, type: 'multisig' };
-    } catch {} // fall through if the pattern didn’t match
+    } catch {} // fall through if the pattern didn't match
 
     try {
         return { address: _toFutureSegwitAddress(output, network), type: 'witness_unknown' };

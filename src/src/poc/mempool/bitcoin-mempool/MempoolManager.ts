@@ -21,7 +21,7 @@ import { LargeJSONProcessor } from '../../../utils/LargeJSONProcessor.js';
 import { RPCMessageData } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { TransactionVerifierManager } from '../transaction/TransactionVerifierManager.js';
-import { Network } from '@btc-vision/bitcoin';
+import { fromHex, Network } from '@btc-vision/bitcoin';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
 import { getMongodbMajorVersion } from '../../../vm/storage/databases/MongoUtils.js';
 
@@ -212,7 +212,7 @@ export class MempoolManager extends Logger {
         tx: TransactionDetail;
         txid: string;
     }): Promise<IMempoolTransactionObj> {
-        const data = Buffer.from(txData.tx.hex, 'hex');
+        const data = fromHex(txData.tx.hex);
         const resp: IMempoolTransactionObj = {
             id: txData.txid,
             psbt: false,

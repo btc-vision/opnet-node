@@ -4,8 +4,8 @@ import { ServerOutBound } from '../../../types/messages/OPNetMessages.js';
 import { PackedMessage, Packet } from '../../Packet.js';
 
 export interface IServerKeyCipherExchangePacket extends PackedMessage {
-    serverKeyCipher: Buffer;
-    serverSigningCipher: Buffer;
+    serverKeyCipher: Uint8Array;
+    serverSigningCipher: Uint8Array;
     encryptionEnabled: boolean;
 }
 

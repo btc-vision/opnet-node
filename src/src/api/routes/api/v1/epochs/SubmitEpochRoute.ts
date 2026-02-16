@@ -21,6 +21,7 @@ import {
     MLDSASecurityLevel,
     QuantumBIP32Factory,
 } from '@btc-vision/transaction';
+import { equals } from '@btc-vision/bitcoin';
 import { isEmptyBuffer } from '../../../../../utils/BufferUtils.js';
 
 // Validate that all strings contain only valid hex characters
@@ -316,8 +317,8 @@ export class SubmitEpochRoute extends Route<
 
         let message = 'Submission accepted';
         if (bestSubmission) {
-            const currentBestSalt = Buffer.from(bestSubmission.salt.buffer);
-            const isWinning = bestSubmission && currentBestSalt.equals(validationParams.salt);
+            const currentBestSalt = new Uint8Array(bestSubmission.salt.buffer);
+            const isWinning = bestSubmission && equals(currentBestSalt, validationParams.salt);
 
             if (isWinning) {
                 message = 'Current best submission';
@@ -334,7 +335,7 @@ export class SubmitEpochRoute extends Route<
         };
     }
 
-    private async validateSignature(data: EpochValidationParams): Promise<Buffer> {
+    private async validateSignature(data: EpochValidationParams): Promise<Uint8Array> {
         if (!this.storage) {
             throw new Error('Storage not initialized for signature validation');
         }
@@ -382,7 +383,7 @@ export class SubmitEpochRoute extends Route<
 
             const keyPair = QuantumBIP32Factory.fromPublicKey(
                 mldsaPublicKeyData.publicKey,
-                Buffer.alloc(32),
+                new Uint8Array(32),
                 this.network,
                 MLDSASecurityLevel.LEVEL2,
             );

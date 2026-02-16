@@ -1,5 +1,5 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
-import bitcoin, { networks, opcodes, toXOnly } from '@btc-vision/bitcoin';
+import bitcoin, { alloc, concat, equals as bytesEquals, networks, opcodes, toXOnly } from '@btc-vision/bitcoin';
 import { createPublicKey, UniversalSigner } from '@btc-vision/ecpair';
 import { DeploymentTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
@@ -30,19 +30,19 @@ import { AddressCache } from '../../AddressCache.js';
 interface DeploymentWitnessData {
     readonly header: OPNetHeader;
 
-    readonly senderPubKey: Buffer;
-    hashedSenderPubKey: Buffer;
+    readonly senderPubKey: Uint8Array;
+    hashedSenderPubKey: Uint8Array;
 
-    contractSaltPubKey: Buffer;
-    contractSaltHash: Buffer;
+    contractSaltPubKey: Uint8Array;
+    contractSaltHash: Uint8Array;
 
-    readonly bytecode: Buffer;
-    readonly calldata?: Buffer;
+    readonly bytecode: Uint8Array;
+    readonly calldata?: Uint8Array;
     readonly features: Feature<Features>[];
 }
 
 export class DeploymentTransaction extends SharedInteractionParameters<OPNetTransactionTypes.Deployment> {
-    public static LEGACY_DEPLOYMENT_SCRIPT: Buffer = Buffer.from([
+    public static LEGACY_DEPLOYMENT_SCRIPT: Uint8Array = new Uint8Array([
         opcodes.OP_TOALTSTACK, // HEADER
         opcodes.OP_TOALTSTACK, // MINER
         opcodes.OP_TOALTSTACK, // PREIMAGE
@@ -73,13 +73,13 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
     public readonly transactionType: OPNetTransactionTypes.Deployment =
         DeploymentTransaction.getType();
 
-    public bytecode: Buffer | undefined;
+    public bytecode: Uint8Array | undefined;
 
-    public contractSaltHash: Buffer | undefined;
-    public contractSeed: Buffer | undefined;
+    public contractSaltHash: Uint8Array | undefined;
+    public contractSeed: Uint8Array | undefined;
 
-    public deployerPubKey: Buffer | undefined;
-    public deployerPubKeyHash: Buffer | undefined;
+    public deployerPubKey: Uint8Array | undefined;
+    public deployerPubKeyHash: Uint8Array | undefined;
 
     public contractSigner: UniversalSigner | undefined;
 
@@ -94,9 +94,9 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         super(rawTransactionData, vInputIndex, blockHash, blockHeight, network, addressCache);
     }
 
-    protected _contractPublicKey: Buffer | undefined;
+    protected _contractPublicKey: Uint8Array | undefined;
 
-    public get contractPublicKey(): Buffer {
+    public get contractPublicKey(): Uint8Array {
         if (!this._contractPublicKey) {
             throw new Error(`OP_NET: Contract tweaked public key not found.`);
         }
@@ -195,19 +195,19 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         }
 
         const inputOPNetWitnessTransaction: TransactionInput = inputOPNetWitnessTransactions[0];
-        const witnesses: Buffer[] = inputOPNetWitnessTransaction.transactionInWitness;
+        const witnesses = inputOPNetWitnessTransaction.transactionInWitness;
         const originalSalt = witnesses[0];
 
         // Regenerate raw public key
-        const deployerPubKey = Buffer.from([
-            deploymentWitnessData.header.publicKeyPrefix,
-            ...deploymentWitnessData.senderPubKey,
+        const deployerPubKey = concat([
+            new Uint8Array([deploymentWitnessData.header.publicKeyPrefix]),
+            deploymentWitnessData.senderPubKey,
         ]);
 
         this.deployerPubKey = deployerPubKey;
 
         // Verify sender pubkey
-        const hashSenderPubKey = Buffer.from(bitcoin.crypto.hash256(deploymentWitnessData.senderPubKey));
+        const hashSenderPubKey = bitcoin.crypto.hash256(deploymentWitnessData.senderPubKey);
         if (!this.safeEq(hashSenderPubKey, deploymentWitnessData.hashedSenderPubKey)) {
             throw new Error(`OP_NET: Sender public key hash mismatch.`);
         }
@@ -216,7 +216,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         // end of verify sender pubkey
 
         // regenerate address
-        this._from = new Address(Buffer.alloc(32), this.deployerPubKey);
+        this._from = new Address(alloc(32), this.deployerPubKey);
         if (!this._from.isValidLegacyPublicKey(this.network)) {
             throw new Error(`OP_NET: Invalid sender address.`);
         }
@@ -229,7 +229,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         this.contractSeed = originalSalt;
 
         /** Verify contract salt */
-        const hashOriginalSalt: Buffer = Buffer.from(bitcoin.crypto.hash256(originalSalt));
+        const hashOriginalSalt = bitcoin.crypto.hash256(originalSalt);
         if (!this.safeEq(hashOriginalSalt, deploymentWitnessData.contractSaltHash)) {
             throw new Error(`OP_NET: Invalid contract salt hash found in deployment transaction.`);
         }
@@ -241,20 +241,20 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         this._calldata = deploymentWitnessData.calldata;
 
         /** Restore contract seed/address */
-        this._contractPublicKey = Buffer.from(TapscriptVerificator.getContractSeed(
+        this._contractPublicKey = TapscriptVerificator.getContractSeed(
             toXOnly(createPublicKey(deployerPubKey)),
             this.bytecode,
             hashOriginalSalt,
-        ));
+        );
 
         /** Generate contract segwit address */
-        this._contractAddress = new Address(Buffer.from(this._contractPublicKey));
+        this._contractAddress = new Address(this._contractPublicKey);
 
         this.contractSigner = EcKeyPair.fromSeedKeyPair(this._contractPublicKey, this.network);
 
         if (
             !this.contractSigner.publicKey ||
-            !deploymentWitnessData.contractSaltPubKey.equals(Buffer.from(toXOnly(this.contractSigner.publicKey)))
+            !bytesEquals(deploymentWitnessData.contractSaltPubKey, toXOnly(this.contractSigner.publicKey))
         ) {
             throw new Error(`OP_NET: Invalid contract signer.`);
         }
@@ -298,7 +298,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
                     solution: this._submission.salt,
                     graffiti: this._submission.graffiti,
                     epochNumber: 0n,
-                    signature: Buffer.alloc(0),
+                    signature: new Uint8Array(0),
                     verifySignature: function (): boolean {
                         return true;
                     },
@@ -335,7 +335,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         return features;
     }
 
-    private getOriginalContractAddress(controlBlock: Buffer, priorityFee: bigint): void {
+    private getOriginalContractAddress(controlBlock: Uint8Array, priorityFee: bigint): void {
         if (!this.deployerPubKey) throw new Error('Deployer public key not found');
         if (!this.contractSigner) throw new Error('Contract signer not found');
         if (!this.contractSeed) throw new Error('Contract seed not found');
@@ -350,11 +350,11 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
 
         const params: ContractAddressVerificationParams = {
             deployerPubKey: createPublicKey(this.deployerPubKey),
-            contractSaltPubKey: Buffer.from(this.contractSigner!.publicKey),
+            contractSaltPubKey: this.contractSigner.publicKey,
             originalSalt: this.contractSeed,
             bytecode: this.bytecode,
             calldata:
-                this._calldata && Buffer.isBuffer(this._calldata) && this._calldata.length > 0
+                this._calldata && this._calldata.length > 0
                     ? this._calldata
                     : undefined,
             challenge: unsafePreimage,
@@ -470,7 +470,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         }
 
         const magic = scriptData.shift();
-        if (!(magic instanceof Uint8Array) || magic.length !== 2 || !Buffer.from(magic).equals(OPNet_MAGIC)) {
+        if (!(magic instanceof Uint8Array) || magic.length !== 2 || !bytesEquals(magic, OPNet_MAGIC)) {
             return;
         }
 
@@ -481,7 +481,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
             return;
         }
 
-        const calldata: Buffer | undefined = DeploymentTransaction.getDataFromScript(
+        const calldata = DeploymentTransaction.getDataFromScript(
             scriptData,
             opcodes.OP_1NEGATE, // next opcode
         );
@@ -499,8 +499,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
             return;
         }
 
-        const contractBytecode: Buffer | undefined =
-            DeploymentTransaction.getDataFromScript(scriptData);
+        const contractBytecode = DeploymentTransaction.getDataFromScript(scriptData);
         if (!contractBytecode) {
             throw new Error(`OP_NET: No contract bytecode.`);
         }
@@ -514,10 +513,10 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
 
         return {
             header,
-            hashedSenderPubKey: Buffer.from(hashedSenderPubKey),
-            senderPubKey: Buffer.from(senderPubKey),
-            contractSaltPubKey: Buffer.from(contractSaltPubKey),
-            contractSaltHash: Buffer.from(contractSaltHash),
+            hashedSenderPubKey,
+            senderPubKey,
+            contractSaltPubKey,
+            contractSaltHash,
             bytecode: contractBytecode,
             calldata: calldata,
             features: features,

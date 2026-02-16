@@ -1,6 +1,6 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-common';
-import { Bytes32, Network, Script, Satoshi, script, Transaction as BitcoinTransaction } from '@btc-vision/bitcoin';
+import { alloc, concat, equals, fromHex, fromUtf8, Bytes32, Network, Script, Satoshi, script, Transaction as BitcoinTransaction } from '@btc-vision/bitcoin';
 import { createBytes32, createPublicKey, createSatoshi } from '@btc-vision/ecpair';
 import crypto from 'crypto';
 import { Binary, Long } from 'mongodb';
@@ -22,11 +22,11 @@ import * as ecc from 'tiny-secp256k1';
 import { AddressCache } from '../AddressCache.js';
 import { Submission } from './features/Submission.js';
 
-export const OPNet_MAGIC: Buffer = Buffer.from('op', 'utf-8');
-const GZIP_HEADER: Buffer = Buffer.from([0x1f, 0x8b]);
+export const OPNet_MAGIC: Uint8Array = fromUtf8('op');
+const GZIP_HEADER: Uint8Array = new Uint8Array([0x1f, 0x8b]);
 
 // We need ECDSA/ECC functionality:
-if (!ecc.isPoint(Buffer.alloc(33, 2))) {
+if (!ecc.isPoint(alloc(33, 2))) {
     throw new Error('tiny-secp256k1 initialization check failed');
 }
 
@@ -37,7 +37,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     public readonly outputs: TransactionOutput[] = [];
 
     public readonly txidHex: string;
-    public readonly raw: Buffer;
+    public readonly raw: Uint8Array;
 
     public readonly inActiveChain: boolean | undefined;
     public readonly size: number;
@@ -52,12 +52,12 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     public wasCompressed: boolean = false;
 
-    protected readonly _computedIndexingHash: Buffer;
-    protected readonly transactionHash: Buffer;
+    protected readonly _computedIndexingHash: Uint8Array;
+    protected readonly transactionHash: Uint8Array;
     protected readonly vInputIndex: number;
     protected receiptProofs: string[] | undefined;
 
-    private readonly txid: Buffer;
+    private readonly txid: Uint8Array;
 
     protected constructor(
         rawTransactionData: TransactionData,
@@ -75,12 +75,12 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
         this.vInputIndex = vInputIndex;
 
-        this.txid = Buffer.from(rawTransactionData.txid, 'hex');
+        this.txid = fromHex(rawTransactionData.txid);
         this.txidHex = rawTransactionData.txid;
-        this.transactionHash = Buffer.from(rawTransactionData.hash, 'hex');
+        this.transactionHash = fromHex(rawTransactionData.hash);
         this.raw = rawTransactionData.hex
-            ? Buffer.from(rawTransactionData.hex, 'hex')
-            : Buffer.alloc(0);
+            ? fromHex(rawTransactionData.hex)
+            : new Uint8Array(0);
 
         this.inActiveChain = rawTransactionData.in_active_chain || false;
         this.size = rawTransactionData.size;
@@ -102,31 +102,31 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return this._submission;
     }
 
-    protected _preimage: Buffer | undefined;
-    public get preimage(): Buffer {
-        const preimage = Buffer.alloc(this._preimage?.length || 0);
+    protected _preimage: Uint8Array | undefined;
+    public get preimage(): Uint8Array {
+        const preimage = new Uint8Array(this._preimage?.length || 0);
         if (this._preimage) {
-            this._preimage.copy(preimage);
+            preimage.set(this._preimage);
         }
         return preimage;
     }
 
-    protected _minerLegacyPublicKey: Buffer | undefined;
+    protected _minerLegacyPublicKey: Uint8Array | undefined;
 
-    public get minerLegacyPublicKey(): Buffer {
-        const miner = Buffer.alloc(this._minerLegacyPublicKey?.length || 0);
+    public get minerLegacyPublicKey(): Uint8Array {
+        const miner = new Uint8Array(this._minerLegacyPublicKey?.length || 0);
         if (this._minerLegacyPublicKey) {
-            this._minerLegacyPublicKey.copy(miner);
+            miner.set(this._minerLegacyPublicKey);
         }
         return miner;
     }
 
-    protected _miner: Buffer | undefined;
+    protected _miner: Uint8Array | undefined;
 
-    public get miner(): Buffer {
-        const miner = Buffer.alloc(this._miner?.length || 0);
+    public get miner(): Uint8Array {
+        const miner = new Uint8Array(this._miner?.length || 0);
         if (this._miner) {
-            this._miner.copy(miner);
+            miner.set(this._miner);
         }
         return miner;
     }
@@ -153,7 +153,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return outputs.filter((output): output is StrippedTransactionOutput => !!output);
     }
 
-    public get computedIndexingHash(): Buffer {
+    public get computedIndexingHash(): Uint8Array {
         return this._computedIndexingHash;
     }
 
@@ -230,7 +230,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return this._gasSatFee;
     }
 
-    public get transactionId(): Buffer {
+    public get transactionId(): Uint8Array {
         return this.txid;
     }
 
@@ -238,7 +238,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return this.txidHex;
     }
 
-    public get hash(): Buffer {
+    public get hash(): Uint8Array {
         return this.transactionHash;
     }
 
@@ -252,37 +252,36 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     public static dataIncludeOPNetMagic(data: Array<Uint8Array | number>): boolean {
         return data.some((value) => {
             if (typeof value === 'number') return false;
-            const buffer: Buffer = Buffer.isBuffer(value) ? value : Buffer.from(value);
-            if (buffer.byteLength !== OPNet_MAGIC.byteLength) return false;
-            return buffer.equals(OPNet_MAGIC);
+            if (value.byteLength !== OPNet_MAGIC.byteLength) return false;
+            return equals(value, OPNet_MAGIC);
         });
     }
 
-    public static verifyChecksum(scriptData: (number | Uint8Array)[], typeChecksum: Buffer): boolean {
-        const checksum: Buffer = this.getDataChecksum(scriptData);
-        return checksum.equals(typeChecksum);
+    public static verifyChecksum(scriptData: (number | Uint8Array)[], typeChecksum: Uint8Array): boolean {
+        const checksum = this.getDataChecksum(scriptData);
+        return equals(checksum, typeChecksum);
     }
 
-    public static decompressBuffer(buffer: Buffer): { out: Buffer; compressed: boolean } {
+    public static decompressBuffer(buffer: Uint8Array): { out: Uint8Array; compressed: boolean } {
         if (!buffer) {
             throw new Error('Buffer is undefined. Cannot decompress.');
         }
         const zlibHeader = buffer.subarray(0, 2);
-        if (zlibHeader.equals(GZIP_HEADER)) {
+        if (equals(zlibHeader, GZIP_HEADER)) {
             try {
-                buffer = zlib.unzipSync(buffer, {
+                const decompressed = zlib.unzipSync(buffer, {
                     finishFlush: zlib.constants.Z_SYNC_FLUSH,
                     maxOutputLength: OPNetConsensus.consensus.COMPRESSION.MAX_DECOMPRESSED_SIZE,
                 });
+                return { out: new Uint8Array(decompressed.buffer, decompressed.byteOffset, decompressed.byteLength), compressed: true };
             } catch {
                 throw new Error('OP_NET: Invalid compressed data.');
             }
-            return { out: buffer, compressed: true };
         }
         return { out: buffer, compressed: false };
     }
 
-    protected static _is(data: TransactionData, typeChecksum: Buffer): number {
+    protected static _is(data: TransactionData, typeChecksum: Uint8Array): number {
         let isCorrectType: number = -1;
 
         for (let y = 0; y < data.vin.length; y++) {
@@ -308,7 +307,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             }
 
             const rawScriptHex = witnesses[3]; //witnesses.length - 2
-            const rawScriptBuf = Buffer.from(rawScriptHex, 'hex');
+            const rawScriptBuf = fromHex(rawScriptHex);
 
             let decodedScript: (number | Uint8Array)[] | null;
             try {
@@ -337,17 +336,17 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return isCorrectType;
     }
 
-    protected static getDataChecksum(data: Array<Uint8Array | number>): Buffer {
+    protected static getDataChecksum(data: Array<Uint8Array | number>): Uint8Array {
         const checksum: number[] = [];
         for (let i = 0; i < data.length; i++) {
             if (typeof data[i] === 'number') {
                 checksum.push(data[i] as number);
             }
         }
-        return Buffer.from(checksum);
+        return new Uint8Array(checksum);
     }
 
-    public setMiner(miner: Buffer, preimage: Buffer) {
+    public setMiner(miner: Uint8Array, preimage: Uint8Array) {
         const legacyPublicKey = this.verifyPreImage(new Address(miner), preimage);
 
         this._preimage = preimage;
@@ -355,9 +354,9 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this._minerLegacyPublicKey = legacyPublicKey;
     }
 
-    public verifyPreImage: (miner: Address, preimage: Buffer) => Buffer | undefined = (
+    public verifyPreImage: (miner: Address, preimage: Uint8Array) => Uint8Array | undefined = (
         _miner: Address,
-        _preimage: Buffer,
+        _preimage: Uint8Array,
     ) => {
         throw new Error('Verify preimage method not implemented.');
     };
@@ -445,11 +444,11 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
      * @param prevOutValue The UTXO's value in satoshis
      */
     protected verifySenderSignature(
-        senderPubKey: Buffer,
-        senderSig: Buffer,
-        leafScript: Buffer,
+        senderPubKey: Uint8Array,
+        senderSig: Uint8Array,
+        leafScript: Uint8Array,
         leafVersion: number,
-        prevOutScript: Buffer,
+        prevOutScript: Uint8Array,
         prevOutValue: number,
     ): boolean {
         if (!senderPubKey) {
@@ -463,7 +462,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             prevOutValue,
         );
 
-        let xOnlyPub: Buffer;
+        let xOnlyPub: Uint8Array;
         if (senderPubKey.length === 33 && (senderPubKey[0] === 0x02 || senderPubKey[0] === 0x03)) {
             xOnlyPub = senderPubKey.subarray(1);
         } else if (senderPubKey.length === 32) {
@@ -592,43 +591,51 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     }
 
     // ADDED: Compute the TapLeaf hash: leafVersion || varint(script.length) || script => taggedHash("TapLeaf", ...)
-    private computeTapLeafHash(leafScript: Buffer, leafVersion: number): Buffer {
+    private computeTapLeafHash(leafScript: Uint8Array, leafVersion: number): Uint8Array {
         // BIP341: leafVersion(1 byte) + varint(script.length) + script
         const varint = this.encodeVarint(leafScript.length);
-        const toHash = Buffer.concat([Buffer.from([leafVersion]), varint, leafScript]);
+        const toHash = concat([new Uint8Array([leafVersion]), varint, leafScript]);
 
         // "TapLeaf" tagged hash
         return this.taggedHash('TapLeaf', toHash);
     }
 
     // ADDED: replicate BIP341 "TapLeaf" or "TapSighash" tagged hashing
-    private taggedHash(prefix: string, data: Buffer): Buffer {
+    private taggedHash(prefix: string, data: Uint8Array): Uint8Array {
         // This is the same approach as bip341, bip340, etc.
         const h1 = crypto.createHash('sha256').update(prefix).digest();
         const h2 = crypto.createHash('sha256').update(prefix).digest();
 
-        const tagHash = Buffer.concat([h1, h2]); // 64 bytes
-        return crypto.createHash('sha256').update(tagHash).update(data).digest();
+        const tagHash = concat([new Uint8Array(h1.buffer, h1.byteOffset, h1.byteLength), new Uint8Array(h2.buffer, h2.byteOffset, h2.byteLength)]); // 64 bytes
+        const result = crypto.createHash('sha256').update(tagHash).update(data).digest();
+        return new Uint8Array(result.buffer, result.byteOffset, result.byteLength);
     }
 
     // ADDED: minimal varint encoder for script length
-    private encodeVarint(num: number): Buffer {
+    private encodeVarint(num: number): Uint8Array {
         if (num < 0xfd) {
-            return Buffer.from([num]);
+            return new Uint8Array([num]);
         } else if (num <= 0xffff) {
-            const buf = Buffer.alloc(3);
+            const buf = new Uint8Array(3);
             buf[0] = 0xfd;
-            buf.writeUInt16LE(num, 1);
+            buf[1] = num & 0xff;
+            buf[2] = (num >> 8) & 0xff;
             return buf;
         } else if (num <= 0xffffffff) {
-            const buf = Buffer.alloc(5);
+            const buf = new Uint8Array(5);
             buf[0] = 0xfe;
-            buf.writeUInt32LE(num, 1);
+            buf[1] = num & 0xff;
+            buf[2] = (num >> 8) & 0xff;
+            buf[3] = (num >> 16) & 0xff;
+            buf[4] = (num >> 24) & 0xff;
             return buf;
         } else {
-            const buf = Buffer.alloc(9);
+            const buf = new Uint8Array(9);
             buf[0] = 0xff;
-            buf.writeBigUInt64LE(BigInt(num), 1);
+            const big = BigInt(num);
+            for (let i = 0; i < 8; i++) {
+                buf[1 + i] = Number((big >> BigInt(i * 8)) & 0xffn);
+            }
             return buf;
         }
     }
@@ -643,11 +650,11 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
      * @param prevOutValue The value (satoshis) of that UTXO
      */
     private generateTapscriptSighashAll(
-        leafScript: Buffer,
+        leafScript: Uint8Array,
         leafVersion: number,
-        prevOutScript: Buffer,
+        prevOutScript: Uint8Array,
         prevOutValue: number,
-    ): Buffer {
+    ): Uint8Array {
         // 1) parse the transaction from this.raw
         const txObj = BitcoinTransaction.fromBuffer(this.raw);
 
@@ -666,12 +673,12 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         const values = new Array<Satoshi>(nIn).fill(createSatoshi(0n));
 
         // fill our input with the real data
-        prevOutScripts[this.vInputIndex] = new Uint8Array(prevOutScript) as Script;
+        prevOutScripts[this.vInputIndex] = prevOutScript as Script;
         values[this.vInputIndex] = createSatoshi(BigInt(prevOutValue));
 
         // 4) call hashForWitnessV1
         // -> If leafHash is provided, it's Tapscript path
-        return Buffer.from(txObj.hashForWitnessV1(this.vInputIndex, prevOutScripts, values, hashType, createBytes32(leafHash)));
+        return txObj.hashForWitnessV1(this.vInputIndex, prevOutScripts, values, hashType, createBytes32(leafHash));
     }
 
     private strToBuffer(str: string): Uint8Array {
@@ -680,10 +687,11 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return writer.getBuffer();
     }
 
-    private computeHashForTransaction(): Buffer {
+    private computeHashForTransaction(): Uint8Array {
         const hash = crypto.createHash('sha256');
         hash.update(this.transactionHash);
-        hash.update(Buffer.from(this.blockHash, 'hex'));
-        return hash.digest();
+        hash.update(fromHex(this.blockHash));
+        const result = hash.digest();
+        return new Uint8Array(result.buffer, result.byteOffset, result.byteLength);
     }
 }

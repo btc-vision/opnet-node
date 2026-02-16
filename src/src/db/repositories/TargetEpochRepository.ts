@@ -15,8 +15,8 @@ export class TargetEpochRepository extends BaseRepository<ITargetEpochDocument> 
      */
     public async targetEpochExists(
         epochNumber: bigint,
-        salt: Buffer | Binary,
-        mldsaPublicKey: Buffer | Binary,
+        salt: Uint8Array | Binary,
+        mldsaPublicKey: Uint8Array | Binary,
     ): Promise<boolean> {
         const binarySalt = salt instanceof Binary ? salt : new Binary(salt);
 

@@ -2,18 +2,18 @@ import { AccountTypeResponse, BlockHashResponse } from '@btc-vision/op-vm';
 
 export interface RustContractBinding {
     readonly id: bigint;
-    readonly loadMLDSA: (data: Buffer) => Promise<Buffer | Uint8Array>;
-    readonly load: (data: Buffer) => Promise<Buffer | Uint8Array>;
-    readonly store: (data: Buffer) => Promise<Buffer | Uint8Array>;
-    readonly tLoad: (data: Buffer) => Promise<Buffer | Uint8Array>;
-    readonly tStore: (data: Buffer) => Promise<Buffer | Uint8Array>;
-    readonly call: (data: Buffer) => Promise<Buffer | Uint8Array>;
-    readonly deployContractAtAddress: (data: Buffer) => Promise<Buffer | Uint8Array>;
-    readonly updateFromAddress: (data: Buffer) => Promise<Buffer | Uint8Array>;
-    readonly log: (data: Buffer) => void;
-    readonly emit: (data: Buffer) => void;
+    readonly loadMLDSA: (data: Uint8Array) => Promise<Buffer | Uint8Array>;
+    readonly load: (data: Uint8Array) => Promise<Buffer | Uint8Array>;
+    readonly store: (data: Uint8Array) => Promise<Buffer | Uint8Array>;
+    readonly tLoad: (data: Uint8Array) => Promise<Buffer | Uint8Array>;
+    readonly tStore: (data: Uint8Array) => Promise<Buffer | Uint8Array>;
+    readonly call: (data: Uint8Array) => Promise<Buffer | Uint8Array>;
+    readonly deployContractAtAddress: (data: Uint8Array) => Promise<Buffer | Uint8Array>;
+    readonly updateFromAddress: (data: Uint8Array) => Promise<Buffer | Uint8Array>;
+    readonly log: (data: Uint8Array) => void;
+    readonly emit: (data: Uint8Array) => void;
     readonly inputs: () => Promise<Buffer | Uint8Array>;
     readonly outputs: () => Promise<Buffer | Uint8Array>;
-    readonly accountType: (data: Buffer) => Promise<AccountTypeResponse>;
+    readonly accountType: (data: Uint8Array) => Promise<AccountTypeResponse>;
     readonly blockHash: (blockNumber: bigint) => Promise<BlockHashResponse>;
 }

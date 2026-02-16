@@ -1,3 +1,4 @@
+import { fromHex } from '@btc-vision/bitcoin';
 import { BitcoinNetworkRequest } from '@btc-vision/op-vm';
 
 export function getChainIdHex(network: BitcoinNetworkRequest): string {
@@ -14,5 +15,5 @@ export function getChainIdHex(network: BitcoinNetworkRequest): string {
 }
 
 export function getChainId(network: BitcoinNetworkRequest): Uint8Array {
-    return Uint8Array.from(Buffer.from(getChainIdHex(network), 'hex'));
+    return fromHex(getChainIdHex(network));
 }

@@ -132,7 +132,7 @@ export abstract class VMStorage extends Logger {
 
     public abstract getLatestBlock(): Promise<BlockHeaderAPIBlockDocument | undefined>;
 
-    public abstract addTweakedPublicKey(buffer: Buffer): Promise<void>;
+    public abstract addTweakedPublicKey(buffer: Uint8Array): Promise<void>;
 
     public abstract getBlockTransactions(
         height?: bigint | -1,
@@ -181,7 +181,7 @@ export abstract class VMStorage extends Logger {
     /**
      * Get epoch by epoch hash
      */
-    public abstract getEpochByHash(epochHash: Buffer | Binary): Promise<IEpochDocument | undefined>;
+    public abstract getEpochByHash(epochHash: Uint8Array | Binary): Promise<IEpochDocument | undefined>;
 
     /**
      * Get epoch by block height (find which epoch contains this block)
@@ -197,13 +197,13 @@ export abstract class VMStorage extends Logger {
      * Get epochs by proposer public key
      */
     public abstract getEpochsByProposer(
-        proposerPublicKey: Buffer | Binary,
+        proposerPublicKey: Uint8Array | Binary,
     ): Promise<IEpochDocument[]>;
 
     /**
      * Get epochs by target hash
      */
-    public abstract getEpochsByTargetHash(targetHash: Buffer | Binary): Promise<IEpochDocument[]>;
+    public abstract getEpochsByTargetHash(targetHash: Uint8Array | Binary): Promise<IEpochDocument[]>;
 
     /**
      * Save or update an epoch
@@ -243,14 +243,14 @@ export abstract class VMStorage extends Logger {
      * Get submission by transaction hash
      */
     public abstract getSubmissionByTxHash(
-        txHash: Buffer | Binary,
+        txHash: Uint8Array | Binary,
     ): Promise<IEpochSubmissionsDocument | undefined>;
 
     /**
      * Get submission by transaction ID
      */
     public abstract getSubmissionByTxId(
-        txId: Buffer | Binary,
+        txId: Uint8Array | Binary,
     ): Promise<IEpochSubmissionsDocument | undefined>;
 
     /**
@@ -265,7 +265,7 @@ export abstract class VMStorage extends Logger {
      * Get submissions by proposer public key
      */
     public abstract getSubmissionsByProposer(
-        proposerPublicKey: Buffer | Binary,
+        proposerPublicKey: Uint8Array | Binary,
     ): Promise<IEpochSubmissionsDocument[]>;
 
     /**
@@ -277,22 +277,22 @@ export abstract class VMStorage extends Logger {
      * Get submissions by submission hash
      */
     public abstract getSubmissionByHash(
-        submissionHash: Buffer | Binary,
+        submissionHash: Uint8Array | Binary,
     ): Promise<IEpochSubmissionsDocument | undefined>;
 
     /**
      * Check if a submission exists
      */
     public abstract submissionExists(
-        mldsaPublicKey: Buffer | Binary,
-        salt: Buffer | Binary,
+        mldsaPublicKey: Uint8Array | Binary,
+        salt: Uint8Array | Binary,
         epochNumber: bigint,
     ): Promise<boolean>;
 
     public abstract targetEpochExists(
         epochNumber: bigint,
-        salt: Buffer | Binary,
-        mldsaPublicKey: Buffer | Binary,
+        salt: Uint8Array | Binary,
+        mldsaPublicKey: Uint8Array | Binary,
     ): Promise<boolean>;
 
     public abstract getBestTargetEpoch(epochNumber: bigint): Promise<ITargetEpochDocument | null>;
@@ -302,19 +302,19 @@ export abstract class VMStorage extends Logger {
     public abstract deleteOldTargetEpochs(epochNumber: bigint): Promise<void>;
 
     public abstract getMLDSAPublicKeyFromHash(
-        publicKey: Buffer | Binary,
+        publicKey: Uint8Array | Binary,
         blockHeight: bigint,
     ): Promise<IMLDSAPublicKey | null>;
 
     public abstract saveMLDSAPublicKeys(publicKeys: MLDSAUpdateData[]): Promise<void>;
 
     public abstract getMLDSAByLegacy(
-        publicKey: Buffer | Binary,
+        publicKey: Uint8Array | Binary,
         blockHeight: bigint,
     ): Promise<IMLDSAPublicKey | null>;
 
     public abstract mldsaPublicKeyExists(
-        hashedPublicKey: Buffer | Binary | string,
-        legacyPublicKey: Buffer | Binary | string,
+        hashedPublicKey: Uint8Array | Binary | string,
+        legacyPublicKey: Uint8Array | Binary | string,
     ): Promise<MLDSAPublicKeyExists>;
 }

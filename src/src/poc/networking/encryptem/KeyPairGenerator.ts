@@ -1,23 +1,24 @@
 import crypto from 'crypto';
 import sodium from 'sodium-native';
 import { Logger } from '@btc-vision/bsi-common';
+import { toHex } from '@btc-vision/bitcoin';
 
 export interface OPNetKeyPair {
-    publicKey: Buffer;
-    privateKey: Buffer;
+    publicKey: Uint8Array;
+    privateKey: Uint8Array;
 
     identity: OPNetProvenIdentity;
     trusted: SodiumKeyPair;
 }
 
 export type OPNetProvenIdentity = {
-    hash: Buffer;
-    proof: Buffer;
+    hash: Uint8Array;
+    proof: Uint8Array;
 };
 
 type SodiumKeyPair = {
-    publicKey: Buffer;
-    privateKey: Buffer;
+    publicKey: Uint8Array;
+    privateKey: Uint8Array;
 };
 
 export class KeyPairGenerator extends Logger {
@@ -41,60 +42,64 @@ export class KeyPairGenerator extends Logger {
         };
     }
 
-    public verifyOPNetIdentity(identity: string, pubKey: Buffer): boolean {
+    public verifyOPNetIdentity(identity: string, pubKey: Uint8Array): boolean {
         const sha = crypto.createHash('sha512');
         sha.update(pubKey);
 
-        const hash: Buffer = sha.digest();
-        const hashStr = `0x${hash.toString('hex')}`;
+        const hash = sha.digest();
+        const hashStr = `0x${toHex(hash)}`;
 
         return hashStr === identity;
     }
 
-    public opnetHash(data: Buffer): string {
+    public opnetHash(data: Uint8Array): string {
         const hashed = this.hash(data);
 
-        return `0x${hashed.toString('hex')}`;
+        return `0x${toHex(hashed)}`;
     }
 
     public verifyChallenge(
-        challenge: Buffer | Uint8Array,
-        signature: Buffer | Uint8Array,
-        pubKey: Buffer | Uint8Array,
+        challenge: Uint8Array,
+        signature: Uint8Array,
+        pubKey: Uint8Array,
     ): boolean {
-        const hashedData: Buffer = this.hashWithPubKey(pubKey, challenge);
+        const hashedData: Uint8Array = this.hashWithPubKey(pubKey, challenge);
 
         return this.verifyOPNetSignature(hashedData, signature, pubKey);
     }
 
     public verifyOPNetSignature(
-        data: Buffer,
-        signature: Buffer | Uint8Array,
-        pubKey: Buffer | Uint8Array,
+        data: Uint8Array,
+        signature: Uint8Array,
+        pubKey: Uint8Array,
     ): boolean {
         return sodium.crypto_sign_verify_detached(
             Buffer.from(signature.buffer, signature.byteOffset, signature.byteLength),
-            data,
+            Buffer.from(data.buffer, data.byteOffset, data.byteLength),
             Buffer.from(pubKey.buffer, pubKey.byteOffset, pubKey.byteLength),
         );
     }
 
-    public hash(data: Buffer): Buffer {
+    public hash(data: Uint8Array): Uint8Array {
         const hash = crypto.createHash('sha512');
         hash.update(data);
 
         return hash.digest();
     }
 
-    public hashChallenge(keyPair: SodiumKeyPair, salt: Buffer | Uint8Array): Buffer {
+    public hashChallenge(keyPair: SodiumKeyPair, salt: Uint8Array): Uint8Array {
         const result = this.hashWithPubKey(keyPair.publicKey, salt);
 
         return this.sign(result, keyPair.privateKey);
     }
 
-    public sign(data: Buffer, privateKey: Buffer): Buffer {
+    public sign(data: Uint8Array, privateKey: Uint8Array): Uint8Array {
         const signature = sodium.sodium_malloc(sodium.crypto_sign_BYTES);
-        sodium.crypto_sign_detached(signature, data, privateKey);
+        sodium.crypto_sign_detached(
+            signature,
+            Buffer.from(data.buffer, data.byteOffset, data.byteLength),
+            Buffer.from(privateKey.buffer, privateKey.byteOffset, privateKey.byteLength),
+        );
 
         if (!signature.byteLength) {
             throw new Error('Invalid signature.');
@@ -103,11 +108,11 @@ export class KeyPairGenerator extends Logger {
         return signature;
     }
 
-    public secureRandomBytes(length: number): Buffer {
+    public secureRandomBytes(length: number): Uint8Array {
         return crypto.randomBytes(length);
     }
 
-    private hashWithPubKey(pubKey: Buffer | Uint8Array, data: Buffer | Uint8Array): Buffer {
+    private hashWithPubKey(pubKey: Uint8Array, data: Uint8Array): Uint8Array {
         const hash = crypto.createHash('sha512');
         hash.update(pubKey);
         hash.update(data);
@@ -124,7 +129,7 @@ export class KeyPairGenerator extends Logger {
         return this.generateKeyPair(seed);
     }
 
-    private generateAuthKey(): Buffer {
+    private generateAuthKey(): Uint8Array {
         const key = Buffer.alloc(32);
 
         return crypto.getRandomValues(key);
@@ -135,7 +140,7 @@ export class KeyPairGenerator extends Logger {
         sha.update(keypair.publicKey);
 
         const hash: Buffer = sha.digest();
-        const proof: Buffer = this.sign(hash, keypair.privateKey);
+        const proof: Uint8Array = this.sign(hash, keypair.privateKey);
 
         return {
             hash,
@@ -143,10 +148,14 @@ export class KeyPairGenerator extends Logger {
         };
     }
 
-    private generateKeyPair(seed: Buffer): SodiumKeyPair {
+    private generateKeyPair(seed: Uint8Array): SodiumKeyPair {
         const publicKey = sodium.sodium_malloc(sodium.crypto_sign_PUBLICKEYBYTES);
         const privateKey = sodium.sodium_malloc(sodium.crypto_sign_SECRETKEYBYTES);
-        sodium.crypto_sign_seed_keypair(publicKey, privateKey, seed);
+        sodium.crypto_sign_seed_keypair(
+            publicKey,
+            privateKey,
+            Buffer.from(seed.buffer, seed.byteOffset, seed.byteLength),
+        );
 
         return {
             publicKey,

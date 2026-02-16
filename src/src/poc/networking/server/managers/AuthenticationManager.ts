@@ -1,3 +1,4 @@
+import { equals, toHex } from '@btc-vision/bitcoin';
 import { ChainIds } from '../../../../config/enums/ChainIds.js';
 import { TRUSTED_CHECKSUM } from '../../../configurations/P2PVersion.js';
 import { OPNetIdentity } from '../../../identity/OPNetIdentity.js';
@@ -43,7 +44,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
 
     private passVersionCheck: boolean = false;
     private timeoutAuth: NodeJS.Timeout | null = null;
-    private identityChallenge: Uint8Array | Buffer | undefined;
+    private identityChallenge: Uint8Array | undefined;
 
     protected constructor(selfIdentity: OPNetIdentity | undefined) {
         super(selfIdentity);
@@ -164,7 +165,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         }
 
         const challenge = crypto.getRandomValues(new Uint8Array(128));
-        this.identityChallenge = Buffer.from(challenge);
+        this.identityChallenge = challenge;
     }
 
     private async sendServerHandshake(): Promise<void> {
@@ -269,9 +270,9 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
             );
         }
 
-        const clientKeyCipherBuffer = unpackedAuthData.clientKeyCipher as Buffer;
-        const clientAuthCipherBuffer = unpackedAuthData.clientAuthCipher as Buffer;
-        const clientIdentityBuffer = unpackedAuthData.identity as Buffer;
+        const clientKeyCipherBuffer = unpackedAuthData.clientKeyCipher;
+        const clientAuthCipherBuffer = unpackedAuthData.clientAuthCipher;
+        const clientIdentityBuffer = unpackedAuthData.identity;
         const challengeResponse = unpackedAuthData.challenge;
 
         // sha512
@@ -296,7 +297,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         }
 
         // TODO: Verify peer identity.
-        this._clientIdentity = Buffer.from(clientIdentityBuffer).toString('hex');
+        this._clientIdentity = toHex(new Uint8Array(clientIdentityBuffer));
 
         this.encryptem.setClientPublicKey(clientKeyCipherBuffer);
 
@@ -305,7 +306,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         this.isAuthenticated = true;
     }
 
-    private async verifySignaturePublicKey(signaturePubKey: Uint8Array | Buffer): Promise<boolean> {
+    private async verifySignaturePublicKey(signaturePubKey: Uint8Array): Promise<boolean> {
         const encryptemSignaturePubKey = this.encryptem.getClientSignaturePublicKey();
         if (!encryptemSignaturePubKey) {
             await this.disconnectPeer(
@@ -315,7 +316,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
             return false;
         }
 
-        if (!encryptemSignaturePubKey.equals(signaturePubKey)) {
+        if (!equals(encryptemSignaturePubKey, signaturePubKey)) {
             await this.disconnectPeer(
                 DisconnectionCode.BAD_AUTH_CIPHER,
                 'Invalid client authentication cipher. Signature public key mismatch.',
@@ -327,8 +328,8 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
     }
 
     private async verifyChallenge(
-        signaturePubKey: Uint8Array | Buffer,
-        challengeResponse: Uint8Array | Buffer,
+        signaturePubKey: Uint8Array,
+        challengeResponse: Uint8Array,
     ): Promise<boolean> {
         if (!this.identityChallenge) {
             throw new Error(`Challenge not set.`);
@@ -489,7 +490,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
             await this.verifyNetwork();
         }
 
-        this.encryptem.setClientSignaturePublicKey(Buffer.from(unpackedAuthData.clientAuthCipher));
+        this.encryptem.setClientSignaturePublicKey(new Uint8Array(unpackedAuthData.clientAuthCipher));
         await this.onPassedVersionCheck();
     }
 }

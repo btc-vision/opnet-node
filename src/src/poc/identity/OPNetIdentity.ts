@@ -1,4 +1,4 @@
-import { Network, Signer, toXOnly } from '@btc-vision/bitcoin';
+import { concat, Network, Signer, toBase64, toHex, toXOnly } from '@btc-vision/bitcoin';
 import { UniversalSigner } from '@btc-vision/ecpair';
 import fs from 'fs';
 import path from 'path';
@@ -18,7 +18,7 @@ export class OPNetIdentity extends OPNetPathFinder {
 
     private keyPairGenerator: KeyPairGenerator;
 
-    private readonly opnetAuthKeyBin: Buffer;
+    private readonly opnetAuthKeyBin: Uint8Array;
     private readonly opnetWallet: UniversalSigner;
 
     private readonly keyPair: OPNetKeyPair;
@@ -26,7 +26,7 @@ export class OPNetIdentity extends OPNetPathFinder {
 
     readonly #xPubKey: Uint8Array;
 
-    private readonly opnetWalletPubKeyBuffer: Buffer;
+    private readonly opnetWalletPubKeyBytes: Uint8Array;
 
     public constructor(
         private readonly config: BtcIndexerConfig,
@@ -39,7 +39,7 @@ export class OPNetIdentity extends OPNetPathFinder {
         this.opnetWallet = this.loadOPNetWallet();
         this.deriveKey(this.opnetWallet.privateKey);
 
-        this.opnetWalletPubKeyBuffer = Buffer.from(this.opnetWallet.publicKey);
+        this.opnetWalletPubKeyBytes = new Uint8Array(this.opnetWallet.publicKey);
 
         this.opnetAuthKeyBin = this.loadOPNetAuthKeys();
         this.keyPair = this.restoreKeyPair(this.opnetAuthKeyBin);
@@ -72,28 +72,28 @@ export class OPNetIdentity extends OPNetPathFinder {
     }
 
     public get opnetPubKey(): string {
-        return this.keyPair.trusted.publicKey.toString('base64');
+        return toBase64(this.keyPair.trusted.publicKey);
     }
 
     public get pubKeyBase64(): string {
-        return this.publicKey.toString('base64');
+        return toBase64(this.publicKey);
     }
 
     public get xPubKey(): Uint8Array {
         return this.#xPubKey;
     }
 
-    public get publicKey(): Buffer {
-        return this.opnetWalletPubKeyBuffer;
+    public get publicKey(): Uint8Array {
+        return this.opnetWalletPubKeyBytes;
     }
 
     public get signedTrustedWalletConfirmation(): string {
-        const signature: Buffer = this.keyPairGenerator.sign(
-            this.opnetWalletPubKeyBuffer,
+        const signature: Uint8Array = this.keyPairGenerator.sign(
+            this.opnetWalletPubKeyBytes,
             this.keyPair.trusted.privateKey,
         );
 
-        return signature.toString('base64');
+        return toBase64(signature);
     }
 
     public get trustedPublicKey(): string {
@@ -109,14 +109,14 @@ export class OPNetIdentity extends OPNetPathFinder {
     }
 
     public get pubKey(): string {
-        return '0x' + Buffer.from(this.opnetWallet.publicKey).toString('hex');
+        return '0x' + toHex(this.opnetWallet.publicKey);
     }
 
     public get opnetAddress(): string {
-        return '0x' + this.keyPair.identity.hash.toString('hex');
+        return '0x' + toHex(this.keyPair.identity.hash);
     }
 
-    public get opnetAddressAsBuffer(): Buffer {
+    public get opnetAddressAsBuffer(): Uint8Array {
         return this.keyPair.identity.hash;
     }
 
@@ -136,24 +136,24 @@ export class OPNetIdentity extends OPNetPathFinder {
         return this.opnetWallet;
     }
 
-    public hash(data: Buffer): Buffer {
+    public hash(data: Uint8Array): Uint8Array {
         return this.keyPairGenerator.hash(data);
     }
 
-    public identityChallenge(salt: Buffer | Uint8Array): Buffer {
+    public identityChallenge(salt: Uint8Array): Uint8Array {
         return this.keyPairGenerator.hashChallenge(this.keyPair, salt);
     }
 
     public verifyChallenge(
-        challenge: Buffer | Uint8Array,
-        signature: Buffer | Uint8Array,
-        pubKey: Buffer | Uint8Array,
+        challenge: Uint8Array,
+        signature: Uint8Array,
+        pubKey: Uint8Array,
     ): boolean {
         return this.keyPairGenerator.verifyChallenge(challenge, signature, pubKey);
     }
 
     // PoC: Proof of Computational Acknowledgment
-    public verifyAcknowledgment(data: Buffer, witness: OPNetBlockWitness): boolean {
+    public verifyAcknowledgment(data: Uint8Array, witness: OPNetBlockWitness): boolean {
         if (!data) return false;
         if (!witness.publicKey) return false;
         if (!witness.identity) return false;
@@ -169,7 +169,7 @@ export class OPNetIdentity extends OPNetPathFinder {
 
     // PoV: Proof of Validation
     public verifyTrustedAcknowledgment(
-        data: Buffer,
+        data: Uint8Array,
         witness: OPNetBlockWitness,
         identity: string | undefined,
     ): boolean {
@@ -184,11 +184,11 @@ export class OPNetIdentity extends OPNetPathFinder {
         return validWitness.identity === identity;
     }
 
-    public verifyOPNetIdentity(identity: string, pubKey: Buffer): boolean {
+    public verifyOPNetIdentity(identity: string, pubKey: Uint8Array): boolean {
         return this.keyPairGenerator.verifyOPNetIdentity(identity, pubKey);
     }
 
-    public acknowledgeData(data: Buffer): OPNetBlockWitness {
+    public acknowledgeData(data: Uint8Array): OPNetBlockWitness {
         const now = BigInt(Date.now());
         const witnessData = this.mergeDataAndWitness(data, now);
 
@@ -200,15 +200,16 @@ export class OPNetIdentity extends OPNetPathFinder {
         };
     }
 
-    public mergeDataAndWitness(blockChecksumHash: Buffer, timestamp: bigint): Buffer {
-        const data = Buffer.alloc(40);
-        blockChecksumHash.copy(data, 0, 0, 32);
-        data.writeBigUint64BE(timestamp, 32);
+    public mergeDataAndWitness(blockChecksumHash: Uint8Array, timestamp: bigint): Uint8Array {
+        const data = new Uint8Array(40);
+        data.set(blockChecksumHash.subarray(0, 32), 0);
+        const view = new DataView(data.buffer);
+        view.setBigUint64(32, timestamp, false);
 
         return data;
     }
 
-    public acknowledgeTrustedData(data: Buffer): OPNetBlockWitness {
+    public acknowledgeTrustedData(data: Uint8Array): OPNetBlockWitness {
         if (!this.opnetWallet.privateKey) throw new Error('Private key not found');
 
         const now = BigInt(Date.now());
@@ -229,10 +230,10 @@ export class OPNetIdentity extends OPNetPathFinder {
         return path.join(this.getBinPath(), `wallet.bin`);
     }
 
-    private loadOPNetAuthKeys(): Buffer {
+    private loadOPNetAuthKeys(): Uint8Array {
         try {
             const lastKeys = fs.readFileSync(this.getOPNetAuthKeysPath());
-            return Buffer.from(this.decrypt(new Uint8Array(lastKeys)));
+            return this.decrypt(new Uint8Array(lastKeys));
         } catch (e) {
             const error = e as Error;
             if (error.message.includes('no such file or directory')) {
@@ -275,8 +276,8 @@ export class OPNetIdentity extends OPNetPathFinder {
         }
     }
 
-    private generateNewOPNetIdentity(): Buffer {
-        const key: Buffer = this.generateDefaultOPNetAuthKeys();
+    private generateNewOPNetIdentity(): Uint8Array {
+        const key: Uint8Array = this.generateDefaultOPNetAuthKeys();
 
         if (fs.existsSync(this.getOPNetAuthKeysPath())) {
             throw new Error(
@@ -289,7 +290,7 @@ export class OPNetIdentity extends OPNetPathFinder {
         return key;
     }
 
-    private restoreKeyPair(buf: Buffer): OPNetKeyPair {
+    private restoreKeyPair(buf: Uint8Array): OPNetKeyPair {
         const privateKey = buf.subarray(0, 64);
         const publicKey = buf.subarray(64, 96);
 
@@ -299,23 +300,23 @@ export class OPNetIdentity extends OPNetPathFinder {
         const trustedPrivateKey = buf.subarray(256);
 
         return {
-            privateKey: Buffer.from(privateKey),
-            publicKey: Buffer.from(publicKey),
+            privateKey: new Uint8Array(privateKey),
+            publicKey: new Uint8Array(publicKey),
             identity: {
-                hash: Buffer.from(identity.subarray(0, 64)),
-                proof: Buffer.from(identity.subarray(64)),
+                hash: new Uint8Array(identity.subarray(0, 64)),
+                proof: new Uint8Array(identity.subarray(64)),
             },
             trusted: {
-                privateKey: trustedPrivateKey,
-                publicKey: trustedPublicKey,
+                privateKey: new Uint8Array(trustedPrivateKey),
+                publicKey: new Uint8Array(trustedPublicKey),
             },
         };
     }
 
-    private generateDefaultOPNetAuthKeys(): Buffer {
+    private generateDefaultOPNetAuthKeys(): Uint8Array {
         const keyPair = this.keyPairGenerator.generateKey();
 
-        return Buffer.concat([
+        return concat([
             keyPair.privateKey, // 64 bytes
             keyPair.publicKey, // 32 bytes
             keyPair.identity.hash, // 64 bytes

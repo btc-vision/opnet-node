@@ -13,7 +13,7 @@ export interface ITargetEpochDocument {
 }
 
 export interface PendingTargetEpoch {
-    readonly checksumRoot: Buffer;
+    readonly checksumRoot: Uint8Array;
     readonly nextEpochNumber: bigint;
-    readonly targetHash: Buffer;
+    readonly targetHash: Uint8Array;
 }

@@ -41,7 +41,7 @@ export abstract class Packet<
         const objOutput = this.packet.toObject(message, {
             longs: Long,
             enums: Number,
-            bytes: Buffer,
+            bytes: Uint8Array,
             defaults: true,
             arrays: true,
             objects: true,

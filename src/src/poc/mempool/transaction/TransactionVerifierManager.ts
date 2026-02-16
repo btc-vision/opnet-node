@@ -1,5 +1,5 @@
 import { TransactionTypes } from './TransactionTypes.js';
-import { Network, networks, Psbt, Transaction as BitcoinTransaction } from '@btc-vision/bitcoin';
+import { Network, networks, Psbt, toBase64, Transaction as BitcoinTransaction } from '@btc-vision/bitcoin';
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { TransactionVerifier } from '../verificator/TransactionVerifier.js';
 import { Consensus } from '../../configurations/consensus/Consensus.js';
@@ -85,16 +85,16 @@ export class TransactionVerifierManager extends Logger {
         }
     }
 
-    private getPSBT(data: Buffer): Psbt | undefined {
+    private getPSBT(data: Uint8Array): Psbt | undefined {
         try {
-            return Psbt.fromBase64(data.toString('base64'), { network: this.network });
+            return Psbt.fromBase64(toBase64(data), { network: this.network });
         } catch (e) {
             console.log(e);
             this.warn(`Failed to decode PSBT. Invalid transaction data.`);
         }
     }
 
-    private getTransaction(data: Buffer): BitcoinTransaction | undefined {
+    private getTransaction(data: Uint8Array): BitcoinTransaction | undefined {
         try {
             return BitcoinTransaction.fromBuffer(data);
         } catch (e) {

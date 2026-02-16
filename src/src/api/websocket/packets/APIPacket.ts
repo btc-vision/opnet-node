@@ -23,7 +23,7 @@ function convertBigIntToLong(obj: unknown): unknown {
         return obj.map(convertBigIntToLong);
     }
 
-    if (obj instanceof Long || obj instanceof Buffer || obj instanceof Uint8Array) {
+    if (obj instanceof Long || obj instanceof Uint8Array) {
         return obj;
     }
 
@@ -148,7 +148,7 @@ export abstract class APIPacket<
         const objOutput = this.packet.toObject(message, {
             longs: Long,
             enums: Number,
-            bytes: Buffer,
+            bytes: Uint8Array,
             defaults: true,
             arrays: true,
             objects: true,
@@ -180,7 +180,7 @@ export abstract class APIPacket<
  */
 export interface WebSocketMessage {
     readonly opcode: WebSocketOpcode;
-    readonly payload: Buffer;
+    readonly payload: Uint8Array;
 }
 
 /**
@@ -192,7 +192,7 @@ export function parseWebSocketMessage(raw: Uint8Array): WebSocketMessage {
     }
 
     const opcode = raw[0] as WebSocketOpcode;
-    const payload = Buffer.from(raw.slice(1));
+    const payload = raw.slice(1);
 
     return { opcode, payload };
 }

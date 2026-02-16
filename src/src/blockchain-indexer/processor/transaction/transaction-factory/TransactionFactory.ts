@@ -1,5 +1,5 @@
 import { TransactionData } from '@btc-vision/bitcoin-rpc';
-import { networks } from '@btc-vision/bitcoin';
+import { equals, networks } from '@btc-vision/bitcoin';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { PossibleOPNetTransactions, TransactionInformation } from '../PossibleOPNetTransactions.js';
 import { Transaction } from '../Transaction.js';
@@ -32,7 +32,7 @@ export class TransactionFactory {
         const index = parser.vInIndex;
 
         const tx = transactionObj.parse(data, index, blockHash, blockHeight, network, addressCache);
-        tx.verifyPreImage = (miner: Address, preimage: Buffer): Buffer | undefined => {
+        tx.verifyPreImage = (miner: Address, preimage: Uint8Array): Uint8Array | undefined => {
             //if (!enableVerification) {
             //    console.log('allowedChallenges', allowedChallenges);
             //    return;
@@ -44,7 +44,7 @@ export class TransactionFactory {
             }
 
             const hasSolution = hasMiner.some((challenge) => {
-                return challenge.equals(preimage);
+                return equals(challenge, preimage);
             });
 
             if (!hasSolution) {

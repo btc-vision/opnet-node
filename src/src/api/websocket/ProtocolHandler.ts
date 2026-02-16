@@ -1,4 +1,5 @@
 import { Logger } from '@btc-vision/bsi-common';
+import { fromHex } from '@btc-vision/bitcoin';
 import { WebSocketClient } from './WebSocketClient.js';
 import { APIRegistry } from './OpcodeRegistry.js';
 import { parseWebSocketMessage } from './packets/APIPacket.js';
@@ -59,7 +60,7 @@ export class ProtocolHandler extends Logger {
     public async processMessage(client: WebSocketClient, raw: Uint8Array): Promise<boolean> {
         // Parse opcode and payload
         let opcode: WebSocketRequestOpcode;
-        let payload: Buffer;
+        let payload: Uint8Array;
 
         try {
             const parsed = parseWebSocketMessage(raw);
@@ -165,7 +166,7 @@ export class ProtocolHandler extends Logger {
     /**
      * Handle ping request
      */
-    private handlePing(client: WebSocketClient, payload: Buffer): boolean {
+    private handlePing(client: WebSocketClient, payload: Uint8Array): boolean {
         try {
             const pingPacket = APIRegistry.getPacketBuilder(APIPacketType.PingRequest);
             const pongPacket = APIRegistry.getPacketBuilder(APIPacketType.PongResponse);
@@ -207,7 +208,7 @@ export class ProtocolHandler extends Logger {
     /**
      * Handle handshake request
      */
-    private handleHandshake(client: WebSocketClient, payload: Buffer): boolean {
+    private handleHandshake(client: WebSocketClient, payload: Uint8Array): boolean {
         try {
             // Check if already handshaked
             if (client.isHandshakeCompleted()) {
@@ -266,7 +267,7 @@ export class ProtocolHandler extends Logger {
             // Send response with dynamic data from WSManager
             const response = {
                 protocolVersion: PROTOCOL_VERSION,
-                sessionId: Buffer.from(client.clientId, 'hex'),
+                sessionId: fromHex(client.clientId),
                 serverVersion: WSManager.getServerVersion(),
                 currentBlockHeight: WSManager.getCurrentBlockHeight(),
                 chainId: WSManager.getChainId(),
@@ -295,7 +296,7 @@ export class ProtocolHandler extends Logger {
     private async handlePluginOpcode(
         client: WebSocketClient,
         opcode: number,
-        payload: Buffer,
+        payload: Uint8Array,
     ): Promise<boolean> {
         // Check handshake requirement (all plugin opcodes require handshake)
         if (!client.isHandshakeCompleted()) {
@@ -319,7 +320,7 @@ export class ProtocolHandler extends Logger {
     private async handlePluginOpcodeLocal(
         client: WebSocketClient,
         opcode: number,
-        payload: Buffer,
+        payload: Uint8Array,
     ): Promise<boolean> {
         if (!this.pluginRegistry) {
             client.closeWithError(InternalError.INTERNAL_ERROR);
@@ -395,7 +396,7 @@ export class ProtocolHandler extends Logger {
     private async handlePluginOpcodeCrossThread(
         client: WebSocketClient,
         opcode: number,
-        payload: Buffer,
+        payload: Uint8Array,
     ): Promise<boolean> {
         // Check if WSManager has this opcode registered
         if (!WSManager.isPluginOpcode(opcode)) {

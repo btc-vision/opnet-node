@@ -1,4 +1,5 @@
 import { Logger } from '@btc-vision/logger';
+import { fromHex, toHex } from '@btc-vision/bitcoin';
 import { VMStorage } from '../../../vm/storage/VMStorage.js';
 import { IndexingTask } from '../tasks/IndexingTask.js';
 import { OPNetConsensus } from '../../../poc/configurations/OPNetConsensus.js';
@@ -32,15 +33,15 @@ import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
 export interface ValidatedSolutionResult {
     readonly valid: boolean;
     readonly matchingBits: number;
-    readonly hash: Buffer;
+    readonly hash: Uint8Array;
 }
 
 interface AttestationEpoch {
-    readonly root: Buffer;
+    readonly root: Uint8Array;
     readonly epochNumber: bigint;
 }
 
-const GENESIS_SALT = Buffer.alloc(32).fill(255);
+const GENESIS_SALT = new Uint8Array(32).fill(255);
 
 export class EpochManager extends Logger {
     public readonly logColor: string = '#009dff';
@@ -92,15 +93,15 @@ export class EpochManager extends Logger {
 
     public async submissionExists(
         epochNumber: bigint,
-        salt: Buffer,
-        mldsaPublicKey: Buffer | Binary,
+        salt: Uint8Array,
+        mldsaPublicKey: Uint8Array | Binary,
     ): Promise<boolean> {
         return this.storage.submissionExists(mldsaPublicKey, salt, epochNumber);
     }
 
     public async getPendingEpochTarget(currentEpoch: bigint): Promise<PendingTargetEpoch> {
         if (currentEpoch === 0n) {
-            const target = Buffer.alloc(32);
+            const target = new Uint8Array(32);
             return {
                 checksumRoot: target,
                 targetHash: SHA1.hashBuffer(target),
@@ -123,7 +124,7 @@ export class EpochManager extends Logger {
             return {
                 valid: false,
                 matchingBits: 0,
-                hash: Buffer.alloc(0),
+                hash: new Uint8Array(0),
             };
         }
 
@@ -131,7 +132,7 @@ export class EpochManager extends Logger {
             return {
                 valid: false,
                 matchingBits: 0,
-                hash: Buffer.alloc(0),
+                hash: new Uint8Array(0),
             };
         }
 
@@ -260,9 +261,9 @@ export class EpochManager extends Logger {
         };
     }
 
-    private async getPreviousEpochHash(epochNumber: bigint): Promise<Buffer> {
+    private async getPreviousEpochHash(epochNumber: bigint): Promise<Uint8Array> {
         if (epochNumber === 0n) {
-            return Buffer.alloc(32);
+            return new Uint8Array(32);
         }
 
         const epoch = await this.storage.getEpochByNumber(epochNumber - 1n);
@@ -270,7 +271,7 @@ export class EpochManager extends Logger {
             throw new Error(`No epoch found for number ${epochNumber - 1n}`);
         }
 
-        return Buffer.from(epoch.epochHash.buffer);
+        return new Uint8Array(epoch.epochHash.buffer);
     }
 
     private getMiningTargetBlock(epochNumber: bigint): bigint | null {
@@ -288,7 +289,7 @@ export class EpochManager extends Logger {
         return epochNumber * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n;
     }
 
-    private async getMiningTargetChecksum(targetBlock: bigint | null): Promise<Buffer | null> {
+    private async getMiningTargetChecksum(targetBlock: bigint | null): Promise<Uint8Array | null> {
         if (targetBlock === null) {
             return null;
         }
@@ -298,7 +299,7 @@ export class EpochManager extends Logger {
             throw new Error(`No block header found for mining target block ${targetBlock}`);
         }
 
-        const checksumRoot = Buffer.from(header.checksumRoot.replace('0x', ''), 'hex');
+        const checksumRoot = fromHex(header.checksumRoot.replace('0x', ''));
         if (checksumRoot.length !== 32) {
             throw new Error(
                 `Invalid checksum root length: ${checksumRoot.length}. Expected 32 bytes.`,
@@ -311,7 +312,7 @@ export class EpochManager extends Logger {
     private async getChecksumRoots(
         startBlock: bigint,
         endBlock: bigint,
-    ): Promise<Map<bigint, Buffer>> {
+    ): Promise<Map<bigint, Uint8Array>> {
         const promises: Promise<BlockHeaderDocument | undefined>[] = [];
 
         for (let blockNumber = startBlock; blockNumber <= endBlock; blockNumber++) {
@@ -319,12 +320,12 @@ export class EpochManager extends Logger {
         }
 
         const headers = await Promise.safeAll(promises);
-        const checkSumRoots = new Map<bigint, Buffer>();
+        const checkSumRoots = new Map<bigint, Uint8Array>();
 
         for (const header of headers) {
             if (header) {
                 const blockNumber = DataConverter.fromDecimal128(header.height);
-                const checksumRoot = Buffer.from(header.checksumRoot.replace('0x', ''), 'hex');
+                const checksumRoot = fromHex(header.checksumRoot.replace('0x', ''));
                 if (checksumRoot.length !== 32) {
                     throw new Error(
                         `Invalid checksum root length: ${checksumRoot.length}. Expected 32 bytes.`,
@@ -340,7 +341,7 @@ export class EpochManager extends Logger {
 
     private getBestSubmission(
         submissions: IEpochSubmissionsDocument[],
-        targetHash: Buffer,
+        targetHash: Uint8Array,
     ): EpochSubmissionWinner | null {
         if (submissions.length === 0) {
             return null;
@@ -351,7 +352,7 @@ export class EpochManager extends Logger {
         let bestMatchingBits = 0;
 
         for (const submission of submissions) {
-            const solutionHash = Buffer.from(submission.epochProposed.solution.buffer);
+            const solutionHash = new Uint8Array(submission.epochProposed.solution.buffer);
             if (solutionHash.length !== 20) {
                 this.log(
                     `Invalid solution hash length: ${solutionHash.length}. Expected 20 bytes.`,
@@ -376,39 +377,47 @@ export class EpochManager extends Logger {
         return {
             epochNumber: DataConverter.fromDecimal128(winningSubmission.epochNumber),
             matchingBits: bestMatchingBits,
-            salt: Buffer.from(winningSubmission.epochProposed.salt.buffer),
-            mldsaPublicKey: Buffer.from(winningSubmission.epochProposed.mldsaPublicKey.buffer),
-            legacyPublicKey: Buffer.from(winningSubmission.epochProposed.legacyPublicKey.buffer),
-            solutionHash: Buffer.from(winningSubmission.submissionHash.buffer),
+            salt: new Uint8Array(winningSubmission.epochProposed.salt.buffer),
+            mldsaPublicKey: new Uint8Array(winningSubmission.epochProposed.mldsaPublicKey.buffer),
+            legacyPublicKey: new Uint8Array(winningSubmission.epochProposed.legacyPublicKey.buffer),
+            solutionHash: new Uint8Array(winningSubmission.submissionHash.buffer),
             graffiti: winningSubmission.epochProposed.graffiti
-                ? Buffer.from(winningSubmission.epochProposed.graffiti.buffer)
-                : Buffer.alloc(OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH),
+                ? new Uint8Array(winningSubmission.epochProposed.graffiti.buffer)
+                : new Uint8Array(OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH),
         };
+    }
+
+    private static compareBytes(a: Uint8Array, b: Uint8Array): number {
+        const len = Math.min(a.length, b.length);
+        for (let i = 0; i < len; i++) {
+            if (a[i] !== b[i]) return a[i] - b[i];
+        }
+        return a.length - b.length;
     }
 
     private getWinningSubmission(
         submissions: IEpochSubmissionsDocument[],
-        targetHash: Buffer,
+        targetHash: Uint8Array,
     ): IEpochSubmissionsDocument {
         const winner = [...submissions].sort((a, b) => {
             // Compare public keys (without pairing byte) - lower wins
-            const aPublicKey = Buffer.from(a.epochProposed.mldsaPublicKey.buffer);
-            const bPublicKey = Buffer.from(b.epochProposed.mldsaPublicKey.buffer);
+            const aPublicKey = new Uint8Array(a.epochProposed.mldsaPublicKey.buffer);
+            const bPublicKey = new Uint8Array(b.epochProposed.mldsaPublicKey.buffer);
 
             if (aPublicKey.length < 32 || bPublicKey.length < 32) {
                 throw new Error('Invalid public key length for comparison tiebreaker.');
             }
 
-            const pubKeyComparison = aPublicKey.compare(bPublicKey);
+            const pubKeyComparison = EpochManager.compareBytes(aPublicKey, bPublicKey);
             if (pubKeyComparison !== 0) {
                 return pubKeyComparison; // Lower public key wins
             }
 
             // Submission tx hash - lower wins
-            const aTxHash = Buffer.from(a.submissionTxHash.buffer);
-            const bTxHash = Buffer.from(b.submissionTxHash.buffer);
+            const aTxHash = new Uint8Array(a.submissionTxHash.buffer);
+            const bTxHash = new Uint8Array(b.submissionTxHash.buffer);
 
-            const hashCompare = aTxHash.compare(bTxHash);
+            const hashCompare = EpochManager.compareBytes(aTxHash, bTxHash);
             if (hashCompare !== 0) {
                 return hashCompare; // Lower tx hash wins
             }
@@ -437,18 +446,18 @@ export class EpochManager extends Logger {
             }
 
             // Compare salts - lower wins
-            const aSalt = Buffer.from(a.epochProposed.salt.buffer);
-            const bSalt = Buffer.from(b.epochProposed.salt.buffer);
-            const saltComparison = aSalt.compare(bSalt);
+            const aSalt = new Uint8Array(a.epochProposed.salt.buffer);
+            const bSalt = new Uint8Array(b.epochProposed.salt.buffer);
+            const saltComparison = EpochManager.compareBytes(aSalt, bSalt);
             if (saltComparison !== 0) {
                 return saltComparison; // Lower salt wins
             }
 
             // Finally, submission tx id - lower wins
-            const aTxId = Buffer.from(a.submissionTxId.buffer);
-            const bTxId = Buffer.from(b.submissionTxId.buffer);
+            const aTxId = new Uint8Array(a.submissionTxId.buffer);
+            const bTxId = new Uint8Array(b.submissionTxId.buffer);
 
-            return aTxId.compare(bTxId); // Lower tx id wins
+            return EpochManager.compareBytes(aTxId, bTxId); // Lower tx id wins
         })[0];
 
         if (!winner) {
@@ -461,26 +470,26 @@ export class EpochManager extends Logger {
     private async finalizeEpoch(
         startBlock: bigint,
         endBlock: bigint,
-        checksumRoots: Map<bigint, Buffer>,
+        checksumRoots: Map<bigint, Uint8Array>,
         submissions: IEpochSubmissionsDocument[],
         witnesses: IParsedBlockWitnessDocument[],
         epochNumber: bigint,
-        previousEpochHash: Buffer,
+        previousEpochHash: Uint8Array,
         attestationChecksumRoot: AttestationEpoch,
-        miningTargetChecksum: Buffer | null,
+        miningTargetChecksum: Uint8Array | null,
     ): Promise<void> {
         // For epoch 0, there's no mining target
-        let checksumRoot: Buffer;
+        let checksumRoot: Uint8Array;
 
         if (epochNumber === 0n || !miningTargetChecksum) {
             // Epoch 0 can't be mined, use a zero hash
-            checksumRoot = Buffer.alloc(32);
+            checksumRoot = new Uint8Array(32);
         } else {
             // Use the mining target checksum (from the first block of the previous epoch)
             checksumRoot = miningTargetChecksum;
         }
 
-        const targetHash: Buffer = SHA1.hashBuffer(checksumRoot);
+        const targetHash: Uint8Array = SHA1.hashBuffer(checksumRoot);
 
         const winningSubmission = this.getBestSubmission(submissions, targetHash);
         if (winningSubmission && winningSubmission.epochNumber !== epochNumber) {
@@ -489,18 +498,18 @@ export class EpochManager extends Logger {
             );
         }
 
-        let salt: Buffer;
-        let mldsaPublicKey: Buffer;
-        let legacyPublicKey: Buffer;
-        let graffiti: Buffer;
+        let salt: Uint8Array;
+        let mldsaPublicKey: Uint8Array;
+        let legacyPublicKey: Uint8Array;
+        let graffiti: Uint8Array;
 
         if (!winningSubmission || epochNumber === 0n) {
             // No valid submission or epoch 0, use genesis proposer
             salt = GENESIS_SALT; // All 0xFF for genesis
-            mldsaPublicKey = Buffer.from(OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY.toBuffer());
+            mldsaPublicKey = OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY.toBuffer();
             legacyPublicKey =
-                Buffer.from(OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY.originalPublicKeyBuffer());
-            graffiti = Buffer.alloc(OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH);
+                OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY.originalPublicKeyBuffer();
+            graffiti = new Uint8Array(OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH);
         } else {
             salt = winningSubmission.salt;
             mldsaPublicKey = winningSubmission.mldsaPublicKey;
@@ -567,7 +576,7 @@ export class EpochManager extends Logger {
             graffiti: graffiti,
             solutionBits: matchingBits,
 
-            epochRoot: Buffer.from(epoch.rootBuffer),
+            epochRoot: new Uint8Array(epoch.rootBuffer),
             epochHash: epoch.epochHash,
             proofs: epoch.getEpochDataProof(), // Get proofs for this epoch
         };
@@ -583,12 +592,12 @@ export class EpochManager extends Logger {
 
         if (Config.EPOCH.LOG_FINALIZATION) {
             this.debugBright(
-                `Epoch ${epochNumber} finalized with root: ${epochDocument.epochRoot.toString('hex')} (Hash: ${epochDocument.epochHash.toString('hex')} | Difficulty: ${EpochDifficultyConverter.formatDifficulty(BigInt(epochDocument.difficultyScaled))}) | Winner: ${finalEpoch.mldsaPublicKey.toString('hex')} | Solution: ${finalEpoch.solution.toString('hex')}) | Salt: ${finalEpoch.salt.toString('hex')} | Graffiti: ${finalEpoch.graffiti ? finalEpoch.graffiti.toString('hex') : 'None'}`,
+                `Epoch ${epochNumber} finalized with root: ${toHex(new Uint8Array(epochDocument.epochRoot.buffer))} (Hash: ${toHex(new Uint8Array(epochDocument.epochHash.buffer))} | Difficulty: ${EpochDifficultyConverter.formatDifficulty(BigInt(epochDocument.difficultyScaled))}) | Winner: ${toHex(finalEpoch.mldsaPublicKey)} | Solution: ${toHex(finalEpoch.solution)}) | Salt: ${toHex(finalEpoch.salt)} | Graffiti: ${finalEpoch.graffiti ? toHex(finalEpoch.graffiti) : 'None'}`,
             );
         }
 
         this.log(
-            `!! -- Finalized epoch ${epochNumber} [${epochDocument.proposer.solution.toString('hex')} (Diff: ${EpochDifficultyConverter.formatDifficulty(BigInt(epochDocument.difficultyScaled))})] (${epochDocument.epochHash.toString('hex')}) -- !!`,
+            `!! -- Finalized epoch ${epochNumber} [${toHex(new Uint8Array(epochDocument.proposer.solution.buffer))} (Diff: ${EpochDifficultyConverter.formatDifficulty(BigInt(epochDocument.difficultyScaled))})] (${toHex(new Uint8Array(epochDocument.epochHash.buffer))}) -- !!`,
         );
 
         // Dispatch onEpochFinalized hook - epoch merkle tree is complete
@@ -596,13 +605,13 @@ export class EpochManager extends Logger {
             epochNumber,
             startBlock,
             endBlock,
-            checksumRoot: epochDocument.epochRoot.toString('hex'),
+            checksumRoot: toHex(new Uint8Array(epochDocument.epochRoot.buffer)),
         });
     }
 
     private witnessToAttestation(
         witness: IParsedBlockWitnessDocument,
-        checkSumRoots: Map<bigint, Buffer>,
+        checkSumRoots: Map<bigint, Uint8Array>,
     ): Attestation | null {
         const root = checkSumRoots.get(witness.blockNumber);
         if (!root) {
@@ -619,7 +628,7 @@ export class EpochManager extends Logger {
             type: AttestationType.BLOCK_WITNESS,
             blockNumber: witness.blockNumber,
             checksumRoot: root,
-            signature: Buffer.from(witness.signature.buffer),
+            signature: new Uint8Array(witness.signature.buffer),
             timestamp: witness.timestamp.getTime(),
             publicKey: new Address(witness.publicKey.buffer),
         };
@@ -630,7 +639,7 @@ export class EpochManager extends Logger {
         if (epochNumber < 4n) {
             // For epochs 0-3, return zero hash as there's no history to attest to
             return {
-                root: Buffer.alloc(32),
+                root: new Uint8Array(32),
                 epochNumber: targetEpochNumber,
             };
         }
@@ -651,7 +660,7 @@ export class EpochManager extends Logger {
             );
         }
 
-        const root = Buffer.from(blockHeader.checksumRoot.replace('0x', ''), 'hex');
+        const root = fromHex(blockHeader.checksumRoot.replace('0x', ''));
         if (root.length !== 32) {
             throw new Error(`Invalid checksum root length: ${root.length}. Expected 32 bytes.`);
         }

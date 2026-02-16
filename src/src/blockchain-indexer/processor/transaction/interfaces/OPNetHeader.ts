@@ -16,9 +16,9 @@ export class OPNetHeader {
     private _flags: number = 0;
 
     constructor(
-        header: Buffer,
-        public readonly minerMLDSAPublicKey: Buffer,
-        public readonly solution: Buffer,
+        header: Uint8Array,
+        public readonly minerMLDSAPublicKey: Uint8Array,
+        public readonly solution: Uint8Array,
     ) {
         this.reader = new BinaryReader(header);
         this._headerBytes = this.reader.readBytes(4);
@@ -77,7 +77,10 @@ export class OPNetHeader {
             throw new Error('Invalid public key prefix');
         }
 
-        const flagBuffer = Buffer.from(this._headerBytes.slice(1));
-        this._flags = flagBuffer.readUIntBE(0, 3);
+        // Read 3-byte big-endian unsigned integer from bytes [1..3]
+        this._flags =
+            (this._headerBytes[1] << 16) |
+            (this._headerBytes[2] << 8) |
+            this._headerBytes[3];
     }
 }

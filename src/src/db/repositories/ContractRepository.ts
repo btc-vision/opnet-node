@@ -20,6 +20,7 @@ import {
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { IContractDocument } from '../documents/interfaces/IContractDocument.js';
 import { Address } from '@btc-vision/transaction';
+import { fromBase64 } from '@btc-vision/bitcoin';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 
 export class ContractRepository extends BaseRepository<IContractDocument> {
@@ -54,7 +55,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
 
         const contractAddresses = data.map((doc) => {
             if (typeof doc.contractPublicKey === 'string') {
-                return new Address(Buffer.from(doc.contractPublicKey, 'base64'));
+                return new Address(fromBase64(doc.contractPublicKey));
             } else {
                 if (!doc.contractPublicKey) {
                     throw new Error('Contract tweaked public key is undefined');

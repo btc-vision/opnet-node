@@ -92,7 +92,7 @@ export class SSHClient extends Logger {
         return this._session;
     }
 
-    private get password(): Buffer {
+    private get password(): Uint8Array {
         if (!this.sshConfig.PASSWORD) {
             throw new Error('Password not set');
         }
@@ -151,7 +151,7 @@ export class SSHClient extends Logger {
             return;
         }
 
-        const password: Buffer = Buffer.from(ctx.password, 'utf8');
+        const password: Uint8Array = Buffer.from(ctx.password, 'utf8');
 
         if (this.verifySafeBuffer(password, this.password)) {
             this.authorize(ctx);
@@ -176,7 +176,7 @@ export class SSHClient extends Logger {
     }
 
     // AUDIT FIX: Timing Attack
-    private verifySafeBuffer(buffer: Buffer, buffer2: Buffer): boolean {
+    private verifySafeBuffer(buffer: Uint8Array, buffer2: Uint8Array): boolean {
         // too big. reject
         if (buffer.length > 1024 || buffer2.length > 1024) {
             return false;
@@ -184,11 +184,11 @@ export class SSHClient extends Logger {
 
         const maxLen = Math.max(buffer.length, buffer2.length);
 
-        const paddedBuffer1 = Buffer.alloc(maxLen, 0);
-        const paddedBuffer2 = Buffer.alloc(maxLen, 0);
+        const paddedBuffer1 = new Uint8Array(maxLen);
+        const paddedBuffer2 = new Uint8Array(maxLen);
 
-        buffer.copy(paddedBuffer1);
-        buffer2.copy(paddedBuffer2);
+        paddedBuffer1.set(buffer);
+        paddedBuffer2.set(buffer2);
 
         // Perform a constant-time comparison on equally sized buffers
         const isMatch = timingSafeEqual(paddedBuffer1, paddedBuffer2);

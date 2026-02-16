@@ -4,7 +4,7 @@ import { IPluginMetadata } from './IPluginMetadata.js';
  * Magic bytes identifying .opnet files
  * ASCII: "OPNETPLG"
  */
-export const PLUGIN_MAGIC_BYTES = Buffer.from('OPNETPLG', 'ascii');
+export const PLUGIN_MAGIC_BYTES = new TextEncoder().encode('OPNETPLG');
 
 /**
  * Current format version
@@ -49,10 +49,10 @@ export interface IParsedPluginFile {
     readonly mldsaLevel: MLDSALevel;
 
     /** MLDSA public key */
-    readonly publicKey: Buffer;
+    readonly publicKey: Uint8Array;
 
     /** MLDSA signature over checksum */
-    readonly signature: Buffer;
+    readonly signature: Uint8Array;
 
     /** Parsed metadata JSON */
     readonly metadata: IPluginMetadata;
@@ -61,13 +61,13 @@ export interface IParsedPluginFile {
     readonly rawMetadata: string;
 
     /** Compiled bytecode (.jsc) */
-    readonly bytecode: Buffer;
+    readonly bytecode: Uint8Array;
 
     /** Optional protobuf schema for WebSocket */
-    readonly proto?: Buffer;
+    readonly proto?: Uint8Array;
 
     /** SHA-256 checksum of metadata + bytecode + proto */
-    readonly checksum: Buffer;
+    readonly checksum: Uint8Array;
 }
 
 /**
@@ -75,7 +75,7 @@ export interface IParsedPluginFile {
  */
 export interface IPluginFileHeader {
     /** Magic bytes (8 bytes) */
-    readonly magic: Buffer;
+    readonly magic: Uint8Array;
 
     /** Format version (4 bytes, uint32 LE) */
     readonly version: number;
@@ -84,10 +84,10 @@ export interface IPluginFileHeader {
     readonly mldsaLevel: MLDSALevel;
 
     /** Public key (variable size based on level) */
-    readonly publicKey: Buffer;
+    readonly publicKey: Uint8Array;
 
     /** Signature (variable size based on level) */
-    readonly signature: Buffer;
+    readonly signature: Uint8Array;
 }
 
 /**

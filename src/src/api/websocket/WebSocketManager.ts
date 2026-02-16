@@ -319,7 +319,7 @@ export class WebSocketManager extends Logger {
     public onClose(socket: Websocket, code: number, reason: ArrayBuffer): void {
         const client = this.socketToClient.get(socket);
         if (client) {
-            const reasonStr = Buffer.from(reason).toString();
+            const reasonStr = new TextDecoder().decode(reason);
             this.log(`Client ${client.clientId} disconnected: ${code} ${reasonStr}`);
 
             client.markClosed();

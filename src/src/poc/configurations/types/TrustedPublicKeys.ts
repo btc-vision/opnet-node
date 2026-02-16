@@ -21,9 +21,9 @@ export interface AuthorityKey {
 }
 
 export interface AuthorityBufferKey {
-    readonly opnet: Buffer;
-    readonly publicKey: Buffer;
-    readonly signature: Buffer;
+    readonly opnet: Uint8Array;
+    readonly publicKey: Uint8Array;
+    readonly signature: Uint8Array;
     readonly wallet: Address;
 }
 

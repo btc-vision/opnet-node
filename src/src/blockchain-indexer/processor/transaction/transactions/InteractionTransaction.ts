@@ -1,5 +1,5 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
-import bitcoin, { initEccLib, networks, opcodes } from '@btc-vision/bitcoin';
+import bitcoin, { alloc, concat, equals as bytesEquals, fromHex, initEccLib, networks, opcodes, toHex } from '@btc-vision/bitcoin';
 import { createLegacyBackend } from '@btc-vision/ecpair';
 import { Binary } from 'mongodb';
 import {
@@ -23,11 +23,11 @@ import { SharedInteractionParameters } from './SharedInteractionParameters.js';
 import { AddressCache } from '../../AddressCache.js';
 
 export interface InteractionWitnessData {
-    senderPubKey: Buffer;
-    interactionSaltPubKey: Buffer;
-    hashedSenderPubKey: Buffer;
-    contractSecretHash160: Buffer;
-    calldata: Buffer;
+    senderPubKey: Uint8Array;
+    interactionSaltPubKey: Uint8Array;
+    hashedSenderPubKey: Uint8Array;
+    contractSecretHash160: Uint8Array;
+    calldata: Uint8Array;
 
     readonly header: OPNetHeader;
     readonly features: Feature<Features>[];
@@ -36,7 +36,7 @@ export interface InteractionWitnessData {
 initEccLib(createLegacyBackend(ecc));
 
 export class InteractionTransaction extends SharedInteractionParameters<InteractionTransactionType> {
-    public static LEGACY_INTERACTION: Buffer = Buffer.from([
+    public static LEGACY_INTERACTION: Uint8Array = new Uint8Array([
         opcodes.OP_TOALTSTACK, // HEADER
         opcodes.OP_TOALTSTACK, // MINER
         opcodes.OP_TOALTSTACK, // PREIMAGE
@@ -65,11 +65,11 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
 
     public readonly transactionType: InteractionTransactionType = InteractionTransaction.getType();
 
-    protected senderPubKeyHash: Buffer | undefined;
-    protected senderPubKey: Buffer | undefined;
-    protected contractSecretHash: Buffer | undefined;
-    protected contractSecret: Buffer | undefined;
-    protected interactionPubKey: Buffer | undefined;
+    protected senderPubKeyHash: Uint8Array | undefined;
+    protected senderPubKey: Uint8Array | undefined;
+    protected contractSecretHash: Uint8Array | undefined;
+    protected contractSecret: Uint8Array | undefined;
+    protected interactionPubKey: Uint8Array | undefined;
     protected interactionWitnessData: InteractionWitnessData | undefined;
 
     private p2opCached: string | undefined;
@@ -180,7 +180,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         if (scriptData.shift() !== opcodes.OP_IF) return;
 
         const magic = scriptData.shift();
-        if (!(magic instanceof Uint8Array) || magic.length !== 2 || !Buffer.from(magic).equals(OPNet_MAGIC)) {
+        if (!(magic instanceof Uint8Array) || magic.length !== 2 || !bytesEquals(magic, OPNet_MAGIC)) {
             return;
         }
 
@@ -191,10 +191,10 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
 
         return {
             header,
-            senderPubKey: Buffer.from(senderPubKey),
-            interactionSaltPubKey: Buffer.from(interactionSaltPubKey),
-            hashedSenderPubKey: Buffer.from(hashedSenderPubKey),
-            contractSecretHash160: Buffer.from(contractSaltHash160),
+            senderPubKey,
+            interactionSaltPubKey,
+            hashedSenderPubKey,
+            contractSecretHash160: contractSaltHash160,
             features,
         };
     }
@@ -207,7 +207,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
             return;
         }
 
-        const calldata: Buffer | undefined = this.getDataFromScript(scriptData);
+        const calldata = this.getDataFromScript(scriptData);
         if (!calldata) {
             throw new Error(`No contract bytecode found in interaction transaction.`);
         }
@@ -246,12 +246,12 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         this._txOrigin = from;
         this._msgSender = from;
 
-        this._calldata = Buffer.from(doc.calldata.buffer);
-        this.setMiner(Buffer.from(doc.miner.buffer), Buffer.from(doc.preimage.buffer));
+        this._calldata = new Uint8Array(doc.calldata.buffer);
+        this.setMiner(new Uint8Array(doc.miner.buffer), new Uint8Array(doc.preimage.buffer));
 
-        this.senderPubKeyHash = Buffer.from(doc.senderPubKeyHash.buffer);
-        this.contractSecret = Buffer.from(doc.contractSecret.buffer);
-        this.interactionPubKey = Buffer.from(doc.interactionPubKey.buffer);
+        this.senderPubKeyHash = new Uint8Array(doc.senderPubKeyHash.buffer);
+        this.contractSecret = new Uint8Array(doc.contractSecret.buffer);
+        this.interactionPubKey = new Uint8Array(doc.interactionPubKey.buffer);
         this.wasCompressed = doc.wasCompressed;
     }
 
@@ -345,24 +345,22 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         this._calldata = this.interactionWitnessData.calldata;
 
         const inputOPNetWitnessTransaction: TransactionInput = inputOPNetWitnessTransactions[0];
-        const witnesses: Buffer[] = inputOPNetWitnessTransaction.transactionInWitness;
+        const witnesses = inputOPNetWitnessTransaction.transactionInWitness;
 
         // The first witness item might be your "contractSecret" or other salt
-        const contractSecret: Buffer = witnesses[0];
-        const senderPubKey: Buffer = Buffer.from([
-            this.interactionWitnessData.header.publicKeyPrefix,
-            ...this.interactionWitnessData.senderPubKey,
+        const contractSecret = witnesses[0];
+        const senderPubKey = concat([
+            new Uint8Array([this.interactionWitnessData.header.publicKeyPrefix]),
+            this.interactionWitnessData.senderPubKey,
         ]);
 
-        //const senderPubKeyStr = senderPubKey.toString('hex');
-
         /** Verify witness data */
-        const hashSenderPubKey = Buffer.from(bitcoin.crypto.hash256(this.interactionWitnessData.senderPubKey));
+        const hashSenderPubKey = bitcoin.crypto.hash256(this.interactionWitnessData.senderPubKey);
         if (!this.safeEq(hashSenderPubKey, this.interactionWitnessData.hashedSenderPubKey)) {
             throw new Error(`OP_NET: Sender public key hash mismatch.`);
         }
 
-        this._from = new Address(Buffer.alloc(32), senderPubKey);
+        this._from = new Address(alloc(32), senderPubKey);
         if (!this._from.isValidLegacyPublicKey(this.network)) {
             throw new Error(`OP_NET: Invalid sender address.`);
         }
@@ -371,7 +369,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         this.senderPubKey = senderPubKey;
 
         /** Verify contract salt */
-        const hashContractSalt = Buffer.from(bitcoin.crypto.hash160(contractSecret));
+        const hashContractSalt = bitcoin.crypto.hash160(contractSecret);
         if (!this.safeEq(hashContractSalt, this.interactionWitnessData.contractSecretHash160)) {
             throw new Error(`OP_NET: Contract salt hash mismatch.`);
         }
@@ -415,7 +413,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
 
     protected verifyContractAddress(
         outputWitness: TransactionOutput,
-        hashContractSalt: Buffer,
+        hashContractSalt: Uint8Array,
     ): void {
         if (!this._contractAddress) throw new Error(`Contract address not set for transaction.`);
 
@@ -441,10 +439,10 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         }
 
         // We only allow P2OP interactions, so we check the type of the scriptPubKey
-        const scriptBuffer = Buffer.from(contractScript, 'hex');
-        const contractKey = scriptBuffer.subarray(3); // Skip OP_16 and get the next 32 bytes
+        const scriptBytes = fromHex(contractScript);
+        const contractKey = scriptBytes.subarray(3); // Skip OP_16 and get the next 32 bytes
 
-        if (!this.safeEq(contractKey, hashContractSalt) || !contractKey.equals(hashContractSalt)) {
+        if (!this.safeEq(contractKey, hashContractSalt) || !bytesEquals(contractKey, hashContractSalt)) {
             throw new Error(`OP_NET: Malformed UTXO output or mismatched pubKey.`);
         }
 
@@ -453,7 +451,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         }
     }
 
-    protected regenerateContractAddress(contractSecret: Buffer): Address {
+    protected regenerateContractAddress(contractSecret: Uint8Array): Address {
         const isValid =
             contractSecret.length === 32 ||
             contractSecret.length === 33 ||
@@ -480,7 +478,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
             }
         }
 
-        const str = contractSecret.toString('hex');
+        const str = toHex(contractSecret);
         if (!AddressVerificator.isValidPublicKey(str, this.network)) {
             throw new Error(`OP_NET: Invalid contract pubkey specified.`);
         }

@@ -1,6 +1,7 @@
 import { Logger } from '@btc-vision/bsi-common';
 import { Websocket } from '@btc-vision/hyper-express/types/components/ws/Websocket.js';
 import { randomBytes } from 'crypto';
+import { toHex } from '@btc-vision/bitcoin';
 import {
     AuthError,
     getErrorMessage,
@@ -431,7 +432,7 @@ export class WebSocketClient extends Logger {
      * Generate a unique client ID
      */
     private generateClientId(): string {
-        return randomBytes(16).toString('hex');
+        return toHex(randomBytes(16));
     }
 
     /**

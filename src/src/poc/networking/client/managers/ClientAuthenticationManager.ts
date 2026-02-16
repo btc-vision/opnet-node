@@ -117,7 +117,7 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
             return;
         }
 
-        const challengeResponse: Buffer = this.selfIdentity.identityChallenge(challenge);
+        const challengeResponse: Uint8Array = this.selfIdentity.identityChallenge(challenge);
         const keyCipherExchangeData: IClientKeyCipherExchangePacket = {
             clientKeyCipher: this.#OPNetClientKeyCipher,
             clientAuthCipher: this.#OPNetAuthKey,
@@ -237,12 +237,8 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
         }
 
         return {
-            publicKey: new Uint8Array(
-                Buffer.from(publicKey.buffer, publicKey.byteOffset, publicKey.byteLength),
-            ),
-            authKey: new Uint8Array(
-                Buffer.from(authKey.buffer, authKey.byteOffset, authKey.byteLength),
-            ),
+            publicKey: new Uint8Array(publicKey),
+            authKey: new Uint8Array(authKey),
         };
     }
 
@@ -309,8 +305,8 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
     }
 
     private setCipherKeys(serverKeyCipher: Uint8Array, serverSigningCipher: Uint8Array): void {
-        this.encryptemClient.setServerPublicKey(Buffer.from(serverKeyCipher));
-        this.encryptemClient.setServerSignaturePublicKey(Buffer.from(serverSigningCipher));
+        this.encryptemClient.setServerPublicKey(serverKeyCipher);
+        this.encryptemClient.setServerSignaturePublicKey(serverSigningCipher);
     }
 
     private async handleAuthenticationStatusPacket(packet: OPNetPacket): Promise<void> {

@@ -6,6 +6,7 @@ import {
     SPECIAL_CONTRACTS_ROSWELL_REGTEST,
     SPECIAL_CONTRACTS_ROSWELL_TESTNET,
 } from './roswell/SpecialContractsRoswell.js';
+import { fromHex } from '@btc-vision/bitcoin';
 import { ChainIds } from '../../../config/enums/ChainIds.js';
 import { Address, MLDSASecurityLevel } from '@btc-vision/transaction';
 import { ConsensusRules } from '../../../vm/consensus/ConsensusRules.js';
@@ -36,11 +37,8 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         },
     },
 
-    PROTOCOL_ID: Uint8Array.from(
-        Buffer.from(
-            'e784995a412d773988c4b8e333d7b39dfb3cabf118d0d645411a916ca2407939', // sha256("OP_NET")
-            'hex',
-        ),
+    PROTOCOL_ID: fromHex(
+        'e784995a412d773988c4b8e333d7b39dfb3cabf118d0d645411a916ca2407939', // sha256("OP_NET")
     ),
 
     EPOCH: {

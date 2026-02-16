@@ -1,7 +1,7 @@
 import { Logger } from '@btc-vision/bsi-common';
 
 export abstract class PeerNetworkingManager extends Logger {
-    public send: (data: Uint8Array | Buffer) => Promise<void> = () => {
+    public send: (data: Uint8Array) => Promise<void> = () => {
         throw new Error('Method not implemented.');
     };
 

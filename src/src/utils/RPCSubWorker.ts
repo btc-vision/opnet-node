@@ -2,6 +2,7 @@ import { VMStorage } from '../vm/storage/VMStorage.js';
 import { VMManager } from '../vm/VMManager.js';
 import { Config } from '../config/Config.js';
 import { Logger } from '@btc-vision/bsi-common';
+import { fromBase64, fromHex, toBase64, toHex } from '@btc-vision/bitcoin';
 import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
 import {
     CallRequestData,
@@ -69,8 +70,8 @@ class RPCManager extends Logger {
 
                 if (result && !('error' in result)) {
                     result = Object.assign(result, {
-                        result: result.result ? Buffer.from(result.result).toString('hex') : '',
-                        revert: result.revert ? Buffer.from(result.revert).toString('hex') : '',
+                        result: result.result ? toHex(result.result) : '',
+                        revert: result.revert ? toHex(result.revert) : '',
                         changedStorage: result.changedStorage
                             ? this.convertMapToArray(result.changedStorage)
                             : [],
@@ -141,13 +142,13 @@ class RPCManager extends Logger {
                 blockHeight: contract.blockHeight.toString(),
                 contractAddress: contract.contractAddress,
                 contractPublicKey: contract.contractPublicKey.toString(),
-                bytecode: contract.bytecode.toString('hex'),
+                bytecode: toHex(contract.bytecode),
                 wasCompressed: contract.wasCompressed,
-                deployedTransactionId: contract.deployedTransactionId.toString('hex'),
-                deployedTransactionHash: contract.deployedTransactionHash.toString('hex'),
-                deployerPubKey: contract.deployerPubKey.toString('hex'),
-                contractSeed: contract.contractSeed.toString('hex'),
-                contractSaltHash: contract.contractSaltHash.toString('hex'),
+                deployedTransactionId: toHex(contract.deployedTransactionId),
+                deployedTransactionHash: toHex(contract.deployedTransactionHash),
+                deployerPubKey: toHex(contract.deployerPubKey),
+                contractSeed: toHex(contract.contractSeed),
+                contractSaltHash: toHex(contract.contractSaltHash),
                 deployerAddress: contract.deployerAddress.toHex(),
             };
 
@@ -163,7 +164,7 @@ class RPCManager extends Logger {
         for (const [key, value] of events) {
             const innerArray: [string, string][] = [];
             for (const event of value) {
-                innerArray.push([event.type, Buffer.from(event.data).toString('hex')]);
+                innerArray.push([event.type, toHex(event.data)]);
             }
 
             array.push([key.toString(), innerArray]);
@@ -179,7 +180,7 @@ class RPCManager extends Logger {
             const innerArray: string[] = [];
             for (const innerKey of value.keys()) {
                 innerArray.push(
-                    Buffer.from(BufferHelper.pointerToUint8Array(innerKey)).toString('base64'),
+                    toBase64(BufferHelper.pointerToUint8Array(innerKey)),
                 );
             }
 
@@ -258,13 +259,13 @@ class RPCManager extends Logger {
         return {
             inputs: transaction.inputs.map((input) => {
                 return {
-                    txId: Buffer.from(input.txId, 'base64'),
+                    txId: fromBase64(input.txId),
                     outputIndex: input.outputIndex,
-                    scriptSig: Buffer.from(input.scriptSig, 'base64'),
+                    scriptSig: fromBase64(input.scriptSig),
                     witnesses: input.witnesses
-                        ? input.witnesses.map((w) => Buffer.from(w, 'base64'))
+                        ? input.witnesses.map((w) => fromBase64(w))
                         : [],
-                    coinbase: input.coinbase ? Buffer.from(input.coinbase, 'base64') : undefined,
+                    coinbase: input.coinbase ? fromBase64(input.coinbase) : undefined,
                     flags: input.flags || 0,
                 };
             }),
@@ -285,7 +286,7 @@ class RPCManager extends Logger {
                         to: output.to,
                         flags: output.flags || 0,
                         scriptPubKey: output.scriptPubKey
-                            ? Buffer.from(output.scriptPubKey, 'base64')
+                            ? fromBase64(output.scriptPubKey)
                             : undefined,
                     };
                 }),
@@ -304,7 +305,7 @@ class RPCManager extends Logger {
             const address = Address.fromString(key);
 
             const innerMap: Uint8Array[] = value.map((innerValue: string) => {
-                return Buffer.from(innerValue, 'base64');
+                return fromBase64(innerValue);
             });
 
             storageMap.set(address, innerMap);
@@ -338,7 +339,7 @@ class RPCManager extends Logger {
             return await vmManager.execute(
                 data.to,
                 fromAddress,
-                Buffer.from(data.calldata, 'hex'),
+                fromHex(data.calldata),
                 data.blockNumber,
                 parsedTransaction,
                 data.accessList,

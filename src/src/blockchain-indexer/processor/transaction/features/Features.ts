@@ -1,13 +1,13 @@
 import { Feature, Features } from '@btc-vision/transaction';
 
 export interface AccessListFeature extends Feature<Features.ACCESS_LIST> {
-    data: Buffer;
+    data: Uint8Array;
 }
 
 export interface EpochSubmissionFeature extends Feature<Features.EPOCH_SUBMISSION> {
-    data: Buffer;
+    data: Uint8Array;
 }
 
 export interface MLDSALinkRequest extends Feature<Features.MLDSA_LINK_PUBKEY> {
-    data: Buffer;
+    data: Uint8Array;
 }

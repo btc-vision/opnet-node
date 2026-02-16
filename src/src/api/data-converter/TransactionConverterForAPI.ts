@@ -1,4 +1,5 @@
 import { DataConverter } from '@btc-vision/bsi-common';
+import { toBase64, toHex } from '@btc-vision/bitcoin';
 import { Binary } from 'mongodb';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import {
@@ -41,14 +42,14 @@ export class TransactionConverterForAPI {
 
         const newTx: TransactionDocumentForAPI<OPNetTransactionTypes> = {
             ...transaction,
-            hash: transaction.hash.toString('hex'),
-            id: transaction.id.toString('hex'),
+            hash: toHex(transaction.hash),
+            id: toHex(transaction.id),
             blockNumber:
                 '0x' + DataConverter.fromDecimal128(transaction.blockHeight || 0n).toString(16),
             inputs: transaction.inputs?.map((input) => {
                 return {
                     ...input,
-                    originalTransactionId: input.originalTransactionId?.toString('hex'),
+                    originalTransactionId: input.originalTransactionId ? toHex(input.originalTransactionId) : undefined,
                     scriptSignature: input.scriptSignature,
                 };
             }),

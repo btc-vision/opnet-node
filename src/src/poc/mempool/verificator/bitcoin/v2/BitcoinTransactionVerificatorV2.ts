@@ -16,7 +16,7 @@ import { ChallengeSolution } from '../../../../../blockchain-indexer/processor/i
 import { AddressMap } from '@btc-vision/transaction';
 import { EpochRepository } from '../../../../../db/repositories/EpochRepository.js';
 
-const EMPTY_BLOCK_HASH = Buffer.alloc(32).toString('hex');
+const EMPTY_BLOCK_HASH = toHex(new Uint8Array(32));
 
 export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<TransactionTypes[]> {
     public readonly type: TransactionTypes[] = [
@@ -111,7 +111,7 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
         for (let i = 0; i < data.outs.length; i++) {
             const output = data.outs[i];
 
-            const decoded = scriptToAddress(Buffer.from(output.script), this.network);
+            const decoded = scriptToAddress(output.script, this.network);
             outputs.push({
                 value: new BigNumber(Number(output.value)).div(1e8).toNumber(),
                 scriptPubKey: {

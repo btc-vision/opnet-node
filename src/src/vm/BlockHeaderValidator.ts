@@ -5,6 +5,7 @@ import {
 import { DataConverter, DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import { VMStorage } from './storage/VMStorage.js';
+import { fromHex } from '@btc-vision/bitcoin';
 import { BufferHelper } from '@btc-vision/transaction';
 import { ChecksumMerkle } from '../blockchain-indexer/processor/block/merkle/ChecksumMerkle.js';
 import { ZERO_HASH } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
@@ -87,8 +88,8 @@ export class BlockHeaderValidator extends Logger {
         const blockStorage: string | undefined = blockHeader.storageRoot;
         const blockHash: string | undefined = blockHeader.hash;
         const blockMerkelRoot: string | undefined = blockHeader.merkleRoot;
-        const checksumRoot: Uint8Array | undefined = Uint8Array.from(
-            Buffer.from(blockHeader.checksumRoot.replace('0x', ''), 'hex'),
+        const checksumRoot: Uint8Array | undefined = fromHex(
+            blockHeader.checksumRoot.replace('0x', ''),
         );
         const proofs: BlockHeaderChecksumProof | undefined = blockHeader.checksumProofs;
 

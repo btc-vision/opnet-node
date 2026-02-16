@@ -84,7 +84,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public getMLDSAPublicKeyFromHash(
-        publicKey: Buffer | Binary,
+        publicKey: Uint8Array | Binary,
         blockHeight: bigint,
     ): Promise<IMLDSAPublicKey | null> {
         if (!this.mldsaPublicKeysRepository) {
@@ -103,8 +103,8 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public mldsaPublicKeyExists(
-        hashedPublicKey: Buffer | Binary,
-        legacyPublicKey: Buffer | Binary,
+        hashedPublicKey: Uint8Array | Binary,
+        legacyPublicKey: Uint8Array | Binary,
     ): Promise<MLDSAPublicKeyExists> {
         if (!this.mldsaPublicKeysRepository) {
             throw new Error('MLDSA Public Key repository not initialized');
@@ -114,7 +114,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public getMLDSAByLegacy(
-        publicKey: Buffer | Binary,
+        publicKey: Uint8Array | Binary,
         blockHeight: bigint,
     ): Promise<IMLDSAPublicKey | null> {
         if (!this.mldsaPublicKeysRepository) {
@@ -126,8 +126,8 @@ export class VMMongoStorage extends VMStorage {
 
     public targetEpochExists(
         epochNumber: bigint,
-        salt: Buffer | Binary,
-        mldsaPublicKey: Buffer | Binary,
+        salt: Uint8Array | Binary,
+        mldsaPublicKey: Uint8Array | Binary,
     ): Promise<boolean> {
         if (!this.targetEpochRepository) {
             throw new Error('Target epoch repository not initialized');
@@ -334,7 +334,7 @@ export class VMMongoStorage extends VMStorage {
         );
     }
 
-    public async addTweakedPublicKey(tweaked: Buffer): Promise<void> {
+    public async addTweakedPublicKey(tweaked: Uint8Array): Promise<void> {
         if (!this.publicKeysRepository) {
             throw new Error('Public key repository not initialized');
         }
@@ -556,7 +556,7 @@ export class VMMongoStorage extends VMStorage {
             height,
         );
 
-        if (Buffer.isBuffer(value)) {
+        if (value instanceof Uint8Array) {
             throw new Error('The value returned was not an Uint8Array!');
         }
 
@@ -728,7 +728,7 @@ export class VMMongoStorage extends VMStorage {
         return this.epochRepository.getEpochByNumber(epochNumber);
     }
 
-    public getEpochByHash(epochHash: Buffer | Binary): Promise<IEpochDocument | undefined> {
+    public getEpochByHash(epochHash: Uint8Array | Binary): Promise<IEpochDocument | undefined> {
         if (!this.epochRepository) {
             throw new Error('Epoch repository not initialized');
         }
@@ -760,7 +760,7 @@ export class VMMongoStorage extends VMStorage {
         return this.epochRepository.getActiveEpoch();
     }
 
-    public getEpochsByProposer(proposerPublicKey: Buffer | Binary): Promise<IEpochDocument[]> {
+    public getEpochsByProposer(proposerPublicKey: Uint8Array | Binary): Promise<IEpochDocument[]> {
         if (!this.epochRepository) {
             throw new Error('Epoch repository not initialized');
         }
@@ -768,7 +768,7 @@ export class VMMongoStorage extends VMStorage {
         return this.epochRepository.getEpochsByProposer(proposerPublicKey);
     }
 
-    public getEpochsByTargetHash(targetHash: Buffer | Binary): Promise<IEpochDocument[]> {
+    public getEpochsByTargetHash(targetHash: Uint8Array | Binary): Promise<IEpochDocument[]> {
         if (!this.epochRepository) {
             throw new Error('Epoch repository not initialized');
         }
@@ -809,7 +809,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public getSubmissionByTxHash(
-        txHash: Buffer | Binary,
+        txHash: Uint8Array | Binary,
     ): Promise<IEpochSubmissionsDocument | undefined> {
         if (!this.epochSubmissionRepository) {
             throw new Error('Epoch submission repository not initialized');
@@ -819,7 +819,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public getSubmissionByTxId(
-        txId: Buffer | Binary,
+        txId: Uint8Array | Binary,
     ): Promise<IEpochSubmissionsDocument | undefined> {
         if (!this.epochSubmissionRepository) {
             throw new Error('Epoch submission repository not initialized');
@@ -840,7 +840,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public getSubmissionsByProposer(
-        proposerPublicKey: Buffer | Binary,
+        proposerPublicKey: Uint8Array | Binary,
     ): Promise<IEpochSubmissionsDocument[]> {
         if (!this.epochSubmissionRepository) {
             throw new Error('Epoch submission repository not initialized');
@@ -858,7 +858,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public getSubmissionByHash(
-        submissionHash: Buffer | Binary,
+        submissionHash: Uint8Array | Binary,
     ): Promise<IEpochSubmissionsDocument | undefined> {
         if (!this.epochSubmissionRepository) {
             throw new Error('Epoch submission repository not initialized');
@@ -868,8 +868,8 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public submissionExists(
-        publicKey: Buffer | Binary,
-        salt: Buffer | Binary,
+        publicKey: Uint8Array | Binary,
+        salt: Uint8Array | Binary,
         epochNumber: bigint,
     ): Promise<boolean> {
         if (!this.epochSubmissionRepository) {

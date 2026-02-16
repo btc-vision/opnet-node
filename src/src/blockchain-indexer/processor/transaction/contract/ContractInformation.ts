@@ -1,4 +1,5 @@
 import { DataConverter } from '@btc-vision/bsi-common';
+import { fromBase64 } from '@btc-vision/bitcoin';
 import { Binary } from 'mongodb';
 import { IContractDocument } from '../../../../db/documents/interfaces/IContractDocument.js';
 import { DeploymentTransaction } from '../transactions/DeploymentTransaction.js';
@@ -23,74 +24,54 @@ export class ContractInformation {
         public readonly blockHeight: bigint,
         public readonly contractAddress: string,
         public readonly contractPublicKey: Address,
-        public readonly bytecode: Buffer,
+        public readonly bytecode: Uint8Array,
         public readonly wasCompressed: boolean,
-        public readonly deployedTransactionId: Buffer,
-        public readonly deployedTransactionHash: Buffer,
-        public readonly deployerPubKey: Buffer,
-        public readonly contractSeed: Buffer,
-        public readonly contractSaltHash: Buffer,
+        public readonly deployedTransactionId: Uint8Array,
+        public readonly deployedTransactionHash: Uint8Array,
+        public readonly deployerPubKey: Uint8Array,
+        public readonly contractSeed: Uint8Array,
+        public readonly contractSaltHash: Uint8Array,
         public readonly deployerAddress: Address,
     ) {}
 
     public static fromDocument(contractDocument: IContractDocument): ContractInformation {
-        let bytecodeBuffer: Buffer;
-        if (Buffer.isBuffer(contractDocument.bytecode)) {
-            bytecodeBuffer = contractDocument.bytecode;
-        } else {
-            bytecodeBuffer = Buffer.from(contractDocument.bytecode.buffer);
-        }
+        const bytecodeBytes = contractDocument.bytecode instanceof Uint8Array
+            ? contractDocument.bytecode
+            : new Uint8Array(contractDocument.bytecode.buffer);
 
-        let deployerPubKeyBuffer: Buffer;
-        if (Buffer.isBuffer(contractDocument.deployerPubKey)) {
-            deployerPubKeyBuffer = contractDocument.deployerPubKey;
-        } else {
-            deployerPubKeyBuffer = Buffer.from(contractDocument.deployerPubKey.buffer);
-        }
+        const deployerPubKeyBytes = contractDocument.deployerPubKey instanceof Uint8Array
+            ? contractDocument.deployerPubKey
+            : new Uint8Array(contractDocument.deployerPubKey.buffer);
 
-        let contractSeedBuffer: Buffer;
-        if (Buffer.isBuffer(contractDocument.contractSeed)) {
-            contractSeedBuffer = contractDocument.contractSeed;
-        } else {
-            contractSeedBuffer = Buffer.from(contractDocument.contractSeed.buffer);
-        }
+        const contractSeedBytes = contractDocument.contractSeed instanceof Uint8Array
+            ? contractDocument.contractSeed
+            : new Uint8Array(contractDocument.contractSeed.buffer);
 
-        let contractSaltHashBuffer: Buffer;
-        if (Buffer.isBuffer(contractDocument.contractSaltHash)) {
-            contractSaltHashBuffer = contractDocument.contractSaltHash;
-        } else {
-            contractSaltHashBuffer = Buffer.from(contractDocument.contractSaltHash.buffer);
-        }
+        const contractSaltHashBytes = contractDocument.contractSaltHash instanceof Uint8Array
+            ? contractDocument.contractSaltHash
+            : new Uint8Array(contractDocument.contractSaltHash.buffer);
 
-        let transactionIdBuffer: Buffer;
-        if (Buffer.isBuffer(contractDocument.deployedTransactionId)) {
-            transactionIdBuffer = contractDocument.deployedTransactionId;
-        } else {
-            transactionIdBuffer = Buffer.from(contractDocument.deployedTransactionId.buffer);
-        }
+        const transactionIdBytes = contractDocument.deployedTransactionId instanceof Uint8Array
+            ? contractDocument.deployedTransactionId
+            : new Uint8Array(contractDocument.deployedTransactionId.buffer);
 
-        let deployedTransactionHashBuffer: Buffer;
-        if (Buffer.isBuffer(contractDocument.deployedTransactionHash)) {
-            deployedTransactionHashBuffer = contractDocument.deployedTransactionHash;
-        } else {
-            deployedTransactionHashBuffer = Buffer.from(
-                contractDocument.deployedTransactionHash.buffer,
-            );
-        }
+        const deployedTransactionHashBytes = contractDocument.deployedTransactionHash instanceof Uint8Array
+            ? contractDocument.deployedTransactionHash
+            : new Uint8Array(contractDocument.deployedTransactionHash.buffer);
 
         return new ContractInformation(
             DataConverter.fromDecimal128(contractDocument.blockHeight),
             contractDocument.contractAddress,
             typeof contractDocument.contractPublicKey === 'string'
-                ? new Address(Buffer.from(contractDocument.contractPublicKey, 'base64'))
+                ? new Address(fromBase64(contractDocument.contractPublicKey))
                 : new Address(contractDocument.contractPublicKey.buffer),
-            bytecodeBuffer,
+            bytecodeBytes,
             contractDocument.wasCompressed,
-            transactionIdBuffer,
-            deployedTransactionHashBuffer,
-            deployerPubKeyBuffer,
-            contractSeedBuffer,
-            contractSaltHashBuffer,
+            transactionIdBytes,
+            deployedTransactionHashBytes,
+            deployerPubKeyBytes,
+            contractSeedBytes,
+            contractSaltHashBytes,
             new Address(
                 contractDocument.deployerAddress.buffer,
                 contractDocument.deployerPubKey.buffer,

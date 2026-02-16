@@ -1,5 +1,6 @@
 import { Binary, Db } from 'mongodb';
 import { DataConverter } from '@btc-vision/bsi-common';
+import { fromHex, toHex } from '@btc-vision/bitcoin';
 import { Address } from '@btc-vision/transaction';
 import { BlockRepository } from '../../db/repositories/BlockRepository.js';
 import { TransactionRepository } from '../../db/repositories/TransactionRepository.js';
@@ -74,7 +75,7 @@ export interface ITransactionDocument {
 export interface IContractEvent {
     readonly contractAddress: string;
     readonly eventType: string;
-    readonly data: Buffer;
+    readonly data: Uint8Array;
     readonly blockHeight: bigint;
     readonly txid: string;
     readonly eventIndex: number;
@@ -88,7 +89,7 @@ export interface ITransactionReceipt {
     readonly gasUsed: bigint;
     readonly events: readonly IContractEvent[];
     readonly revertReason?: string;
-    readonly returnData?: Buffer;
+    readonly returnData?: Uint8Array;
 }
 
 /**
@@ -98,7 +99,7 @@ export interface IContractInfo {
     readonly address: string;
     readonly deploymentHeight: bigint;
     readonly deploymentTxid: string;
-    readonly bytecode?: Buffer;
+    readonly bytecode?: Uint8Array;
     readonly deployer?: string;
     readonly isActive: boolean;
 }
@@ -135,7 +136,7 @@ export interface IPluginBlockchainAPI {
     getTransaction(txid: string): Promise<ITransactionDocument | null>;
     getTransactionsByBlock(height: bigint): Promise<readonly ITransactionDocument[]>;
     getContract(address: string): Promise<IContractInfo | null>;
-    getContractStorage(address: string, pointer: bigint): Promise<Buffer | null>;
+    getContractStorage(address: string, pointer: bigint): Promise<Uint8Array | null>;
     getContractEvents(
         address: string,
         fromBlock: bigint,
@@ -275,7 +276,7 @@ export class PluginBlockchainAPI implements IPluginBlockchainAPI {
         return {
             address: contract.contractAddress,
             deploymentHeight: contract.blockHeight,
-            deploymentTxid: contract.deployedTransactionId.toString('hex'),
+            deploymentTxid: toHex(contract.deployedTransactionId),
             bytecode: contract.bytecode,
             deployer: contract.deployerAddress.toString(),
             isActive: true,
@@ -285,7 +286,7 @@ export class PluginBlockchainAPI implements IPluginBlockchainAPI {
     /**
      * Get contract storage value at a specific pointer
      */
-    public async getContractStorage(address: string, pointer: bigint): Promise<Buffer | null> {
+    public async getContractStorage(address: string, pointer: bigint): Promise<Uint8Array | null> {
         this.checkPermission('contracts');
 
         const contractAddress = Address.fromString(address);
@@ -299,7 +300,7 @@ export class PluginBlockchainAPI implements IPluginBlockchainAPI {
             return null;
         }
 
-        return Buffer.from(result.value);
+        return new Uint8Array(result.value);
     }
 
     /**
@@ -438,12 +439,12 @@ export class PluginBlockchainAPI implements IPluginBlockchainAPI {
      * Map a transaction document to the plugin-friendly format
      */
     private mapTransaction(tx: {
-        id?: Binary | Buffer;
-        hash?: Binary | Buffer;
+        id?: Binary | Uint8Array;
+        hash?: Binary | Uint8Array;
         blockHeight?: { toString(): string };
         index: number;
         inputs: Array<{
-            originalTransactionId?: Binary | Buffer;
+            originalTransactionId?: Binary | Uint8Array;
             outputTransactionIndex?: number;
             sequence?: number;
         }>;
@@ -463,11 +464,11 @@ export class PluginBlockchainAPI implements IPluginBlockchainAPI {
         const inputs: ITransactionInput[] = tx.inputs.map((input) => {
             let txid = '0000000000000000000000000000000000000000000000000000000000000000';
             if (input.originalTransactionId) {
-                const buf =
+                const bytes =
                     input.originalTransactionId instanceof Binary
-                        ? Buffer.from(input.originalTransactionId.buffer)
+                        ? new Uint8Array(input.originalTransactionId.buffer)
                         : input.originalTransactionId;
-                txid = buf.toString('hex');
+                txid = toHex(bytes);
             }
             return {
                 txid,
@@ -479,7 +480,7 @@ export class PluginBlockchainAPI implements IPluginBlockchainAPI {
         const outputs: ITransactionOutput[] = tx.outputs.map((output) => {
             const hexValue =
                 output.scriptPubKey.hex instanceof Binary
-                    ? Buffer.from(output.scriptPubKey.hex.buffer).toString('hex')
+                    ? toHex(new Uint8Array(output.scriptPubKey.hex.buffer))
                     : output.scriptPubKey.hex;
             return {
                 value:
@@ -501,26 +502,26 @@ export class PluginBlockchainAPI implements IPluginBlockchainAPI {
 
         let receipt: ITransactionReceipt | undefined;
         if (tx.revert !== undefined) {
-            const revertBuffer = Buffer.from(tx.revert.buffer);
+            const revertBytes = new Uint8Array(tx.revert.buffer);
             receipt = {
-                success: revertBuffer.length === 0,
+                success: revertBytes.length === 0,
                 gasUsed: gasUsed ?? 0n,
                 events: [],
-                revertReason: revertBuffer.length > 0 ? revertBuffer.toString('utf8') : undefined,
+                revertReason: revertBytes.length > 0 ? new TextDecoder().decode(revertBytes) : undefined,
             };
         }
 
-        // Convert id and hash from Binary/Buffer to hex string
+        // Convert id and hash from Binary/Uint8Array to hex string
         let txidHex = '';
         if (tx.id) {
-            const idBuf = tx.id instanceof Binary ? Buffer.from(tx.id.buffer) : tx.id;
-            txidHex = idBuf.toString('hex');
+            const idBytes = tx.id instanceof Binary ? new Uint8Array(tx.id.buffer) : tx.id;
+            txidHex = toHex(idBytes);
         }
 
         let hashHex = '';
         if (tx.hash) {
-            const hashBuf = tx.hash instanceof Binary ? Buffer.from(tx.hash.buffer) : tx.hash;
-            hashHex = hashBuf.toString('hex');
+            const hashBytes = tx.hash instanceof Binary ? new Uint8Array(tx.hash.buffer) : tx.hash;
+            hashHex = toHex(hashBytes);
         }
 
         return {
@@ -564,7 +565,6 @@ export class PluginBlockchainAPI implements IPluginBlockchainAPI {
      */
     private bigintToPointer(value: bigint): Uint8Array {
         const hex = value.toString(16).padStart(64, '0');
-        const buffer = Buffer.from(hex, 'hex');
-        return new Uint8Array(buffer);
+        return fromHex(hex);
     }
 }
