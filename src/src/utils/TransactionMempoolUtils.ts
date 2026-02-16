@@ -1,5 +1,5 @@
 import { IMempoolTransactionObj } from '../db/interfaces/IMempoolTransaction.js';
-import bitcoin, { Transaction } from '@btc-vision/bitcoin';
+import bitcoin, { toHex, Transaction } from '@btc-vision/bitcoin';
 import { Long } from 'mongodb';
 import { NetworkConverter } from '../config/network/NetworkConverter.js';
 
@@ -29,7 +29,7 @@ export function parseAndStoreInputOutputs(data: Buffer, transaction: IMempoolTra
 
         for (const input of decoded.ins) {
             transaction.inputs.push({
-                transactionId: input.hash.reverse().toString('hex'),
+                transactionId: toHex(Buffer.from(input.hash).reverse()),
                 outputIndex: input.index,
             });
         }
@@ -37,11 +37,11 @@ export function parseAndStoreInputOutputs(data: Buffer, transaction: IMempoolTra
         for (let i = 0; i < decoded.outs.length; i++) {
             const out = decoded.outs[i];
 
-            const outputAddress = getOutputAddressForScript(out.script);
+            const outputAddress = getOutputAddressForScript(Buffer.from(out.script));
             transaction.outputs.push({
-                data: out.script,
+                data: Buffer.from(out.script),
                 outputIndex: i,
-                value: Long.fromNumber(out.value),
+                value: Long.fromBigInt(out.value, true),
                 address: outputAddress,
             });
         }

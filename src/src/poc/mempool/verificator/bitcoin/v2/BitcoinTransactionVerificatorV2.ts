@@ -1,6 +1,6 @@
 import { TransactionVerifier } from '../../TransactionVerifier.js';
 import { TransactionTypes } from '../../../transaction/TransactionTypes.js';
-import { Network, networks, Transaction } from '@btc-vision/bitcoin';
+import { Network, networks, toHex, Transaction } from '@btc-vision/bitcoin';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { KnownTransaction } from '../../../transaction/TransactionVerifierManager.js';
 import { Config } from '../../../../../config/Config.js';
@@ -111,11 +111,11 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
         for (let i = 0; i < data.outs.length; i++) {
             const output = data.outs[i];
 
-            const decoded = scriptToAddress(output.script, this.network);
+            const decoded = scriptToAddress(Buffer.from(output.script), this.network);
             outputs.push({
-                value: new BigNumber(output.value).div(1e8).toNumber(),
+                value: new BigNumber(Number(output.value)).div(1e8).toNumber(),
                 scriptPubKey: {
-                    hex: output.script.toString('hex'),
+                    hex: toHex(output.script),
                     address: decoded.address,
                     type: decoded.type,
                 },
@@ -128,19 +128,19 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
             version: data.version,
             locktime: data.locktime,
             vin: data.ins.map((input) => ({
-                txid: input.hash.toString('hex'),
+                txid: toHex(input.hash),
                 vout: input.index,
                 scriptSig: {
                     asm: '',
-                    hex: input.script.toString('hex'),
+                    hex: toHex(input.script),
                 },
                 sequence: input.sequence,
-                txinwitness: input.witness.map((witness) => witness.toString('hex')),
+                txinwitness: input.witness.map((witness) => toHex(witness)),
             })),
             vout: outputs,
             in_active_chain: false,
-            hex: data.toBuffer().toString('hex'),
-            hash: data.getHash(true).toString('hex'),
+            hex: toHex(data.toBuffer()),
+            hash: toHex(data.getHash(true)),
             size: data.byteLength(),
             vsize: data.virtualSize(),
             weight: data.weight(),

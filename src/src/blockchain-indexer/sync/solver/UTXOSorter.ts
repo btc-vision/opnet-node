@@ -1,5 +1,5 @@
 import { LRUCache } from 'lru-cache';
-import { crypto as btcCrypto } from '@btc-vision/bitcoin';
+import { crypto as btcCrypto, toHex } from '@btc-vision/bitcoin';
 
 import { AnyoneCanSpendDetector, AnyoneCanSpendReason } from './AnyoneCanSpendDetector.js';
 import { Logger } from '@btc-vision/bsi-common';
@@ -48,7 +48,7 @@ const solverCache: LRUCache<string, Uint8Array> = new LRUCache<string, Uint8Arra
     max: 65_536,
 });
 
-const h256 = (u: Uint8Array) => btcCrypto.sha256(Buffer.from(u)).toString('hex');
+const h256 = (u: Uint8Array) => toHex(btcCrypto.sha256(Buffer.from(u)));
 
 export class UtxoSorter extends Logger {
     public readonly logColor: string = '#ff9100'; // Bright green for UTXO sorter logs

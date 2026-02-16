@@ -497,9 +497,9 @@ export class EpochManager extends Logger {
         if (!winningSubmission || epochNumber === 0n) {
             // No valid submission or epoch 0, use genesis proposer
             salt = GENESIS_SALT; // All 0xFF for genesis
-            mldsaPublicKey = OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY.toBuffer();
+            mldsaPublicKey = Buffer.from(OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY.toBuffer());
             legacyPublicKey =
-                OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY.originalPublicKeyBuffer();
+                Buffer.from(OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY.originalPublicKeyBuffer());
             graffiti = Buffer.alloc(OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH);
         } else {
             salt = winningSubmission.salt;

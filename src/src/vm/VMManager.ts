@@ -678,7 +678,7 @@ export class VMManager extends Logger {
         }
 
         const publicKeyData = this.vmStorage.getMLDSAPublicKeyFromHash(
-            address.toBuffer(),
+            Buffer.from(address.toBuffer()),
             this.vmBitcoinBlock.height,
         );
 
@@ -1070,7 +1070,7 @@ export class VMManager extends Logger {
         const deployerKeyPair = contractInfo.contractPublicKey;
         const bytecodeLength: number = contractInfo.bytecode.byteLength;
 
-        const contractSaltHash = bitcoin.crypto.hash256(salt);
+        const contractSaltHash = Buffer.from(bitcoin.crypto.hash256(salt));
         const contractInformation: ContractInformation = new ContractInformation(
             evaluation.blockNumber,
             deployResult.p2op(this.network),
