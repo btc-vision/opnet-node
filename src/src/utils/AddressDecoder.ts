@@ -3,9 +3,11 @@ import {
     Network,
     opcodes,
     payments,
+    Script,
     script,
     toFutureOPNetAddress,
 } from '@btc-vision/bitcoin';
+import { createPublicKey } from '@btc-vision/ecpair';
 
 export interface ScriptAddress {
     /** Single address when one exists (P2PKH, P2SH, bech32, …) */
@@ -33,16 +35,18 @@ export interface ScriptAddress {
 }
 
 export function scriptToAddress(output: Buffer, network: Network): ScriptAddress {
+    const outputScript = new Uint8Array(output) as Script;
+
     if (output[0] === opcodes.OP_RETURN) {
         return { type: 'nulldata' };
     }
 
     try {
-        return { address: payments.p2pkh({ output, network }).address, type: 'pubkeyhash' };
+        return { address: payments.p2pkh({ output: outputScript, network }).address, type: 'pubkeyhash' };
     } catch {}
 
     try {
-        return { address: payments.p2sh({ output, network }).address, type: 'scripthash' };
+        return { address: payments.p2sh({ output: outputScript, network }).address, type: 'scripthash' };
     } catch {}
 
     if ((output.length === 35 || output.length === 67) && output.at(-1) === opcodes.OP_CHECKSIG) {
@@ -51,20 +55,20 @@ export function scriptToAddress(output: Buffer, network: Network): ScriptAddress
 
     try {
         return {
-            address: payments.p2wpkh({ output, network }).address,
+            address: payments.p2wpkh({ output: outputScript, network }).address,
             type: 'witness_v0_keyhash',
         };
     } catch {}
 
     try {
         return {
-            address: payments.p2wsh({ output, network }).address,
+            address: payments.p2wsh({ output: outputScript, network }).address,
             type: 'witness_v0_scripthash',
         };
     } catch {}
 
     try {
-        return { address: payments.p2tr({ output, network }).address, type: 'witness_v1_taproot' };
+        return { address: payments.p2tr({ output: outputScript, network }).address, type: 'witness_v1_taproot' };
     } catch {}
 
     try {
@@ -82,11 +86,11 @@ export function scriptToAddress(output: Buffer, network: Network): ScriptAddress
         if (typeof chunks[0] !== 'number' || typeof chunks[second] !== 'number')
             throw new Error('not-mn');
 
-        const pubKeys = chunks.slice(1, second) as Buffer[];
+        const pubKeys = chunks.slice(1, second) as Uint8Array[];
         if (!pubKeys.length) throw new Error('no-keys');
 
         const addresses = pubKeys
-            .map((pk) => payments.p2pkh({ pubkey: pk, network }).address)
+            .map((pk) => payments.p2pkh({ pubkey: createPublicKey(pk), network }).address)
             .filter((addr): addr is string => typeof addr === 'string');
 
         return { addresses: addresses, type: 'multisig' };

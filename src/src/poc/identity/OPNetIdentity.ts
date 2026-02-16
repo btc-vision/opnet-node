@@ -1,5 +1,5 @@
 import { Network, Signer, toXOnly } from '@btc-vision/bitcoin';
-import { ECPairInterface } from 'ecpair';
+import { UniversalSigner } from '@btc-vision/ecpair';
 import fs from 'fs';
 import path from 'path';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
@@ -19,12 +19,12 @@ export class OPNetIdentity extends OPNetPathFinder {
     private keyPairGenerator: KeyPairGenerator;
 
     private readonly opnetAuthKeyBin: Buffer;
-    private readonly opnetWallet: ECPairInterface;
+    private readonly opnetWallet: UniversalSigner;
 
     private readonly keyPair: OPNetKeyPair;
     private readonly trustedIdentity: string;
 
-    readonly #xPubKey: Buffer;
+    readonly #xPubKey: Uint8Array;
 
     private readonly opnetWalletPubKeyBuffer: Buffer;
 
@@ -45,7 +45,7 @@ export class OPNetIdentity extends OPNetPathFinder {
         this.keyPair = this.restoreKeyPair(this.opnetAuthKeyBin);
 
         this.trustedIdentity = this.keyPairGenerator.opnetHash(this.keyPair.trusted.publicKey);
-        this.#xPubKey = toXOnly(Buffer.from(this.opnetWallet.publicKey));
+        this.#xPubKey = toXOnly(this.opnetWallet.publicKey);
     }
 
     public get peerType(): number {
@@ -79,7 +79,7 @@ export class OPNetIdentity extends OPNetPathFinder {
         return this.publicKey.toString('base64');
     }
 
-    public get xPubKey(): Buffer {
+    public get xPubKey(): Uint8Array {
         return this.#xPubKey;
     }
 
@@ -109,7 +109,7 @@ export class OPNetIdentity extends OPNetPathFinder {
     }
 
     public get pubKey(): string {
-        return '0x' + this.opnetWallet.publicKey.toString('hex');
+        return '0x' + Buffer.from(this.opnetWallet.publicKey).toString('hex');
     }
 
     public get opnetAddress(): string {
@@ -132,7 +132,7 @@ export class OPNetIdentity extends OPNetPathFinder {
         return NetworkConverter.peerNetwork;
     }
 
-    public getSigner(): Signer | ECPairInterface {
+    public getSigner(): Signer | UniversalSigner {
         return this.opnetWallet;
     }
 
@@ -243,7 +243,7 @@ export class OPNetIdentity extends OPNetPathFinder {
         }
     }
 
-    private generateNewOPNetWallet(): ECPairInterface {
+    private generateNewOPNetWallet(): UniversalSigner {
         const wallet = EcKeyPair.generateRandomKeyPair(this.network);
         const wif = wallet.toWIF();
 
@@ -259,7 +259,7 @@ export class OPNetIdentity extends OPNetPathFinder {
         return wallet;
     }
 
-    private loadOPNetWallet(): ECPairInterface {
+    private loadOPNetWallet(): UniversalSigner {
         try {
             const wallet = fs.readFileSync(this.getOPNetWalletPath());
             const decrypted = this.decryptToString(wallet);

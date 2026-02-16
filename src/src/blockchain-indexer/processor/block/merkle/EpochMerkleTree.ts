@@ -378,7 +378,7 @@ export class EpochMerkleTree {
         const treeLeaves: Uint8Array[] = [];
 
         this.epochBytes = EpochMerkleTree.epochDataToBytes(this.epochData);
-        this._epochHash = sha256(Buffer.from(this.epochBytes));
+        this._epochHash = Buffer.from(sha256(Buffer.from(this.epochBytes)));
 
         // Add epoch data as the first leaf
         treeLeaves.push(this.epochBytes);

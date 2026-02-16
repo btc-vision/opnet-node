@@ -1,4 +1,4 @@
-import { crypto as btcCrypto, opcodes } from '@btc-vision/bitcoin';
+import { crypto as btcCrypto, opcodes, toHex } from '@btc-vision/bitcoin';
 import { TransactionOutput } from '../../processor/transaction/inputs/TransactionOutput.js';
 
 import {
@@ -93,8 +93,8 @@ export class AnyoneCanSpendDetector extends Logger {
         this.P2SH_H160 = new Set();
         this.P2WSH_SHA256 = new Set();
         for (const b of this.TRUE_SCRIPTS) {
-            this.P2SH_H160.add(btcCrypto.hash160(b).toString('hex'));
-            this.P2WSH_SHA256.add(btcCrypto.sha256(b).toString('hex'));
+            this.P2SH_H160.add(toHex(btcCrypto.hash160(b)));
+            this.P2WSH_SHA256.add(toHex(btcCrypto.sha256(b)));
         }
     }
 
@@ -160,7 +160,7 @@ export class AnyoneCanSpendDetector extends Logger {
         return undefined;
     }
 
-    private detectOpSuccessBare(asm: (number | Buffer)[] | null): AnyoneCanSpendHit | undefined {
+    private detectOpSuccessBare(asm: (number | Uint8Array)[] | null): AnyoneCanSpendHit | undefined {
         if (!asm || asm.length === 0) return;
         let i = 0;
         while (i < asm.length && asm[i] === opcodes.OP_NOP) i++;
@@ -172,7 +172,7 @@ export class AnyoneCanSpendDetector extends Logger {
         }
     }
 
-    private detectConstantTrue(asm: (number | Buffer)[] | null): AnyoneCanSpendHit | undefined {
+    private detectConstantTrue(asm: (number | Uint8Array)[] | null): AnyoneCanSpendHit | undefined {
         if (!asm || asm.length === 0) return;
         let i = 0;
         while (i < asm.length && asm[i] === opcodes.OP_NOP) i++;
@@ -182,13 +182,13 @@ export class AnyoneCanSpendDetector extends Logger {
             this.log('[detectConstantTrue] matched OP_N constant true');
             return { reason: AnyoneCanSpendReason.ConstantTrueBare };
         }
-        if (Buffer.isBuffer(op) && op.length && !op.every((b) => b === 0)) {
+        if (op instanceof Uint8Array && op.length && !op.every((b) => b === 0)) {
             this.log('[detectConstantTrue] matched non-zero push constant true');
             return { reason: AnyoneCanSpendReason.ConstantTrueBare };
         }
     }
 
-    private detectZeroOfN(asm: (number | Buffer)[] | null): AnyoneCanSpendHit | undefined {
+    private detectZeroOfN(asm: (number | Uint8Array)[] | null): AnyoneCanSpendHit | undefined {
         if (!asm || asm.length < 4) return;
         let p = 0;
         while (p < asm.length && asm[p] === opcodes.OP_NOP) p++;
@@ -211,7 +211,7 @@ export class AnyoneCanSpendDetector extends Logger {
     }
 
     private detectTimelockTrue(
-        asm: (number | Buffer)[] | null,
+        asm: (number | Uint8Array)[] | null,
         height: number,
         mtp: number,
     ): AnyoneCanSpendHit | undefined {
@@ -224,7 +224,7 @@ export class AnyoneCanSpendDetector extends Logger {
             last = asm[i + 3];
 
         if (
-            !Buffer.isBuffer(push) ||
+            !(push instanceof Uint8Array) ||
             opDrop !== opcodes.OP_DROP ||
             (last !== opcodes.OP_1 && last !== opcodes.OP_TRUE)
         )
@@ -249,10 +249,10 @@ export class AnyoneCanSpendDetector extends Logger {
         };
     }
 
-    private detectFutureWitness(asm: (number | Buffer)[] | null): AnyoneCanSpendHit | undefined {
+    private detectFutureWitness(asm: (number | Uint8Array)[] | null): AnyoneCanSpendHit | undefined {
         if (!asm || asm.length !== 2) return;
         const [vOp, prog] = asm;
-        if (typeof vOp !== 'number' || !Buffer.isBuffer(prog)) return;
+        if (typeof vOp !== 'number' || !(prog instanceof Uint8Array)) return;
 
         const ver =
             vOp === opcodes.OP_0
@@ -347,14 +347,14 @@ export class AnyoneCanSpendDetector extends Logger {
         return ok;
     }
 
-    private countBigPushes(asm: (number | Buffer)[] | null): number {
+    private countBigPushes(asm: (number | Uint8Array)[] | null): number {
         if (!asm) return 0;
         let n = 0;
-        for (const x of asm) if (Buffer.isBuffer(x) && x.length > 520) n++;
+        for (const x of asm) if (x instanceof Uint8Array && x.length > 520) n++;
         return n;
     }
 
-    private readScriptNum(buf: Buffer): bigint {
+    private readScriptNum(buf: Uint8Array): bigint {
         if (!buf.length) return 0n;
         const neg = (buf[buf.length - 1] & 0x80) !== 0;
         const clone = Buffer.from(buf);

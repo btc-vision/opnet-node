@@ -6,7 +6,7 @@ import {
     MLDSALinkRequest,
 } from '../features/Features.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
-import { opcodes, payments } from '@btc-vision/bitcoin';
+import { equals, opcodes, payments, Script } from '@btc-vision/bitcoin';
 import { OPNetConsensus } from '../../../../poc/configurations/OPNetConsensus.js';
 import {
     Address,
@@ -62,7 +62,7 @@ export abstract class SharedInteractionParameters<
     }
 
     public static getDataFromScript(
-        scriptData: Array<number | Buffer>,
+        scriptData: Array<number | Uint8Array>,
         breakWhenReachOpcode: number = opcodes.OP_ELSE,
     ): Buffer | undefined {
         let data: Buffer | undefined;
@@ -80,27 +80,27 @@ export abstract class SharedInteractionParameters<
             // Remove the item from the front:
             scriptData.shift();
 
-            // Validate it should be a Buffer; if not, it's invalid bytecode.
-            if (!Buffer.isBuffer(currentItem)) {
+            // Validate it should be a byte array; if not, it's invalid bytecode.
+            if (!(currentItem instanceof Uint8Array)) {
                 throw new Error(`Invalid contract bytecode found in transaction script.`);
             }
 
             // Accumulate the data
-            data = data ? Buffer.concat([data, currentItem]) : currentItem;
+            data = data ? Buffer.concat([data, currentItem]) : Buffer.from(currentItem);
         }
 
         return data;
     }
 
-    public static getDataUntilBufferEnd(scriptData: Array<number | Buffer>): Buffer | undefined {
+    public static getDataUntilBufferEnd(scriptData: Array<number | Uint8Array>): Buffer | undefined {
         let data: Buffer | undefined;
 
         // Keep reading until we see the break opcode or run out of script data.
         while (scriptData.length > 0) {
             const currentItem = scriptData[0];
 
-            // Validate it should be a Buffer; if not, it's invalid bytecode.
-            if (!Buffer.isBuffer(currentItem)) {
+            // Validate it should be a byte array; if not, it's the end.
+            if (!(currentItem instanceof Uint8Array)) {
                 break;
             }
 
@@ -108,17 +108,17 @@ export abstract class SharedInteractionParameters<
             scriptData.shift();
 
             // Accumulate the data
-            data = data ? Buffer.concat([data, currentItem]) : currentItem;
+            data = data ? Buffer.concat([data, currentItem]) : Buffer.from(currentItem);
         }
 
         return data;
     }
 
     protected static decodeOPNetHeader(
-        scriptData: Array<number | Buffer>,
+        scriptData: Array<number | Uint8Array>,
     ): OPNetHeader | undefined {
         const header = scriptData.shift();
-        if (!Buffer.isBuffer(header) || header.length !== OPNetHeader.EXPECTED_HEADER_LENGTH) {
+        if (!(header instanceof Uint8Array) || header.length !== OPNetHeader.EXPECTED_HEADER_LENGTH) {
             return;
         }
 
@@ -127,7 +127,7 @@ export abstract class SharedInteractionParameters<
         }
 
         const minerMLDSAPublicKey = scriptData.shift();
-        if (!Buffer.isBuffer(minerMLDSAPublicKey) || minerMLDSAPublicKey.length !== 32) {
+        if (!(minerMLDSAPublicKey instanceof Uint8Array) || minerMLDSAPublicKey.length !== 32) {
             return;
         }
 
@@ -137,7 +137,7 @@ export abstract class SharedInteractionParameters<
 
         const preimage = scriptData.shift();
         if (
-            !Buffer.isBuffer(preimage) ||
+            !(preimage instanceof Uint8Array) ||
             preimage.length !== OPNetConsensus.consensus.POW.PREIMAGE_LENGTH
         ) {
             return;
@@ -147,12 +147,12 @@ export abstract class SharedInteractionParameters<
             return;
         }
 
-        return new OPNetHeader(header, minerMLDSAPublicKey, preimage);
+        return new OPNetHeader(Buffer.from(header), Buffer.from(minerMLDSAPublicKey), Buffer.from(preimage));
     }
 
     protected static decodeFeatures(
         header: OPNetHeader,
-        scriptData: Array<number | Buffer>,
+        scriptData: Array<number | Uint8Array>,
     ): Feature<Features>[] {
         const features = header.decodeFlags();
         const decodedData: Feature<Features>[] = [];
@@ -188,8 +188,8 @@ export abstract class SharedInteractionParameters<
             return;
         }
 
-        const tweakedKey = this.from.tweakedPublicKeyToBuffer();
-        const originalKey = this.from.originalPublicKeyBuffer();
+        const tweakedKey = Buffer.from(this.from.tweakedPublicKeyToBuffer());
+        const originalKey = Buffer.from(this.from.originalPublicKeyBuffer());
         const chainId = getChainId(NetworkConverter.networkToBitcoinNetwork(this.network));
 
         const writer = new BinaryWriter();
@@ -267,7 +267,7 @@ export abstract class SharedInteractionParameters<
         }
 
         const hashed = MessageSigner.sha256(mldsaLinkRequest.publicKey);
-        if (!hashed.equals(mldsaLinkRequest.hashedPublicKey)) {
+        if (!equals(hashed, mldsaLinkRequest.hashedPublicKey)) {
             throw new Error(`MLDSA public key does not match the hashed public key.`);
         }
 
@@ -348,7 +348,7 @@ export abstract class SharedInteractionParameters<
         }
 
         const { address } = payments.p2op({
-            output: Buffer.from(outputWitness.scriptPubKey.hex, 'hex'),
+            output: new Uint8Array(Buffer.from(outputWitness.scriptPubKey.hex, 'hex')) as Script,
             network: this.network,
         });
 
@@ -375,7 +375,7 @@ export abstract class SharedInteractionParameters<
     }
 
     private async regenerateProvenance(vmManager: VMManager): Promise<void> {
-        const originalKey = this.from.tweakedPublicKeyToBuffer();
+        const originalKey = Buffer.from(this.from.tweakedPublicKeyToBuffer());
 
         // Get the key assigned to the legacy address.
         const keyData = await vmManager.getMLDSAPublicKeyFromLegacyKey(originalKey);

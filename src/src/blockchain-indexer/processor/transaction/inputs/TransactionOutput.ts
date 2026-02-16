@@ -44,7 +44,7 @@ export class TransactionOutput {
     public readonly index: number;
 
     public readonly scriptPubKey: ScriptPubKey;
-    public readonly script: Array<number | Buffer> | null;
+    public readonly script: Array<number | Uint8Array> | null;
     public readonly scriptPubKeyBuffer: Buffer;
 
     // New properties to hold the decoded public key or hash
@@ -132,10 +132,10 @@ export class TransactionOutput {
         if (
             this.script.length === 2 &&
             this.script[0] === opcodes.OP_1 &&
-            Buffer.isBuffer(this.script[1]) &&
+            this.script[1] instanceof Uint8Array &&
             this.script[1].length === 32
         ) {
-            return this.script[1]; // Return the Schnorr public key in hex
+            return Buffer.from(this.script[1]); // Return the Schnorr public key
         }
 
         return null; // Not a Taproot output
@@ -150,22 +150,22 @@ export class TransactionOutput {
             this.script.length === 5 &&
             this.script[0] === opcodes.OP_DUP &&
             this.script[1] === opcodes.OP_HASH160 &&
-            Buffer.isBuffer(this.script[2]) &&
+            this.script[2] instanceof Uint8Array &&
             this.script[2].length === 20 &&
             this.script[3] === opcodes.OP_EQUALVERIFY &&
             this.script[4] === opcodes.OP_CHECKSIG
         ) {
-            return this.script[2]; // Return the public key hash in hex
+            return Buffer.from(this.script[2]); // Return the public key hash
         }
 
         // Check for P2WPKH: OP_0 <20-byte pubKeyHash>
         if (
             this.script.length === 2 &&
             this.script[0] === opcodes.OP_0 &&
-            Buffer.isBuffer(this.script[1]) &&
+            this.script[1] instanceof Uint8Array &&
             this.script[1].length === 20
         ) {
-            return this.script[1]; // Return the public key hash in hex
+            return Buffer.from(this.script[1]); // Return the public key hash
         }
 
         return null; // No public key hash found
@@ -183,8 +183,8 @@ export class TransactionOutput {
             const pubKeys: Buffer[] = [];
             for (let i = 1; i < this.script.length - 2; i++) {
                 const next = this.script[i];
-                if (Buffer.isBuffer(next) && next.length === 33) {
-                    pubKeys.push(next); // Add each public key in hex format
+                if (next instanceof Uint8Array && next.length === 33) {
+                    pubKeys.push(Buffer.from(next)); // Add each public key
                 }
             }
             return pubKeys.length > 0 ? pubKeys : null;
@@ -193,11 +193,11 @@ export class TransactionOutput {
         // Check for P2PK (pay-to-pubkey) output: <33-byte pubKey> OP_CHECKSIG
         if (
             this.script.length === 2 &&
-            Buffer.isBuffer(this.script[0]) &&
+            this.script[0] instanceof Uint8Array &&
             this.script[0].length === 33 && // Compressed public key
             this.script[1] === opcodes.OP_CHECKSIG
         ) {
-            return [this.script[0]]; // Return the public key in hex
+            return [Buffer.from(this.script[0])]; // Return the public key
         }
 
         return null; // No public keys found

@@ -12,6 +12,7 @@ import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { ProcessUnspentTransactionList } from './UnspentTransactionRepository.js';
 import { Network, networks, payments, toXOnly } from '@btc-vision/bitcoin';
+import { createPublicKey } from '@btc-vision/ecpair';
 import { TransactionOutput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import { Address, AddressVerificator, EcKeyPair } from '@btc-vision/transaction';
@@ -74,7 +75,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                     mldsaLookups.set(i, { type: 'hashed', key: new Binary(bufferKey) });
                 } else if (key.length === 66) {
                     // 33 bytes = compressed EC pubkey, tweak and lookup by legacyPublicKey
-                    const tweakedXOnly = toXOnly(this.tweakPublicKey(bufferKey));
+                    const tweakedXOnly = toXOnly(createPublicKey(this.tweakPublicKey(bufferKey)));
                     mldsaLookups.set(i, { type: 'legacy', key: new Binary(tweakedXOnly) });
                 }
             }
@@ -224,7 +225,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
     protected tweakedPubKeyToAddress(tweakedPubKeyBuffer: Buffer, network: Network): string {
         const { address } = payments.p2tr({
-            pubkey: toXOnly(tweakedPubKeyBuffer),
+            pubkey: toXOnly(createPublicKey(tweakedPubKeyBuffer)),
             network: network,
         });
 
@@ -237,10 +238,10 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
     protected tweakPublicKey(publicKey: Buffer): Buffer {
         if (publicKey.length === 65) {
-            publicKey = EcKeyPair.fromPublicKey(publicKey).publicKey;
+            publicKey = Buffer.from(EcKeyPair.fromPublicKey(publicKey).publicKey);
         }
 
-        return EcKeyPair.tweakPublicKey(publicKey);
+        return Buffer.from(EcKeyPair.tweakPublicKey(publicKey));
     }
 
     protected async addPubKeys(documents: PublicKeyDocument[]): Promise<void> {
@@ -307,7 +308,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         // mldsa.hashedPublicKey -> p2op (when MLDSA exists)
         const isCompressed = originalPubKey !== null;
         const tweakedKey = isCompressed ? this.tweakPublicKey(bufferKey) : null;
-        const tweakedXOnly = tweakedKey ? toXOnly(tweakedKey) : bufferKey;
+        const tweakedXOnly = tweakedKey ? Buffer.from(toXOnly(createPublicKey(tweakedKey))) : bufferKey;
 
         const info: PublicKeyInfo = {
             tweakedPubkey: tweakedXOnly.toString('hex'),
@@ -338,7 +339,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     }
 
     private p2op(hashedKey: Buffer, network: Network): string | undefined {
-        const realAddress = toXOnly(hashedKey);
+        const realAddress = toXOnly(createPublicKey(hashedKey));
 
         const addy = new Address(realAddress);
         return addy.p2op(network);
@@ -555,7 +556,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
             publicKeys.push({
                 publicKey: new Binary(publicKey),
-                tweakedPublicKey: new Binary(toXOnly(tweakedPublicKey)),
+                tweakedPublicKey: new Binary(toXOnly(createPublicKey(tweakedPublicKey))),
                 lowByte: tweakedPublicKey[0],
                 p2tr: p2tr,
                 p2op: p2op,
@@ -581,7 +582,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     }
 
     private getP2PKH(publicKey: Buffer | Uint8Array, network: Network = networks.bitcoin): string {
-        const wallet = payments.p2pkh({ pubkey: Buffer.from(publicKey), network: network });
+        const wallet = payments.p2pkh({ pubkey: createPublicKey(Buffer.from(publicKey)), network: network });
         if (!wallet.address) {
             throw new Error('Failed to generate wallet');
         }

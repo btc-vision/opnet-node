@@ -1,6 +1,7 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-common';
-import { Network, script, Transaction as BitcoinTransaction } from '@btc-vision/bitcoin';
+import { Bytes32, Network, Script, Satoshi, script, Transaction as BitcoinTransaction } from '@btc-vision/bitcoin';
+import { createBytes32, createPublicKey, createSatoshi } from '@btc-vision/ecpair';
 import crypto from 'crypto';
 import { Binary, Long } from 'mongodb';
 import * as zlib from 'zlib';
@@ -248,7 +249,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     }
 
     // Simple check for presence of OPNet magic
-    public static dataIncludeOPNetMagic(data: Array<Buffer | number>): boolean {
+    public static dataIncludeOPNetMagic(data: Array<Uint8Array | number>): boolean {
         return data.some((value) => {
             if (typeof value === 'number') return false;
             const buffer: Buffer = Buffer.isBuffer(value) ? value : Buffer.from(value);
@@ -257,7 +258,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         });
     }
 
-    public static verifyChecksum(scriptData: (number | Buffer)[], typeChecksum: Buffer): boolean {
+    public static verifyChecksum(scriptData: (number | Uint8Array)[], typeChecksum: Buffer): boolean {
         const checksum: Buffer = this.getDataChecksum(scriptData);
         return checksum.equals(typeChecksum);
     }
@@ -309,7 +310,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             const rawScriptHex = witnesses[3]; //witnesses.length - 2
             const rawScriptBuf = Buffer.from(rawScriptHex, 'hex');
 
-            let decodedScript: (number | Buffer)[] | null;
+            let decodedScript: (number | Uint8Array)[] | null;
             try {
                 decodedScript = script.decompile(rawScriptBuf);
             } catch {
@@ -336,7 +337,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return isCorrectType;
     }
 
-    protected static getDataChecksum(data: Array<Buffer | number>): Buffer {
+    protected static getDataChecksum(data: Array<Uint8Array | number>): Buffer {
         const checksum: number[] = [];
         for (let i = 0; i < data.length; i++) {
             if (typeof data[i] === 'number') {
@@ -512,7 +513,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         }
 
         const rewardChallenge = TimeLockGenerator.generateTimeLockAddress(
-            this.minerLegacyPublicKey,
+            createPublicKey(this.minerLegacyPublicKey),
             this.network,
             OPNetConsensus.consensus.EPOCH.TIMELOCK_BLOCKS_REWARD,
         );
@@ -557,7 +558,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     protected getParsedScript(
         expectedPositionInWitness: number,
         vIndex: number = this.vInputIndex,
-    ): Array<Buffer | number> | undefined {
+    ): Array<Uint8Array | number> | undefined {
         const vIn = this.inputs[vIndex];
         const witnesses = vIn.transactionInWitness;
         if (!witnesses) {
@@ -660,16 +661,17 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         // For demonstration, we fill out arrays of length txObj.ins.length,
         // with zero for everything except our vInputIndex.
         const nIn = txObj.ins.length;
-        const prevOutScripts = new Array<Buffer>(nIn).fill(Buffer.alloc(0));
-        const values = new Array<number>(nIn).fill(0);
+        const emptyScript = new Uint8Array(0) as Script;
+        const prevOutScripts = new Array<Script>(nIn).fill(emptyScript);
+        const values = new Array<Satoshi>(nIn).fill(createSatoshi(0n));
 
         // fill our input with the real data
-        prevOutScripts[this.vInputIndex] = prevOutScript;
-        values[this.vInputIndex] = prevOutValue;
+        prevOutScripts[this.vInputIndex] = new Uint8Array(prevOutScript) as Script;
+        values[this.vInputIndex] = createSatoshi(BigInt(prevOutValue));
 
         // 4) call hashForWitnessV1
         // -> If leafHash is provided, it's Tapscript path
-        return txObj.hashForWitnessV1(this.vInputIndex, prevOutScripts, values, hashType, leafHash);
+        return Buffer.from(txObj.hashForWitnessV1(this.vInputIndex, prevOutScripts, values, hashType, createBytes32(leafHash)));
     }
 
     private strToBuffer(str: string): Uint8Array {

@@ -1,5 +1,6 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
 import bitcoin, { initEccLib, networks, opcodes } from '@btc-vision/bitcoin';
+import { createLegacyBackend } from '@btc-vision/ecpair';
 import { Binary } from 'mongodb';
 import {
     InteractionTransactionDocument,
@@ -32,7 +33,7 @@ export interface InteractionWitnessData {
     readonly features: Feature<Features>[];
 }
 
-initEccLib(ecc);
+initEccLib(createLegacyBackend(ecc));
 
 export class InteractionTransaction extends SharedInteractionParameters<InteractionTransactionType> {
     public static LEGACY_INTERACTION: Buffer = Buffer.from([
@@ -132,7 +133,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
     }
 
     public static getInteractionWitnessDataHeader(
-        scriptData: Array<number | Buffer>,
+        scriptData: Array<number | Uint8Array>,
     ): Omit<InteractionWitnessData, 'calldata'> | undefined {
         const header = InteractionTransaction.decodeOPNetHeader(scriptData);
         if (!header) {
@@ -141,7 +142,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
 
         // Enforce 32-byte pubkey only.
         const senderPubKey = scriptData.shift();
-        if (!Buffer.isBuffer(senderPubKey) || senderPubKey.length !== 32) {
+        if (!(senderPubKey instanceof Uint8Array) || senderPubKey.length !== 32) {
             return;
         }
 
@@ -149,7 +150,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         if (scriptData.shift() !== opcodes.OP_HASH256) return;
 
         const hashedSenderPubKey = scriptData.shift();
-        if (!Buffer.isBuffer(hashedSenderPubKey) || hashedSenderPubKey.length !== 32) {
+        if (!(hashedSenderPubKey instanceof Uint8Array) || hashedSenderPubKey.length !== 32) {
             return;
         }
 
@@ -157,7 +158,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         if (scriptData.shift() !== opcodes.OP_CHECKSIGVERIFY) return;
 
         const interactionSaltPubKey = scriptData.shift();
-        if (!Buffer.isBuffer(interactionSaltPubKey) || interactionSaltPubKey.length !== 32) {
+        if (!(interactionSaltPubKey instanceof Uint8Array) || interactionSaltPubKey.length !== 32) {
             return;
         }
 
@@ -165,7 +166,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         if (scriptData.shift() !== opcodes.OP_HASH160) return;
 
         const contractSaltHash160 = scriptData.shift();
-        if (!Buffer.isBuffer(contractSaltHash160) || contractSaltHash160.length !== 20) {
+        if (!(contractSaltHash160 instanceof Uint8Array) || contractSaltHash160.length !== 20) {
             return;
         }
 
@@ -179,7 +180,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         if (scriptData.shift() !== opcodes.OP_IF) return;
 
         const magic = scriptData.shift();
-        if (!Buffer.isBuffer(magic) || magic.length !== 2 || !magic.equals(OPNet_MAGIC)) {
+        if (!(magic instanceof Uint8Array) || magic.length !== 2 || !Buffer.from(magic).equals(OPNet_MAGIC)) {
             return;
         }
 
@@ -190,16 +191,16 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
 
         return {
             header,
-            senderPubKey,
-            interactionSaltPubKey,
-            hashedSenderPubKey,
-            contractSecretHash160: contractSaltHash160,
+            senderPubKey: Buffer.from(senderPubKey),
+            interactionSaltPubKey: Buffer.from(interactionSaltPubKey),
+            hashedSenderPubKey: Buffer.from(hashedSenderPubKey),
+            contractSecretHash160: Buffer.from(contractSaltHash160),
             features,
         };
     }
 
     public static getInteractionWitnessData(
-        scriptData: Array<number | Buffer>,
+        scriptData: Array<number | Uint8Array>,
     ): InteractionWitnessData | undefined {
         const tx = this.getInteractionWitnessDataHeader(scriptData);
         if (!tx) {
@@ -356,7 +357,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         //const senderPubKeyStr = senderPubKey.toString('hex');
 
         /** Verify witness data */
-        const hashSenderPubKey = bitcoin.crypto.hash256(this.interactionWitnessData.senderPubKey);
+        const hashSenderPubKey = Buffer.from(bitcoin.crypto.hash256(this.interactionWitnessData.senderPubKey));
         if (!this.safeEq(hashSenderPubKey, this.interactionWitnessData.hashedSenderPubKey)) {
             throw new Error(`OP_NET: Sender public key hash mismatch.`);
         }
@@ -370,7 +371,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         this.senderPubKey = senderPubKey;
 
         /** Verify contract salt */
-        const hashContractSalt = bitcoin.crypto.hash160(contractSecret);
+        const hashContractSalt = Buffer.from(bitcoin.crypto.hash160(contractSecret));
         if (!this.safeEq(hashContractSalt, this.interactionWitnessData.contractSecretHash160)) {
             throw new Error(`OP_NET: Contract salt hash mismatch.`);
         }

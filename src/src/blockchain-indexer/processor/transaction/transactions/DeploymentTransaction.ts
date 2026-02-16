@@ -1,6 +1,6 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
 import bitcoin, { networks, opcodes, toXOnly } from '@btc-vision/bitcoin';
-import { ECPairInterface } from 'ecpair';
+import { createPublicKey, UniversalSigner } from '@btc-vision/ecpair';
 import { DeploymentTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { TransactionInput } from '../inputs/TransactionInput.js';
@@ -81,7 +81,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
     public deployerPubKey: Buffer | undefined;
     public deployerPubKeyHash: Buffer | undefined;
 
-    public contractSigner: ECPairInterface | undefined;
+    public contractSigner: UniversalSigner | undefined;
 
     public constructor(
         rawTransactionData: TransactionData,
@@ -207,7 +207,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         this.deployerPubKey = deployerPubKey;
 
         // Verify sender pubkey
-        const hashSenderPubKey = bitcoin.crypto.hash256(deploymentWitnessData.senderPubKey);
+        const hashSenderPubKey = Buffer.from(bitcoin.crypto.hash256(deploymentWitnessData.senderPubKey));
         if (!this.safeEq(hashSenderPubKey, deploymentWitnessData.hashedSenderPubKey)) {
             throw new Error(`OP_NET: Sender public key hash mismatch.`);
         }
@@ -229,7 +229,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         this.contractSeed = originalSalt;
 
         /** Verify contract salt */
-        const hashOriginalSalt: Buffer = bitcoin.crypto.hash256(originalSalt);
+        const hashOriginalSalt: Buffer = Buffer.from(bitcoin.crypto.hash256(originalSalt));
         if (!this.safeEq(hashOriginalSalt, deploymentWitnessData.contractSaltHash)) {
             throw new Error(`OP_NET: Invalid contract salt hash found in deployment transaction.`);
         }
@@ -241,11 +241,11 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         this._calldata = deploymentWitnessData.calldata;
 
         /** Restore contract seed/address */
-        this._contractPublicKey = TapscriptVerificator.getContractSeed(
-            toXOnly(deployerPubKey),
+        this._contractPublicKey = Buffer.from(TapscriptVerificator.getContractSeed(
+            toXOnly(createPublicKey(deployerPubKey)),
             this.bytecode,
             hashOriginalSalt,
-        );
+        ));
 
         /** Generate contract segwit address */
         this._contractAddress = new Address(Buffer.from(this._contractPublicKey));
@@ -254,7 +254,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
 
         if (
             !this.contractSigner.publicKey ||
-            !deploymentWitnessData.contractSaltPubKey.equals(toXOnly(this.contractSigner.publicKey))
+            !deploymentWitnessData.contractSaltPubKey.equals(Buffer.from(toXOnly(this.contractSigner.publicKey)))
         ) {
             throw new Error(`OP_NET: Invalid contract signer.`);
         }
@@ -349,8 +349,8 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         const features: Feature<Features>[] = this.getFeatures();
 
         const params: ContractAddressVerificationParams = {
-            deployerPubKey: this.deployerPubKey,
-            contractSaltPubKey: Buffer.from(this.contractSigner.publicKey),
+            deployerPubKey: createPublicKey(this.deployerPubKey),
+            contractSaltPubKey: Buffer.from(this.contractSigner!.publicKey),
             originalSalt: this.contractSeed,
             bytecode: this.bytecode,
             calldata:
@@ -391,7 +391,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
     }
 
     private getDeploymentWitnessData(
-        scriptData: Array<number | Buffer>,
+        scriptData: Array<number | Uint8Array>,
     ): DeploymentWitnessData | undefined {
         const header = DeploymentTransaction.decodeOPNetHeader(scriptData);
         if (!header) {
@@ -400,7 +400,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
 
         // Enforce 32 bytes pubkey only.
         const senderPubKey = scriptData.shift();
-        if (!Buffer.isBuffer(senderPubKey) || senderPubKey.length !== 32) {
+        if (!(senderPubKey instanceof Uint8Array) || senderPubKey.length !== 32) {
             return;
         }
 
@@ -413,7 +413,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         }
 
         const hashedSenderPubKey = scriptData.shift();
-        if (!Buffer.isBuffer(hashedSenderPubKey) || hashedSenderPubKey.length !== 32) {
+        if (!(hashedSenderPubKey instanceof Uint8Array) || hashedSenderPubKey.length !== 32) {
             return;
         }
 
@@ -428,7 +428,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         // end of checks for sender pubkey
 
         const contractSaltPubKey = scriptData.shift();
-        if (!Buffer.isBuffer(contractSaltPubKey) || contractSaltPubKey.length !== 32) {
+        if (!(contractSaltPubKey instanceof Uint8Array) || contractSaltPubKey.length !== 32) {
             return;
         }
 
@@ -443,7 +443,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         // end of checks for contract salt pubkey
 
         const contractSaltHash = scriptData.shift();
-        if (!Buffer.isBuffer(contractSaltHash) || contractSaltHash.length !== 32) {
+        if (!(contractSaltHash instanceof Uint8Array) || contractSaltHash.length !== 32) {
             return;
         }
 
@@ -470,7 +470,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         }
 
         const magic = scriptData.shift();
-        if (!Buffer.isBuffer(magic) || magic.length !== 2 || !magic.equals(OPNet_MAGIC)) {
+        if (!(magic instanceof Uint8Array) || magic.length !== 2 || !Buffer.from(magic).equals(OPNet_MAGIC)) {
             return;
         }
 
@@ -514,10 +514,10 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
 
         return {
             header,
-            hashedSenderPubKey,
-            senderPubKey,
-            contractSaltPubKey,
-            contractSaltHash,
+            hashedSenderPubKey: Buffer.from(hashedSenderPubKey),
+            senderPubKey: Buffer.from(senderPubKey),
+            contractSaltPubKey: Buffer.from(contractSaltPubKey),
+            contractSaltHash: Buffer.from(contractSaltHash),
             bytecode: contractBytecode,
             calldata: calldata,
             features: features,
