@@ -230,17 +230,17 @@ export class RustContract {
                             blockMedianTime: BigInt(
                                 environmentVariables.blockMedianTime.toString(),
                             ),
-                            blockHash: environmentVariables.blockHash,
-                            txId: environmentVariables.txId,
-                            txHash: environmentVariables.txHash,
-                            contractAddress: environmentVariables.contractAddress,
-                            contractDeployer: environmentVariables.contractDeployer,
-                            caller: environmentVariables.caller,
-                            origin: environmentVariables.origin,
+                            blockHash: environmentVariables.blockHash.slice(),
+                            txId: environmentVariables.txId.slice(),
+                            txHash: environmentVariables.txHash.slice(),
+                            contractAddress: environmentVariables.contractAddress.slice(),
+                            contractDeployer: environmentVariables.contractDeployer.slice(),
+                            caller: environmentVariables.caller.slice(),
+                            origin: environmentVariables.origin.slice(),
                             chainId: getChainId(this.params.network),
                             protocolId: OPNetConsensus.consensus.PROTOCOL_ID,
                             consensusFlags: BigInt(environmentVariables.consensusFlags.toString()),
-                            originTweakedPublicKey: environmentVariables.originTweakedPublicKey,
+                            originTweakedPublicKey: environmentVariables.originTweakedPublicKey.slice(),
                         }),
                     ),
                 ),
@@ -291,7 +291,7 @@ export class RustContract {
 
     public getRevertError(): Error {
         const revertInfo = this.contractManager.getExitData(this.id);
-        const revertData = revertInfo.data.slice();
+        const revertData = new Uint8Array(revertInfo.data);
 
         try {
             this.dispose();
