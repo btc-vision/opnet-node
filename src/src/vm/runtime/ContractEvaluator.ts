@@ -12,7 +12,10 @@ import {
 import { MemoryValue, ProvenPointers } from '../storage/types/MemoryValue.js';
 import { StoragePointer } from '../storage/types/StoragePointer.js';
 import { Logger } from '@btc-vision/bsi-common';
-import { ExecutionParameters, InternalContractCallParameters, } from './types/InternalContractCallParameters.js';
+import {
+    ExecutionParameters,
+    InternalContractCallParameters,
+} from './types/InternalContractCallParameters.js';
 import { ContractEvaluation } from './classes/ContractEvaluation.js';
 import { OPNetConsensus } from '../../poc/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
