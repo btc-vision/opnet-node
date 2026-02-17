@@ -2,6 +2,7 @@ import { describe, expect, test, beforeAll } from 'vitest';
 import { TransactionInput } from '../../src/src/blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import { VIn } from '@btc-vision/bitcoin-rpc';
 import { OPNetConsensus } from '../../src/src/poc/configurations/OPNetConsensus.js';
+import { toHex } from '@btc-vision/bitcoin';
 
 // Test data constants
 const VALID_TXID = 'a'.repeat(64);
@@ -38,8 +39,8 @@ describe('TransactionInput', () => {
 
             const input = new TransactionInput(vin);
 
-            expect(input.originalTransactionId).toBeInstanceOf(Buffer);
-            expect(input.originalTransactionId.toString('hex')).toBe(VALID_TXID);
+            expect(input.originalTransactionId).toBeInstanceOf(Uint8Array);
+            expect(toHex(input.originalTransactionId)).toBe(VALID_TXID);
             expect(input.originalTransactionId.length).toBe(32);
         });
 
@@ -136,8 +137,8 @@ describe('TransactionInput', () => {
             const input = new TransactionInput(vin);
 
             expect(input.transactionInWitness).toHaveLength(2);
-            expect(input.transactionInWitness[0]).toBeInstanceOf(Buffer);
-            expect(input.transactionInWitness[1]).toBeInstanceOf(Buffer);
+            expect(input.transactionInWitness[0]).toBeInstanceOf(Uint8Array);
+            expect(input.transactionInWitness[1]).toBeInstanceOf(Uint8Array);
             expect(input.transactionInWitness[1].length).toBe(33); // byte length, not hex length
         });
 
@@ -181,8 +182,8 @@ describe('TransactionInput', () => {
             const input = new TransactionInput(vin);
             const stripped = input.toStripped();
 
-            expect(stripped.coinbase).toBeInstanceOf(Buffer);
-            expect(stripped.coinbase?.toString('hex')).toBe(coinbaseHex);
+            expect(stripped.coinbase).toBeInstanceOf(Uint8Array);
+            expect(toHex(stripped.coinbase!)).toBe(coinbaseHex);
         });
 
         test('should handle missing coinbase', () => {
@@ -215,7 +216,7 @@ describe('TransactionInput', () => {
                 const input = new TransactionInput(vin);
 
                 expect(input.decodedPubKey).not.toBeNull();
-                expect(input.decodedPubKey!.toString('hex')).toBe(COMPRESSED_PUBKEY);
+                expect(toHex(input.decodedPubKey!)).toBe(COMPRESSED_PUBKEY);
                 expect(input.decodedPubKey!.length).toBe(33);
             });
 
@@ -231,7 +232,7 @@ describe('TransactionInput', () => {
                 const input = new TransactionInput(vin);
 
                 expect(input.decodedPubKey).not.toBeNull();
-                expect(input.decodedPubKey!.toString('hex')).toBe(UNCOMPRESSED_PUBKEY);
+                expect(toHex(input.decodedPubKey!)).toBe(UNCOMPRESSED_PUBKEY);
                 expect(input.decodedPubKey!.length).toBe(65);
             });
 
@@ -285,7 +286,7 @@ describe('TransactionInput', () => {
                 const input = new TransactionInput(vin);
 
                 expect(input.decodedPubKey).not.toBeNull();
-                expect(input.decodedPubKey!.toString('hex')).toBe(COMPRESSED_PUBKEY);
+                expect(toHex(input.decodedPubKey!)).toBe(COMPRESSED_PUBKEY);
             });
 
             test('should decode uncompressed pubkey from scriptSig', () => {
@@ -302,7 +303,7 @@ describe('TransactionInput', () => {
                 const input = new TransactionInput(vin);
 
                 expect(input.decodedPubKey).not.toBeNull();
-                expect(input.decodedPubKey!.toString('hex')).toBe(UNCOMPRESSED_PUBKEY);
+                expect(toHex(input.decodedPubKey!)).toBe(UNCOMPRESSED_PUBKEY);
             });
         });
 
@@ -361,7 +362,7 @@ describe('TransactionInput', () => {
 
                 // Witness still has 2 elements with pubkey, so it should decode
                 expect(input.decodedPubKey).not.toBeNull();
-                expect(input.decodedPubKey!.toString('hex')).toBe(COMPRESSED_PUBKEY);
+                expect(toHex(input.decodedPubKey!)).toBe(COMPRESSED_PUBKEY);
             });
         });
 
@@ -479,7 +480,7 @@ describe('TransactionInput', () => {
                 expect(input.transactionInWitness[1].length).toBe(65);
                 expect(input.transactionInWitness[1][0]).toBe(0x04); // Valid uncompressed prefix
                 expect(input.decodedPubKey).not.toBeNull();
-                expect(input.decodedPubKey!.toString('hex')).toBe(UNCOMPRESSED_PUBKEY);
+                expect(toHex(input.decodedPubKey!)).toBe(UNCOMPRESSED_PUBKEY);
             });
         });
 
@@ -655,7 +656,7 @@ describe('TransactionInput', () => {
                 const input = new TransactionInput(vin);
 
                 // Should use witness pubkey, not scriptSig pubkey
-                expect(input.decodedPubKey!.toString('hex')).toBe(differentPubkey);
+                expect(toHex(input.decodedPubKey!)).toBe(differentPubkey);
             });
         });
 
@@ -676,7 +677,7 @@ describe('TransactionInput', () => {
                 const input = new TransactionInput(vin);
 
                 expect(input.decodedPubKey).not.toBeNull();
-                expect(input.decodedPubKey!.toString('hex')).toBe(
+                expect(toHex(input.decodedPubKey!)).toBe(
                     '0205342657b688537da7ec3ac78536ea648c17b452fadd4536f1e98958797da57b',
                 );
             });
@@ -698,7 +699,7 @@ describe('TransactionInput', () => {
             const input = new TransactionInput(vin);
 
             expect(input.decodedPubKeyHash).not.toBeNull();
-            expect(input.decodedPubKeyHash!.toString('hex')).toBe(PUBKEY_HASH_20_BYTES);
+            expect(toHex(input.decodedPubKeyHash!)).toBe(PUBKEY_HASH_20_BYTES);
             expect(input.decodedPubKeyHash!.length).toBe(20);
         });
 
@@ -716,7 +717,7 @@ describe('TransactionInput', () => {
             const input = new TransactionInput(vin);
 
             expect(input.decodedPubKeyHash).not.toBeNull();
-            expect(input.decodedPubKeyHash!.toString('hex')).toBe(PUBKEY_HASH_20_BYTES);
+            expect(toHex(input.decodedPubKeyHash!)).toBe(PUBKEY_HASH_20_BYTES);
         });
 
         test('should NOT decode when witness[0] is not 20 bytes', () => {
@@ -805,8 +806,8 @@ describe('TransactionInput', () => {
             const input = new TransactionInput(vin);
             const doc = input.toDocument();
 
-            expect(doc.originalTransactionId).toBeInstanceOf(Buffer);
-            expect(doc.originalTransactionId?.toString('hex')).toBe(VALID_TXID);
+            expect(doc.originalTransactionId).toBeInstanceOf(Uint8Array);
+            expect(toHex(doc.originalTransactionId!)).toBe(VALID_TXID);
             expect(doc.outputTransactionIndex).toBe(5);
             expect(doc.scriptSignature).toEqual({ asm: 'test', hex: 'deadbeef' });
             expect(doc.sequenceId).toBe(0xfffffffe);
@@ -869,10 +870,10 @@ describe('TransactionInput', () => {
             const input = new TransactionInput(vin);
             const stripped = input.toStripped();
 
-            expect(stripped.txId).toBeInstanceOf(Buffer);
+            expect(stripped.txId).toBeInstanceOf(Uint8Array);
             expect(stripped.outputIndex).toBe(3);
-            expect(stripped.scriptSig).toBeInstanceOf(Buffer);
-            expect(stripped.scriptSig.toString('hex')).toBe('aabbcc');
+            expect(stripped.scriptSig).toBeInstanceOf(Uint8Array);
+            expect(toHex(stripped.scriptSig)).toBe('aabbcc');
             expect(stripped.witnesses).toHaveLength(2);
         });
 
@@ -929,8 +930,8 @@ describe('TransactionInput', () => {
             const input = new TransactionInput(vin);
             const stripped = input.toStripped();
 
-            expect(stripped.coinbase).toBeInstanceOf(Buffer);
-            expect(stripped.coinbase?.toString('hex')).toBe(coinbaseHex);
+            expect(stripped.coinbase).toBeInstanceOf(Uint8Array);
+            expect(toHex(stripped.coinbase!)).toBe(coinbaseHex);
         });
 
         test('should set flags based on consensus settings', () => {
@@ -1008,7 +1009,7 @@ describe('TransactionInput', () => {
 
     // ==================== WITNESS DATA HANDLING TESTS ====================
     describe('witness data handling', () => {
-        test('witnesses should be Buffers not strings', () => {
+        test('witnesses should be Uint8Arrays not strings', () => {
             const vin: VIn = {
                 txid: VALID_TXID,
                 vout: 0,
@@ -1019,12 +1020,12 @@ describe('TransactionInput', () => {
 
             const input = new TransactionInput(vin);
 
-            expect(input.transactionInWitness[0]).toBeInstanceOf(Buffer);
-            expect(input.transactionInWitness[1]).toBeInstanceOf(Buffer);
+            expect(input.transactionInWitness[0]).toBeInstanceOf(Uint8Array);
+            expect(input.transactionInWitness[1]).toBeInstanceOf(Uint8Array);
             expect(typeof input.transactionInWitness[0]).not.toBe('string');
         });
 
-        test('witness Buffer length should be byte length not hex length', () => {
+        test('witness Uint8Array length should be byte length not hex length', () => {
             const vin: VIn = {
                 txid: VALID_TXID,
                 vout: 0,
@@ -1101,7 +1102,7 @@ describe('TransactionInput', () => {
 
             // Verify pubkey decoding works (this was the bug!)
             expect(input.decodedPubKey).not.toBeNull();
-            expect(input.decodedPubKey!.toString('hex')).toBe(
+            expect(toHex(input.decodedPubKey!)).toBe(
                 '0205342657b688537da7ec3ac78536ea648c17b452fadd4536f1e98958797da57b',
             );
         });
@@ -1164,7 +1165,7 @@ describe('TransactionInput', () => {
             const input = new TransactionInput(vin);
 
             // Verify all fields
-            expect(input.originalTransactionId.toString('hex')).toBe(
+            expect(toHex(input.originalTransactionId)).toBe(
                 '167b7289f84cd45ea867c518a1f84c57857e4142e08a5a970b192dc0d3a21230',
             );
             expect(input.outputTransactionIndex).toBe(107);
@@ -1198,7 +1199,7 @@ describe('TransactionInput', () => {
 
             expect(input.transactionInWitness).toHaveLength(0);
             expect(input.decodedPubKey).not.toBeNull();
-            expect(input.decodedPubKey!.toString('hex')).toBe(COMPRESSED_PUBKEY);
+            expect(toHex(input.decodedPubKey!)).toBe(COMPRESSED_PUBKEY);
             expect(input.sequenceId).toBe(4294967293);
 
             const doc = input.toDocument();
