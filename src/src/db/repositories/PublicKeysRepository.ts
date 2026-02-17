@@ -1,12 +1,4 @@
-import {
-    AnyBulkWriteOperation,
-    Binary,
-    ClientSession,
-    Collection,
-    Db,
-    Document,
-    Filter,
-} from 'mongodb';
+import { AnyBulkWriteOperation, Binary, ClientSession, Collection, Db, Document, Filter, } from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
@@ -411,8 +403,8 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         const contractPublicKeyBytes = new Uint8Array(
             (contract.contractPublicKey as Binary).buffer,
         );
-        const p2tr = this.tweakedPubKeyToAddress(contractPublicKeyBytes, this.network);
 
+        const p2tr = this.tweakedPubKeyToAddress(contractPublicKeyBytes, this.network);
         const baseDocument: PublicKeyWithMLDSA = {
             tweakedPublicKey: contract.contractPublicKey as Binary,
             p2tr,
