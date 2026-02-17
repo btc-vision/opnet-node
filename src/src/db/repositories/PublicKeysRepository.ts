@@ -331,7 +331,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     }
 
     private p2op(hashedKey: Uint8Array, network: Network): string | undefined {
-        const realAddress = createXOnlyPublicKey(hashedKey);
+        const realAddress = toXOnly(createPublicKey(hashedKey));
 
         const addy = new Address(realAddress);
         return addy.p2op(network);
