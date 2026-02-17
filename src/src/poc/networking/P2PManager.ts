@@ -3,7 +3,10 @@ import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify, identifyPush } from '@libp2p/identify';
 import {
+    type Connection,
     type ConnectionGater,
+    type IdentifyResult,
+    type MultiaddrConnection,
     Peer,
     PeerDiscovery,
     PeerId,
@@ -12,9 +15,6 @@ import {
     PrivateKey,
     Stream,
 } from '@libp2p/interface';
-import { IdentifyResult } from '@libp2p/interface/src';
-import type { Connection } from '@libp2p/interface/src/connection.js';
-import type { MultiaddrConnection } from '@libp2p/interface/src/multiaddr-connection.js';
 import { kadDHT } from '@libp2p/kad-dht';
 import { mdns } from '@libp2p/mdns';
 import { MulticastDNSComponents } from '@libp2p/mdns/dist/src/mdns.js';

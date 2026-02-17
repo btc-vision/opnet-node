@@ -4,7 +4,7 @@ import { AuthenticationManager } from '../server/managers/AuthenticationManager.
 import { ReusableStream } from './ReusableStream.js';
 import { PeerId, Stream } from '@libp2p/interface';
 import { FastStringMap } from '../../../utils/fast/FastStringMap.js';
-import type { Connection } from '@libp2p/interface/src';
+import type { Connection } from '@libp2p/interface';
 import { Logger } from '@btc-vision/bsi-common';
 
 const STREAM_IDLE_TIMEOUT_MS = 30_000;

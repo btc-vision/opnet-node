@@ -13,7 +13,7 @@
         "moduleDetection": "force",
         "allowImportingTsExtensions": false,
         "experimentalDecorators": true,
-        "lib": ["ESNext", "DOM"],
+        "lib": ["ESNext"],
         "strict": true,
         "strictNullChecks": true,
         "strictFunctionTypes": true,
