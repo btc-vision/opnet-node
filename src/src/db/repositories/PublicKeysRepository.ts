@@ -1,18 +1,10 @@
-import {
-    AnyBulkWriteOperation,
-    Binary,
-    ClientSession,
-    Collection,
-    Db,
-    Document,
-    Filter,
-} from 'mongodb';
+import { AnyBulkWriteOperation, Binary, ClientSession, Collection, Db, Document, Filter, } from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { ProcessUnspentTransactionList } from './UnspentTransactionRepository.js';
 import { fromHex, Network, networks, payments, toHex, toXOnly } from '@btc-vision/bitcoin';
-import { createPublicKey, createXOnlyPublicKey } from '@btc-vision/ecpair';
+import { createPublicKey } from '@btc-vision/ecpair';
 import { TransactionOutput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import { Address, AddressVerificator, EcKeyPair } from '@btc-vision/transaction';
