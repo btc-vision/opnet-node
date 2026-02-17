@@ -59,7 +59,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             } catch (e) {
                 this.error(`Error deleting mempool transactions: ${e}`);
 
-                throw new Error('Error deleting mempool transactions');
+                throw new Error('Error deleting mempool transactions', { cause: e });
             }
         } else {
             const criteria: Filter<IMempoolTransaction> = {

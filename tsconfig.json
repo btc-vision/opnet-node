@@ -1,45 +1,33 @@
 {
-  "compilerOptions": {
-    "module": "ESNext",
-    "target": "ESNext",
-    "declaration": true,
-    "noImplicitAny": true,
-    "removeComments": false,
-    "suppressImplicitAnyIndexErrors": false,
-    "preserveConstEnums": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": true,
-    "sourceMap": false,
-    "moduleDetection": "force",
-    "allowImportingTsExtensions": false,
-    "experimentalDecorators": true,
-    "lib": [
-      "ESNext"
-    ],
-    "strict": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "strictBindCallApply": true,
-    "strictPropertyInitialization": true,
-    "alwaysStrict": true,
-    "moduleResolution": "node",
-    "esModuleInterop": false,
-    "allowJs": true,
-    "incremental": true,
-    "allowSyntheticDefaultImports": true,
-    "outDir": "build",
-    "typeRoots": [
-      "src/src/g.d.ts",
-      "node_modules/@types"
-    ]
-  },
-  "exclude": ["node_modules"],
-  "include": [
-    "src/**/*.ts",
-    "src/*",
-    "src/**/*.js",
-    "src/*.ts",
-    "src/*.js",
-    "src/*.cjs"
-  ]
+    "compilerOptions": {
+        "module": "ESNext",
+        "target": "ESNext",
+        "declaration": true,
+        "noImplicitAny": true,
+        "removeComments": false,
+        "suppressImplicitAnyIndexErrors": false,
+        "preserveConstEnums": true,
+        "resolveJsonModule": true,
+        "skipLibCheck": true,
+        "sourceMap": false,
+        "moduleDetection": "force",
+        "allowImportingTsExtensions": false,
+        "experimentalDecorators": true,
+        "lib": ["ESNext", "DOM"],
+        "strict": true,
+        "strictNullChecks": true,
+        "strictFunctionTypes": true,
+        "strictBindCallApply": true,
+        "strictPropertyInitialization": true,
+        "alwaysStrict": true,
+        "moduleResolution": "node",
+        "esModuleInterop": false,
+        "allowJs": true,
+        "incremental": true,
+        "allowSyntheticDefaultImports": true,
+        "outDir": "build",
+        "typeRoots": ["src/src/g.d.ts", "node_modules/@types"]
+    },
+    "exclude": ["node_modules"],
+    "include": ["src/**/*.ts", "src/*", "src/**/*.js", "src/*.ts", "src/*.js", "src/*.cjs"]
 }

@@ -27,7 +27,7 @@ export class EpochByHash extends EpochRoute<Routes.EPOCH_BY_HASH> {
             data = this.getCachedEpochData(includeSubmissions, undefined, epochHash);
         } catch (e) {
             this.decrementPendingRequests();
-            throw new Error('Something went wrong.');
+            throw new Error('Something went wrong.', { cause: e });
         }
 
         this.decrementPendingRequests();

@@ -570,7 +570,7 @@ export class ContractEvaluation implements ExecutionParameters {
                 this.storage.set(contract, current);
             }
         } catch (e) {
-            throw new Error(`OP_NET: Cannot parse access list.`);
+            throw new Error(`OP_NET: Cannot parse access list.`, { cause: e });
         }
     }
 

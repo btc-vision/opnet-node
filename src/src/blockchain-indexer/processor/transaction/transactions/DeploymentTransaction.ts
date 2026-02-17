@@ -369,6 +369,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         } catch (e) {
             throw new Error(
                 `OP_NET: Invalid contract address from control block. ${(e as Error).stack}`,
+                { cause: e },
             );
         }
 

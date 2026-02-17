@@ -93,7 +93,7 @@ export abstract class ExtendedBaseRepository<T extends IBaseDocument> extends Ba
 
             if (error instanceof Error) {
                 if ('code' in error && error.code === 11000) {
-                    throw new Error(`Duplicate key violation: ${error.message}`);
+                    throw new Error(`Duplicate key violation: ${error.message}`, { cause: error });
                 }
 
                 const errorDescription: string = error.stack || error.message;

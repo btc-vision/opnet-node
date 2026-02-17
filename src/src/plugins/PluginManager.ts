@@ -431,7 +431,7 @@ export class PluginManager extends Logger {
             }
         } catch (error) {
             this.error(`Failed to validate new version of ${pluginId}: ${error}`);
-            throw new Error(`Reload aborted: validation failed - ${error}`);
+            throw new Error(`Reload aborted: validation failed - ${error}`, { cause: error });
         }
 
         // Get dependents to reload (store their states)

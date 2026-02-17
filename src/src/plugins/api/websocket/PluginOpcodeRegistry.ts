@@ -288,7 +288,7 @@ export class PluginOpcodeRegistry extends Logger {
             this.protoRoots.set(pluginId, root);
             this.info(`Loaded proto schema for plugin ${pluginId}`);
         } catch (error) {
-            throw new Error(`Failed to parse proto schema: ${error}`);
+            throw new Error(`Failed to parse proto schema: ${error}`, { cause: error });
         }
     }
 
