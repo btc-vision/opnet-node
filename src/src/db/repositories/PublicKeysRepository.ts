@@ -12,7 +12,7 @@ import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { ProcessUnspentTransactionList } from './UnspentTransactionRepository.js';
 import { fromHex, Network, networks, payments, toHex, toXOnly } from '@btc-vision/bitcoin';
-import { createPublicKey } from '@btc-vision/ecpair';
+import { createPublicKey, createXOnlyPublicKey } from '@btc-vision/ecpair';
 import { TransactionOutput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import { Address, AddressVerificator, EcKeyPair } from '@btc-vision/transaction';
@@ -339,7 +339,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     }
 
     private p2op(hashedKey: Uint8Array, network: Network): string | undefined {
-        const realAddress = toXOnly(createPublicKey(hashedKey));
+        const realAddress = createXOnlyPublicKey(hashedKey);
 
         const addy = new Address(realAddress);
         return addy.p2op(network);
@@ -383,10 +383,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     ): Promise<PublicKeyWithMLDSA | IPubKeyNotFoundError> {
         try {
             const filter: Filter<IContractDocument> = {
-                $or: [
-                    { contractAddress: key },
-                    { contractPublicKey: new Binary(fromHex(key)) },
-                ],
+                $or: [{ contractAddress: key }, { contractPublicKey: new Binary(fromHex(key)) }],
             };
 
             const resp = await this.getContractCollection().findOne(filter, {
@@ -411,7 +408,9 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     private async convertContractObjectToPublicKeyDocument(
         contract: IContractDocument,
     ): Promise<PublicKeyWithMLDSA> {
-        const contractPublicKeyBytes = new Uint8Array((contract.contractPublicKey as Binary).buffer);
+        const contractPublicKeyBytes = new Uint8Array(
+            (contract.contractPublicKey as Binary).buffer,
+        );
         const p2tr = this.tweakedPubKeyToAddress(contractPublicKeyBytes, this.network);
 
         const baseDocument: PublicKeyWithMLDSA = {
@@ -527,7 +526,11 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return controlByte === 0xc0 || controlByte === 0xc1;
     }
 
-    private addPubKey(publicKeys: PublicKeyDocument[], publicKey: Uint8Array, txId: Uint8Array): void {
+    private addPubKey(
+        publicKeys: PublicKeyDocument[],
+        publicKey: Uint8Array,
+        txId: Uint8Array,
+    ): void {
         const str = toHex(publicKey);
         if (this.cache.has(str)) return;
 
@@ -576,10 +579,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 msgOrStack = e.stack ?? e.message;
             }
 
-            this.error(
-                `error in tx (${toHex(txId)}) (${msgOrStack})`,
-                toHex(publicKey),
-            );
+            this.error(`error in tx (${toHex(txId)}) (${msgOrStack})`, toHex(publicKey));
         }
     }
 

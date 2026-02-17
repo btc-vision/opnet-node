@@ -12,10 +12,7 @@ import {
 import { MemoryValue, ProvenPointers } from '../storage/types/MemoryValue.js';
 import { StoragePointer } from '../storage/types/StoragePointer.js';
 import { Logger } from '@btc-vision/bsi-common';
-import {
-    ExecutionParameters,
-    InternalContractCallParameters,
-} from './types/InternalContractCallParameters.js';
+import { ExecutionParameters, InternalContractCallParameters, } from './types/InternalContractCallParameters.js';
 import { ContractEvaluation } from './classes/ContractEvaluation.js';
 import { OPNetConsensus } from '../../poc/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
@@ -158,6 +155,7 @@ export class ContractEvaluator extends Logger {
             !this.deployerAddress ||
             !this.contractAddress ||
             !this.bytecode ||
+            this.bytecode.length === 0 ||
             typeof this.version !== 'number'
         ) {
             throw new Error('OP_NET: Invalid contract information');
@@ -358,7 +356,10 @@ export class ContractEvaluator extends Logger {
     }
 
     /** Load a pointer */
-    private async load(data: Uint8Array, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+    private async load(
+        data: Uint8Array,
+        evaluation: ContractEvaluation,
+    ): Promise<Buffer | Uint8Array> {
         const reader: BinaryReader = new BinaryReader(data);
         const pointer: bigint = reader.readU256();
 
@@ -390,7 +391,10 @@ export class ContractEvaluator extends Logger {
     }
 
     /** Call a contract */
-    private async call(data: Uint8Array, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+    private async call(
+        data: Uint8Array,
+        evaluation: ContractEvaluation,
+    ): Promise<Buffer | Uint8Array> {
         let gasUsed: bigint = evaluation.gasUsed;
 
         try {

@@ -14,12 +14,7 @@
     "allowImportingTsExtensions": false,
     "experimentalDecorators": true,
     "lib": [
-      "es6",
-      "es2020",
-      "es2021",
-      "es2022",
-      "esnext",
-      "dom"
+      "ESNext"
     ],
     "strict": true,
     "strictNullChecks": true,

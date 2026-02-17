@@ -49,7 +49,9 @@ export class TransactionConverterForAPI {
             inputs: transaction.inputs?.map((input) => {
                 return {
                     ...input,
-                    originalTransactionId: input.originalTransactionId ? toHex(input.originalTransactionId) : undefined,
+                    originalTransactionId: input.originalTransactionId
+                        ? toHex(input.originalTransactionId)
+                        : undefined,
                     scriptSignature: input.scriptSignature,
                 };
             }),
