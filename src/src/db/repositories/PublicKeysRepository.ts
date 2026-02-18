@@ -376,6 +376,12 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     private async getKeyInfoFromContracts(
         key: string,
     ): Promise<PublicKeyWithMLDSA | IPubKeyNotFoundError> {
+        if (!AddressVerificator.isValidPublicKey(key, this.network)) {
+            return {
+                error: 'Public key not found (invalid key format, for contract address)',
+            };
+        }
+
         try {
             const filter: Filter<IContractDocument> = {
                 $or: [{ contractAddress: key }, { contractPublicKey: new Binary(fromHex(key)) }],
@@ -393,11 +399,9 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             }
 
             return await this.convertContractObjectToPublicKeyDocument(resp);
-        } catch (e) {
-            console.log(e);
-
+        } catch {
             return {
-                error: 'Public key not found (2)',
+                error: 'Public key not found',
             };
         }
     }
@@ -466,7 +470,9 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             };
 
             return await this.getOneWithMLDSA(filter);
-        } catch {
+        } catch (e) {
+            console.log('getkeyinfo', e);
+
             return await this.getKeyInfoFromContracts(key);
         }
     }
