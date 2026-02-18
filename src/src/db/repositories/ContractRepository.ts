@@ -100,7 +100,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
                 return Address.fromString(contractAddress);
             } else {
                 const contract = await this.getContractFromTweakedHybridPubKey(
-                    Binary.createFromHexString(contractAddress.replace('0x', '')),
+                    Binary.createFromHexString(contractAddress.startsWith('0x') ? contractAddress.slice(2) : contractAddress),
                     height,
                     currentSession,
                 );
@@ -160,7 +160,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         height?: bigint,
         currentSession?: ClientSession,
     ): Promise<ContractInformation | undefined> {
-        const key = Binary.createFromHexString(contractPublicKey.replace('0x', ''));
+        const key = Binary.createFromHexString(contractPublicKey.startsWith('0x') ? contractPublicKey.slice(2) : contractPublicKey);
         if ((key.buffer[0] === 0x06 || key.buffer[0] === 0x07) && key.buffer.length === 65) {
             return await this.getContractFromTweakedHybridPubKey(key, height, currentSession);
         }

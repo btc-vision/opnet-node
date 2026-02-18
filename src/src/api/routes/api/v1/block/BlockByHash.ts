@@ -37,7 +37,7 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
                 this.error(`Error details: ${(e as Error).stack}`);
             }
 
-            throw new Error(`Something went wrong.`);
+            throw new Error(`Something went wrong.`, { cause: e });
         }
 
         this.decrementPendingRequests();

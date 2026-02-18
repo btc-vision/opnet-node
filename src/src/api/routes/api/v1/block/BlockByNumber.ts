@@ -32,7 +32,7 @@ export class BlockByNumber extends BlockRoute<Routes.BLOCK_BY_ID> {
                 this.error(`Error details: ${(e as Error).stack}`);
             }
 
-            throw new Error('Something went wrong.');
+            throw new Error('Something went wrong.', { cause: e });
         }
 
         this.decrementPendingRequests();

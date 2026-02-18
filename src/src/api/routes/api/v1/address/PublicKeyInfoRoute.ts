@@ -32,6 +32,7 @@ export class PublicKeyInfoRoute extends Route<
         } catch (e) {
             throw new Error(
                 `Something went wrong while attempting to fetch public key info: ${(e as Error).message}`,
+                { cause: e },
             );
         }
     }

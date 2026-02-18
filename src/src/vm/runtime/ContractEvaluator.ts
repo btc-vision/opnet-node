@@ -158,6 +158,7 @@ export class ContractEvaluator extends Logger {
             !this.deployerAddress ||
             !this.contractAddress ||
             !this.bytecode ||
+            this.bytecode.length === 0 ||
             typeof this.version !== 'number'
         ) {
             throw new Error('OP_NET: Invalid contract information');
@@ -358,7 +359,10 @@ export class ContractEvaluator extends Logger {
     }
 
     /** Load a pointer */
-    private async load(data: Uint8Array, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+    private async load(
+        data: Uint8Array,
+        evaluation: ContractEvaluation,
+    ): Promise<Buffer | Uint8Array> {
         const reader: BinaryReader = new BinaryReader(data);
         const pointer: bigint = reader.readU256();
 
@@ -390,7 +394,10 @@ export class ContractEvaluator extends Logger {
     }
 
     /** Call a contract */
-    private async call(data: Uint8Array, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+    private async call(
+        data: Uint8Array,
+        evaluation: ContractEvaluation,
+    ): Promise<Buffer | Uint8Array> {
         let gasUsed: bigint = evaluation.gasUsed;
 
         try {

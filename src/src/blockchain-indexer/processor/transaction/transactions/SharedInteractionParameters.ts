@@ -174,7 +174,7 @@ export abstract class SharedInteractionParameters<
                 }
             }
         } catch (e) {
-            throw new Error(`OP_NET: Unable to decode features data.`);
+            throw new Error(`OP_NET: Unable to decode features data.`, { cause: e });
         }
 
         return decodedData;

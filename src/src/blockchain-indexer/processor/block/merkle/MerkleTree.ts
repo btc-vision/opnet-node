@@ -6,7 +6,7 @@ import { fromHex } from '@btc-vision/bitcoin';
 safeInitRust();
 
 export function toBytes(bytesStr: string): Uint8Array {
-    return fromHex(bytesStr.replace('0x', ''));
+    return fromHex(bytesStr.startsWith('0x') ? bytesStr.slice(2) : bytesStr);
 }
 
 export abstract class MerkleTree<K, V> {

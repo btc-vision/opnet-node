@@ -671,8 +671,8 @@ export class BlockWitnessManager extends Logger {
         const generatedChecksum = concat([
             fromHex(data.blockHash),
             fromHex(data.previousBlockHash || ''), // Will generate empty buffer if genesis block
-            fromHex(data.checksumHash.replace('0x', '')),
-            fromHex(data.previousBlockChecksum.replace('0x', '')),
+            fromHex(data.checksumHash.startsWith('0x') ? data.checksumHash.slice(2) : data.checksumHash),
+            fromHex(data.previousBlockChecksum.startsWith('0x') ? data.previousBlockChecksum.slice(2) : data.previousBlockChecksum),
         ]);
 
         return this.identity.hash(generatedChecksum);

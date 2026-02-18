@@ -159,8 +159,8 @@ export class TrustedAuthority extends Logger {
                         opnet: fromBase64(key.opnet),
                         signature: fromBase64(key.signature),
                         wallet: new Address(
-                            fromHex(key.mldsaPublicKey.replace('0x', '')),
-                            fromHex(key.walletPubKey.replace('0x', '')),
+                            fromHex(key.mldsaPublicKey.startsWith('0x') ? key.mldsaPublicKey.slice(2) : key.mldsaPublicKey),
+                            fromHex(key.walletPubKey.startsWith('0x') ? key.walletPubKey.slice(2) : key.walletPubKey),
                         ),
                     };
                 })

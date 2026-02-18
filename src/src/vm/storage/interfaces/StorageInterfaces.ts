@@ -1,3 +1,5 @@
+import type { Document } from 'bson';
+
 export interface CurrentOpOutput {
     inprog: OperationDetails[];
     ok: number;

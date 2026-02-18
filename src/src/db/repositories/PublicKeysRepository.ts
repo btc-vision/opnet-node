@@ -1,12 +1,4 @@
-import {
-    AnyBulkWriteOperation,
-    Binary,
-    ClientSession,
-    Collection,
-    Db,
-    Document,
-    Filter,
-} from 'mongodb';
+import { AnyBulkWriteOperation, Binary, ClientSession, Collection, Db, Document, Filter, } from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
@@ -66,7 +58,10 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         for (let i = 0; i < addressOrPublicKeys.length; i++) {
             const result = results[i];
             if ('error' in result) {
-                const key = addressOrPublicKeys[i].replace('0x', '');
+                const key = addressOrPublicKeys[i].startsWith('0x')
+                    ? addressOrPublicKeys[i].slice(2)
+                    : addressOrPublicKeys[i];
+
                 if (!AddressVerificator.isValidPublicKey(key, this.network)) continue;
 
                 const keyBytes = fromHex(key);
@@ -104,7 +99,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             const result = results[i];
 
             if ('error' in result) {
-                const key = originalKey.replace('0x', '');
+                const key = originalKey.startsWith('0x') ? originalKey.slice(2) : originalKey;
                 if (!AddressVerificator.isValidPublicKey(key, this.network)) {
                     pubKeyData[key] = result;
                     continue;
@@ -383,10 +378,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     ): Promise<PublicKeyWithMLDSA | IPubKeyNotFoundError> {
         try {
             const filter: Filter<IContractDocument> = {
-                $or: [
-                    { contractAddress: key },
-                    { contractPublicKey: new Binary(fromHex(key)) },
-                ],
+                $or: [{ contractAddress: key }, { contractPublicKey: new Binary(fromHex(key)) }],
             };
 
             const resp = await this.getContractCollection().findOne(filter, {
@@ -411,9 +403,11 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     private async convertContractObjectToPublicKeyDocument(
         contract: IContractDocument,
     ): Promise<PublicKeyWithMLDSA> {
-        const contractPublicKeyBytes = new Uint8Array((contract.contractPublicKey as Binary).buffer);
-        const p2tr = this.tweakedPubKeyToAddress(contractPublicKeyBytes, this.network);
+        const contractPublicKeyBytes = new Uint8Array(
+            (contract.contractPublicKey as Binary).buffer,
+        );
 
+        const p2tr = this.tweakedPubKeyToAddress(contractPublicKeyBytes, this.network);
         const baseDocument: PublicKeyWithMLDSA = {
             tweakedPublicKey: contract.contractPublicKey as Binary,
             p2tr,
@@ -527,7 +521,11 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return controlByte === 0xc0 || controlByte === 0xc1;
     }
 
-    private addPubKey(publicKeys: PublicKeyDocument[], publicKey: Uint8Array, txId: Uint8Array): void {
+    private addPubKey(
+        publicKeys: PublicKeyDocument[],
+        publicKey: Uint8Array,
+        txId: Uint8Array,
+    ): void {
         const str = toHex(publicKey);
         if (this.cache.has(str)) return;
 
@@ -576,10 +574,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 msgOrStack = e.stack ?? e.message;
             }
 
-            this.error(
-                `error in tx (${toHex(txId)}) (${msgOrStack})`,
-                toHex(publicKey),
-            );
+            this.error(`error in tx (${toHex(txId)}) (${msgOrStack})`, toHex(publicKey));
         }
     }
 

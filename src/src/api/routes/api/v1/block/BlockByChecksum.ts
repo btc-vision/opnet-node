@@ -24,7 +24,7 @@ export class BlockByChecksum extends BlockRoute<Routes.BLOCK_BY_CHECKSUM> {
             let blockChecksum: SafeString =
                 BlockParamsConverter.getParameterAsStringForBlock(params);
 
-            blockChecksum = blockChecksum ? blockChecksum.replace('0x', '').toLowerCase() : null;
+            blockChecksum = blockChecksum ? (blockChecksum.startsWith('0x') ? blockChecksum.slice(2) : blockChecksum).toLowerCase() : null;
 
             const includeTransactions: boolean = this.getParameterAsBoolean(params);
             if (!blockChecksum) {
@@ -43,7 +43,7 @@ export class BlockByChecksum extends BlockRoute<Routes.BLOCK_BY_CHECKSUM> {
                 this.error(`Error details: ${(e as Error).stack}`);
             }
 
-            throw new Error(`Something went wrong.`);
+            throw new Error(`Something went wrong.`, { cause: e });
         }
 
         this.decrementPendingRequests();

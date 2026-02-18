@@ -4,7 +4,7 @@ import tseslint from 'typescript-eslint';
 import eslint from '@eslint/js';
 import noUint8ArrayToString from './eslint-rules/no-uint8array-tostring.ts';
 
-export default tseslint.config(
+export default [
     eslint.configs.recommended,
     ...tseslint.configs.strictTypeChecked,
     {
@@ -13,7 +13,9 @@ export default tseslint.config(
         },
         languageOptions: {
             parserOptions: {
-                projectService: true,
+                projectService: {
+                    allowDefaultProject: ['eslint-rules/*.ts'],
+                },
                 tsconfigDirName: import.meta.dirname,
             },
         },
@@ -38,6 +40,7 @@ export default tseslint.config(
             '@typescript-eslint/require-await': 'warn',
             '@typescript-eslint/no-unnecessary-type-arguments': 'off',
             'no-debugger': 'off',
+            'no-useless-assignment': 'off',
             '@typescript-eslint/no-unnecessary-type-conversion': 'warn',
             'opnet/no-uint8array-tostring': 'error',
         },
@@ -46,4 +49,4 @@ export default tseslint.config(
         files: ['**/*.js'],
         ...tseslint.configs.disableTypeChecked,
     },
-);
+];

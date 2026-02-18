@@ -185,7 +185,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
             } catch (e) {
                 this.error(`Failed to delete all UTXOs: ${(e as Error).stack}`);
 
-                throw new Error('Failed to delete all UTXOs');
+                throw new Error('Failed to delete all UTXOs', { cause: e });
             }
         } else {
             const criteria: Partial<Filter<IUnspentTransaction>> = {
