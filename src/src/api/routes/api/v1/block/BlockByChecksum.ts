@@ -19,7 +19,6 @@ export class BlockByChecksum extends BlockRoute<Routes.BLOCK_BY_CHECKSUM> {
     ): Promise<BlockHeaderAPIDocumentWithTransactions | undefined> {
         this.incrementPendingRequests();
 
-        let data: Promise<BlockHeaderAPIDocumentWithTransactions>;
         try {
             let blockChecksum: SafeString =
                 BlockParamsConverter.getParameterAsStringForBlock(params);
@@ -35,20 +34,16 @@ export class BlockByChecksum extends BlockRoute<Routes.BLOCK_BY_CHECKSUM> {
 
             if (blockChecksum.length !== 64) throw new Error(`Invalid checksum length`);
 
-            data = this.getCachedBlockData(includeTransactions, undefined, blockChecksum, true);
+            return await this.getCachedBlockData(includeTransactions, undefined, blockChecksum, true);
         } catch (e) {
-            this.decrementPendingRequests();
-
             if (Config.DEV_MODE) {
                 this.error(`Error details: ${(e as Error).stack}`);
             }
 
             throw new Error(`Something went wrong.`, { cause: e });
+        } finally {
+            this.decrementPendingRequests();
         }
-
-        this.decrementPendingRequests();
-
-        return data;
     }
 
     public async getDataRPC(params: BlockByChecksumParams): Promise<BlockByIdResult | undefined> {

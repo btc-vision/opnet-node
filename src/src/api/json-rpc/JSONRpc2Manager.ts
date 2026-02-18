@@ -5,11 +5,7 @@ import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middl
 import { JSONRpcRouter } from './JSONRpcRouter.js';
 import { JSONRPCErrorCode, JSONRPCErrorHttpCodes } from './types/enums/JSONRPCErrorCode.js';
 import { JSONRpcMethods } from './types/enums/JSONRpcMethods.js';
-import {
-    JSONRpc2Request,
-    JSONRpc2RequestParams,
-    JSONRpcId,
-} from './types/interfaces/JSONRpc2Request.js';
+import { JSONRpc2Request, JSONRpc2RequestParams, JSONRpcId, } from './types/interfaces/JSONRpc2Request.js';
 import { JSONRpc2ResponseError, JSONRpc2Result } from './types/interfaces/JSONRpc2Result.js';
 import { JSONRpcResultError } from './types/interfaces/JSONRpcResultError.js';
 import { Config } from '../../config/Config.js';
@@ -142,12 +138,9 @@ export class JSONRpc2Manager extends Logger {
             // Ensure this never throws
             try {
                 const error = err as Error;
-                const message = error.message;
 
-                if (!message.includes('a batch request failed')) {
-                    if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-                        this.error(`API Error: ${Config.DEV_MODE ? error.stack : error.message}`);
-                    }
+                if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+                    this.error(`API Error: ${Config.DEV_MODE ? error.stack : error.message}`);
                 }
 
                 this.sendInternalError(res);
@@ -201,29 +194,28 @@ export class JSONRpc2Manager extends Logger {
             }
 
             const resp = await Promise.allSettled(pendingPromise);
-            const results: (JSONRpc2Result<JSONRpcMethods> | undefined)[] = resp.map((r) => {
-                if (r.status === 'fulfilled') {
+            const results: JSONRpc2Result<JSONRpcMethods>[] = resp.map((r, index) => {
+                if (r.status === 'fulfilled' && r.value) {
                     return r.value;
-                } else {
-                    return {
-                        jsonrpc: JSONRpc2Manager.RPC_VERSION,
-                        id: null,
-                        error: {
-                            code: JSONRPCErrorCode.INTERNAL_ERROR,
-                            message: r.status,
-                        },
-                    };
                 }
+
+                // Return a proper error response for rejected or undefined results
+                const requestId = batch[index]?.id ?? null;
+                return {
+                    jsonrpc: JSONRpc2Manager.RPC_VERSION,
+                    id: requestId,
+                    error: {
+                        code: JSONRPCErrorCode.INTERNAL_ERROR,
+                        message:
+                            r.status === 'rejected'
+                                ? ((r.reason as Error)?.message ?? 'Internal error')
+                                : 'Internal error',
+                    },
+                };
             });
 
-            // We must check if the response is an array of undefined values
-            // If so, we must send an internal error
-            if (results.every((value) => value === undefined)) {
-                throw new Error('Something went wrong, a batch request failed');
-            }
-
             i += batchSize;
-            responses.push(...(results as JSONRpc2Result<JSONRpcMethods>[]));
+            responses.push(...results);
         }
 
         return responses;
@@ -236,8 +228,19 @@ export class JSONRpc2Manager extends Logger {
     ): Promise<JSONRpc2Result<JSONRpcMethods> | undefined> {
         const hasValidRequest = this.verifyRequest(requestData);
         if (!hasValidRequest || !requestData) {
-            this.sendInvalidRequest(res, requestData?.id);
-            return;
+            if (sendErrorOnError) {
+                this.sendInvalidRequest(res, requestData?.id);
+                return;
+            }
+
+            return {
+                jsonrpc: JSONRpc2Manager.RPC_VERSION,
+                id: requestData?.id ?? null,
+                error: {
+                    code: JSONRPCErrorCode.INVALID_REQUEST,
+                    message: 'Invalid Request',
+                },
+            };
         }
 
         if (requestData.method?.startsWith('eth_')) {
@@ -245,8 +248,19 @@ export class JSONRpc2Manager extends Logger {
         }
 
         if (!this.hasMethod(requestData.method as string)) {
-            this.sendInvalidMethod(res, requestData.id);
-            return;
+            if (sendErrorOnError) {
+                this.sendInvalidMethod(res, requestData.id);
+                return;
+            }
+
+            return {
+                jsonrpc: JSONRpc2Manager.RPC_VERSION,
+                id: requestData.id ?? null,
+                error: {
+                    code: JSONRPCErrorCode.METHOD_NOT_FOUND,
+                    message: 'Method not found',
+                },
+            };
         }
 
         const params: JSONRpc2RequestParams<JSONRpcMethods> =

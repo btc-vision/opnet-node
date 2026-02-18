@@ -1,4 +1,12 @@
-import { AnyBulkWriteOperation, Binary, ClientSession, Collection, Db, Document, Filter, } from 'mongodb';
+import {
+    AnyBulkWriteOperation,
+    Binary,
+    ClientSession,
+    Collection,
+    Db,
+    Document,
+    Filter,
+} from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
