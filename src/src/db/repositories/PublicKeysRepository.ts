@@ -394,6 +394,8 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
             return await this.convertContractObjectToPublicKeyDocument(resp);
         } catch (e) {
+            console.log(e);
+
             return {
                 error: 'Public key not found (2)',
             };
