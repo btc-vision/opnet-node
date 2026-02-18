@@ -48,11 +48,15 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     ): Promise<IPublicKeyInfoResult> {
         const promises: Promise<PublicKeyWithMLDSA | IPubKeyNotFoundError>[] = [];
         for (let i = 0; i < addressOrPublicKeys.length; i++) {
-            promises.push(this.getKeyInfo(addressOrPublicKeys[i]));
+            const isPublicKey = AddressVerificator.isValidPublicKey(
+                addressOrPublicKeys[i],
+                this.network,
+            );
+
+            promises.push(this.getKeyInfo(addressOrPublicKeys[i], isPublicKey));
         }
 
         const results = await Promise.safeAll(promises);
-
         const mldsaLookups: Map<number, MLDSALookupEntry> = new Map();
 
         for (let i = 0; i < addressOrPublicKeys.length; i++) {
@@ -376,12 +380,6 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     private async getKeyInfoFromContracts(
         key: string,
     ): Promise<PublicKeyWithMLDSA | IPubKeyNotFoundError> {
-        if (!AddressVerificator.isValidPublicKey(key, this.network)) {
-            return {
-                error: 'Public key not found (invalid key format, for contract address)',
-            };
-        }
-
         try {
             const filter: Filter<IContractDocument> = {
                 $or: [{ contractAddress: key }, { contractPublicKey: new Binary(fromHex(key)) }],
@@ -452,26 +450,28 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return result ?? null;
     }
 
-    private async getKeyInfo(key: string): Promise<PublicKeyWithMLDSA | IPubKeyNotFoundError> {
+    private async getKeyInfo(
+        key: string,
+        isPublicKey: boolean,
+    ): Promise<PublicKeyWithMLDSA | IPubKeyNotFoundError> {
         try {
-            const keyBinary = new Binary(fromHex(key));
             const filter: Filter<PublicKeyDocument> = {
-                $or: [
-                    { p2op: key },
-                    { p2tr: key },
-                    { tweakedPublicKey: keyBinary },
-                    { publicKey: keyBinary },
-                    { p2pkh: key },
-                    //{ p2shp2wpkh: key },
-                    { p2wpkh: key },
-                    //{ p2pkhUncompressed: key },
-                    //{ p2pkhHybrid: key },
-                ],
+                $or: [{ p2op: key }, { p2tr: key }, { p2pkh: key }, { p2wpkh: key }],
             };
+
+            if (isPublicKey && filter.$or) {
+                const keyBinary = new Binary(fromHex(key));
+
+                filter.$or.push(...[{ tweakedPublicKey: keyBinary }, { publicKey: keyBinary }]);
+            }
 
             return await this.getOneWithMLDSA(filter);
         } catch (e) {
-            console.log('getkeyinfo', e);
+            if (!isPublicKey) {
+                return {
+                    error: 'Public key not found (invalid key format, for contract address)',
+                };
+            }
 
             return await this.getKeyInfoFromContracts(key);
         }
