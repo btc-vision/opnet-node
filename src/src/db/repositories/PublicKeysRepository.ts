@@ -389,13 +389,13 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             });
 
             if (!resp) {
-                throw new Error('Public key not found');
+                throw new Error('Public key not found (3)');
             }
 
             return await this.convertContractObjectToPublicKeyDocument(resp);
-        } catch {
+        } catch (e) {
             return {
-                error: 'Public key not found',
+                error: 'Public key not found (2)',
             };
         }
     }
@@ -494,7 +494,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             .toArray();
 
         if (!results.length) {
-            throw new Error('Public key not found');
+            throw new Error('Public key not found (1)');
         }
 
         return results[0];
