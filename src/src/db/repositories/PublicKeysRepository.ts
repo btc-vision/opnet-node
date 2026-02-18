@@ -58,7 +58,10 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         for (let i = 0; i < addressOrPublicKeys.length; i++) {
             const result = results[i];
             if ('error' in result) {
-                const key = addressOrPublicKeys[i].replace('0x', '');
+                const key = addressOrPublicKeys[i].startsWith('0x')
+                    ? addressOrPublicKeys[i].slice(2)
+                    : addressOrPublicKeys[i];
+
                 if (!AddressVerificator.isValidPublicKey(key, this.network)) continue;
 
                 const keyBytes = fromHex(key);
@@ -96,7 +99,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             const result = results[i];
 
             if ('error' in result) {
-                const key = originalKey.replace('0x', '');
+                const key = originalKey.startsWith('0x') ? originalKey.slice(2) : originalKey;
                 if (!AddressVerificator.isValidPublicKey(key, this.network)) {
                     pubKeyData[key] = result;
                     continue;
