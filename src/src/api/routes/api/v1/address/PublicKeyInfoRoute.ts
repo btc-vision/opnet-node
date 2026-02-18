@@ -26,9 +26,16 @@ export class PublicKeyInfoRoute extends Route<
         }
 
         try {
-            const parameters = this.parseParameters(params);
+            const { valid, invalid } = this.parseParameters(params);
 
-            return await this.storage.getAddressOrPublicKeysInformation(parameters);
+            const result: PublicKeyInfoResult =
+                valid.length > 0 ? await this.storage.getAddressOrPublicKeysInformation(valid) : {};
+
+            for (const [address, error] of invalid) {
+                result[address] = { error };
+            }
+
+            return result;
         } catch (e) {
             throw new Error(
                 `Something went wrong while attempting to fetch public key info: ${(e as Error).message}`,
@@ -71,7 +78,9 @@ export class PublicKeyInfoRoute extends Route<
             if (data) {
                 this.safeJson(res, 200, data);
             } else {
-                this.safeJson(res, 400, { error: 'Could not fetch balance for the given address.' });
+                this.safeJson(res, 400, {
+                    error: 'Could not fetch balance for the given address.',
+                });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);
@@ -96,9 +105,13 @@ export class PublicKeyInfoRoute extends Route<
         }
     }
 
-    private parseParameters(params: PublicKeyInfoParams): string[] {
+    private parseParameters(params: PublicKeyInfoParams): {
+        valid: string[];
+        invalid: Map<string, string>;
+    } {
         const isArray = Array.isArray(params);
-        const finalParams: string[] = [];
+        const valid: string[] = [];
+        const invalid: Map<string, string> = new Map();
 
         if (isArray) {
             if (!params.length) {
@@ -113,18 +126,25 @@ export class PublicKeyInfoRoute extends Route<
             for (let i = 0; i < addresses.length; i++) {
                 const address = addresses[i];
                 if (typeof address !== 'string' || !address) {
-                    throw new Error('Invalid address specified.');
+                    continue;
                 }
 
-                this.verifyAddressConformity(address);
-
-                finalParams.push(address);
+                try {
+                    this.verifyAddressConformity(address);
+                    valid.push(address);
+                } catch (e) {
+                    invalid.set(address, (e as Error).message);
+                }
             }
         } else {
             this.verifyObject(params);
-            finalParams.push(params.address);
+            valid.push(params.address);
         }
 
-        return finalParams;
+        if (valid.length === 0 && invalid.size === 0) {
+            throw new Error('No addresses specified.');
+        }
+
+        return { valid, invalid };
     }
 }

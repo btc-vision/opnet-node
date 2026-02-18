@@ -19,7 +19,6 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
     ): Promise<BlockHeaderAPIDocumentWithTransactions | undefined> {
         this.incrementPendingRequests();
 
-        let data: Promise<BlockHeaderAPIDocumentWithTransactions>;
         try {
             const blockHash = BlockParamsConverter.getParameterAsStringForBlock(params);
             const includeTransactions: boolean = this.getParameterAsBoolean(params);
@@ -29,20 +28,16 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
 
             if (blockHash.length !== 64) throw new Error(`Invalid hash length`);
 
-            data = this.getCachedBlockData(includeTransactions, undefined, blockHash);
+            return await this.getCachedBlockData(includeTransactions, undefined, blockHash);
         } catch (e) {
-            this.decrementPendingRequests();
-
             if (Config.DEV_MODE) {
                 this.error(`Error details: ${(e as Error).stack}`);
             }
 
             throw new Error(`Something went wrong.`, { cause: e });
+        } finally {
+            this.decrementPendingRequests();
         }
-
-        this.decrementPendingRequests();
-
-        return data;
     }
 
     public async getDataRPC(params: BlockByHashParams): Promise<BlockByIdResult | undefined> {

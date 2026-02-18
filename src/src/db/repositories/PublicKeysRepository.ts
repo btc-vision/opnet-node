@@ -1,10 +1,18 @@
-import { AnyBulkWriteOperation, Binary, ClientSession, Collection, Db, Document, Filter, } from 'mongodb';
+import {
+    AnyBulkWriteOperation,
+    Binary,
+    ClientSession,
+    Collection,
+    Db,
+    Document,
+    Filter,
+} from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { ProcessUnspentTransactionList } from './UnspentTransactionRepository.js';
 import { fromHex, Network, networks, payments, toHex, toXOnly } from '@btc-vision/bitcoin';
-import { createPublicKey } from '@btc-vision/ecpair';
+import { createPublicKey, PublicKey } from '@btc-vision/ecpair';
 import { TransactionOutput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import { Address, AddressVerificator, EcKeyPair } from '@btc-vision/transaction';
@@ -48,11 +56,15 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     ): Promise<IPublicKeyInfoResult> {
         const promises: Promise<PublicKeyWithMLDSA | IPubKeyNotFoundError>[] = [];
         for (let i = 0; i < addressOrPublicKeys.length; i++) {
-            promises.push(this.getKeyInfo(addressOrPublicKeys[i]));
+            const isPublicKey = AddressVerificator.isValidPublicKey(
+                addressOrPublicKeys[i],
+                this.network,
+            );
+
+            promises.push(this.getKeyInfo(addressOrPublicKeys[i], isPublicKey));
         }
 
         const results = await Promise.safeAll(promises);
-
         const mldsaLookups: Map<number, MLDSALookupEntry> = new Map();
 
         for (let i = 0; i < addressOrPublicKeys.length; i++) {
@@ -70,7 +82,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                     mldsaLookups.set(i, { type: 'hashed', key: new Binary(keyBytes) });
                 } else if (key.length === 66) {
                     // 33 bytes = compressed EC pubkey, tweak and lookup by legacyPublicKey
-                    const tweakedXOnly = toXOnly(createPublicKey(this.tweakPublicKey(keyBytes)));
+                    const tweakedXOnly = toXOnly(this.tweakPublicKey(keyBytes) as PublicKey);
                     mldsaLookups.set(i, { type: 'legacy', key: new Binary(tweakedXOnly) });
                 }
             }
@@ -220,7 +232,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
     protected tweakedPubKeyToAddress(tweakedPubKeyBuffer: Uint8Array, network: Network): string {
         const { address } = payments.p2tr({
-            pubkey: toXOnly(createPublicKey(tweakedPubKeyBuffer)),
+            pubkey: toXOnly(tweakedPubKeyBuffer as PublicKey),
             network: network,
         });
 
@@ -303,7 +315,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         // mldsa.hashedPublicKey -> p2op (when MLDSA exists)
         const isCompressed = originalPubKey !== null;
         const tweakedKey = isCompressed ? this.tweakPublicKey(keyBytes) : null;
-        const tweakedXOnly = tweakedKey ? toXOnly(createPublicKey(tweakedKey)) : keyBytes;
+        const tweakedXOnly = tweakedKey ? toXOnly(tweakedKey as PublicKey) : keyBytes;
 
         const info: PublicKeyInfo = {
             tweakedPubkey: toHex(tweakedXOnly),
@@ -334,7 +346,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     }
 
     private p2op(hashedKey: Uint8Array, network: Network): string | undefined {
-        const realAddress = toXOnly(createPublicKey(hashedKey));
+        const realAddress = toXOnly(hashedKey as PublicKey);
 
         const addy = new Address(realAddress);
         return addy.p2op(network);
@@ -389,7 +401,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             });
 
             if (!resp) {
-                throw new Error('Public key not found');
+                throw new Error('Public key not found (3)');
             }
 
             return await this.convertContractObjectToPublicKeyDocument(resp);
@@ -446,25 +458,29 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return result ?? null;
     }
 
-    private async getKeyInfo(key: string): Promise<PublicKeyWithMLDSA | IPubKeyNotFoundError> {
+    private async getKeyInfo(
+        key: string,
+        isPublicKey: boolean,
+    ): Promise<PublicKeyWithMLDSA | IPubKeyNotFoundError> {
         try {
-            const keyBinary = new Binary(fromHex(key));
             const filter: Filter<PublicKeyDocument> = {
-                $or: [
-                    { p2op: key },
-                    { p2tr: key },
-                    { tweakedPublicKey: keyBinary },
-                    { publicKey: keyBinary },
-                    { p2pkh: key },
-                    //{ p2shp2wpkh: key },
-                    { p2wpkh: key },
-                    //{ p2pkhUncompressed: key },
-                    //{ p2pkhHybrid: key },
-                ],
+                $or: [{ p2op: key }, { p2tr: key }, { p2pkh: key }, { p2wpkh: key }],
             };
 
+            if (isPublicKey && filter.$or) {
+                const keyBinary = new Binary(fromHex(key));
+
+                filter.$or.push(...[{ tweakedPublicKey: keyBinary }, { publicKey: keyBinary }]);
+            }
+
             return await this.getOneWithMLDSA(filter);
-        } catch {
+        } catch (e) {
+            if (!isPublicKey) {
+                return {
+                    error: 'Public key not found (invalid key format, for contract address)',
+                };
+            }
+
             return await this.getKeyInfoFromContracts(key);
         }
     }
@@ -494,7 +510,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             .toArray();
 
         if (!results.length) {
-            throw new Error('Public key not found');
+            throw new Error('Public key not found (1)');
         }
 
         return results[0];
@@ -556,7 +572,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
             publicKeys.push({
                 publicKey: new Binary(publicKey),
-                tweakedPublicKey: new Binary(toXOnly(createPublicKey(tweakedPublicKey))),
+                tweakedPublicKey: new Binary(toXOnly(tweakedPublicKey as PublicKey)),
                 lowByte: tweakedPublicKey[0],
                 p2tr: p2tr,
                 p2op: p2op,

@@ -19,25 +19,20 @@ export class BlockByNumber extends BlockRoute<Routes.BLOCK_BY_ID> {
     ): Promise<BlockHeaderAPIDocumentWithTransactions | undefined> {
         this.incrementPendingRequests();
 
-        let data: Promise<BlockHeaderAPIDocumentWithTransactions>;
         try {
             const height: SafeBigInt = BlockParamsConverter.getParameterAsBigIntForBlock(params);
             const includeTransactions: boolean = this.getParameterAsBoolean(params);
 
-            data = this.getCachedBlockData(includeTransactions, height);
+            return await this.getCachedBlockData(includeTransactions, height);
         } catch (e) {
-            this.decrementPendingRequests();
-
             if (Config.DEV_MODE) {
                 this.error(`Error details: ${(e as Error).stack}`);
             }
 
             throw new Error('Something went wrong.', { cause: e });
+        } finally {
+            this.decrementPendingRequests();
         }
-
-        this.decrementPendingRequests();
-
-        return data;
     }
 
     public async getDataRPC(params: BlockByIdParams): Promise<BlockByIdResult | undefined> {

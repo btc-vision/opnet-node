@@ -242,7 +242,7 @@ export class ChainSynchronisation extends Logger {
         try {
             await this.publicKeysRepository.processPublicKeys(utxoBatch);
         } catch (e) {
-            this.error(`Public-key processing error: ${e}`);
+            this.error(`Public-key processing error: ${(e as Error).stack}`);
         }
 
         try {
