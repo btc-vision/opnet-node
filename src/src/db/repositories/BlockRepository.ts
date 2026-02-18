@@ -53,7 +53,7 @@ export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
         if (!checksum) {
             criteria.hash = hash;
         } else {
-            criteria.checksumRoot = '0x' + hash.replace('0x', ''); // Always have 0x.
+            criteria.checksumRoot = '0x' + (hash.startsWith('0x') ? hash.slice(2) : hash); // Always have 0x.
         }
 
         const result: IBlockHeaderBlockDocument | null = await this.queryOne(criteria);

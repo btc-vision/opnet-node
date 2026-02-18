@@ -221,7 +221,7 @@ export class EpochMerkleTree {
             const attestation: Attestation = {
                 type: attPackage.attestation.type,
                 blockNumber: attPackage.attestation.blockNumber,
-                checksumRoot: fromHex(attPackage.attestation.checksumRoot.replace('0x', '')),
+                checksumRoot: fromHex(attPackage.attestation.checksumRoot.startsWith('0x') ? attPackage.attestation.checksumRoot.slice(2) : attPackage.attestation.checksumRoot),
                 signature: attPackage.attestation.signature,
                 timestamp: attPackage.attestation.timestamp,
                 publicKey: attPackage.attestation.publicKey,
@@ -229,7 +229,7 @@ export class EpochMerkleTree {
 
             const isValid = EpochMerkleTree.verifyAttestation(root, attestation, attPackage.proofs);
             const computedRoot = new MerkleProof(attPackage.proofs).rootHex(
-                fromHex(attPackage.leafHash.replace('0x', '')),
+                fromHex(attPackage.leafHash.startsWith('0x') ? attPackage.leafHash.slice(2) : attPackage.leafHash),
             );
 
             return {

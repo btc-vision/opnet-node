@@ -1176,7 +1176,7 @@ export class VMManager extends Logger {
             );
 
         if (lastChecksum && lastChecksum !== ZERO_HASH) {
-            const checksumBuffer = fromHex(lastChecksum.replace('0x', ''));
+            const checksumBuffer = fromHex(lastChecksum.startsWith('0x') ? lastChecksum.slice(2) : lastChecksum);
             if (checksumBuffer.length !== 32) {
                 throw new Error('Invalid checksum length retrieved from block header validator.');
             }
