@@ -70,10 +70,11 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             ];
 
             const results = await collection
-                .aggregate<{ count: number; opnetCount: number; size: number }>(
-                    aggregation,
-                    options,
-                )
+                .aggregate<{
+                    count: number;
+                    opnetCount: number;
+                    size: number;
+                }>(aggregation, options)
                 .toArray();
 
             if (!results.length) {
@@ -105,15 +106,12 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             });
         }
 
-        pipeline.push(
-            { $sort: { firstSeen: -1 } },
-            { $limit: limit },
-        );
+        pipeline.push({ $sort: { firstSeen: -1 } }, { $limit: limit });
 
         try {
-            const results = (await collection
+            const results = await collection
                 .aggregate<IMempoolTransaction>(pipeline, options)
-                .toArray()) as IMempoolTransaction[];
+                .toArray();
 
             return results.map(this.convertToObj.bind(this));
         } catch (e) {

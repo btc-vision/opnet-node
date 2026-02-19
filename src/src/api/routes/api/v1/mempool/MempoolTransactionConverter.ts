@@ -42,6 +42,6 @@ export class MempoolTransactionConverter {
      * @returns An array of API-formatted transaction objects.
      */
     public static convertMany(txs: IMempoolTransactionObj[]): MempoolTransactionData[] {
-        return txs.map(MempoolTransactionConverter.convert);
+        return txs.map(MempoolTransactionConverter.convert.bind(MempoolTransactionConverter));
     }
 }

@@ -7,8 +7,8 @@ import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.
 import { GetLatestPendingTransactionsParams } from '../../../../json-rpc/types/interfaces/params/mempool/GetLatestPendingTransactionsParams.js';
 import { GetLatestPendingTransactionsResult } from '../../../../json-rpc/types/interfaces/results/mempool/GetLatestPendingTransactionsResult.js';
 import {
-    PublicKeyInfo,
     IPubKeyNotFoundError,
+    PublicKeyInfo,
 } from '../../../../json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
 import { Route } from '../../../Route.js';
 import { MempoolTransactionConverter } from './MempoolTransactionConverter.js';
@@ -151,12 +151,11 @@ export class GetLatestPendingTransactions extends Route<
         const allAddresses: string[] = [address];
 
         for (const key of Object.keys(result)) {
-            const info = result[key];
-            if (this.isPubKeyNotFoundError(info)) {
+            const pubKeyInfo = result[key];
+            if (this.isPubKeyNotFoundError(pubKeyInfo)) {
                 continue;
             }
 
-            const pubKeyInfo = info as PublicKeyInfo;
             if (pubKeyInfo.p2tr) allAddresses.push(pubKeyInfo.p2tr);
             if (pubKeyInfo.p2op) allAddresses.push(pubKeyInfo.p2op);
             if (pubKeyInfo.p2pkh) allAddresses.push(pubKeyInfo.p2pkh);
