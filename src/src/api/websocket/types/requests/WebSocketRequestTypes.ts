@@ -143,12 +143,38 @@ export interface SubmitEpochRequest extends BaseRequest {
 }
 
 // ============================================================================
+// Mempool Requests
+// ============================================================================
+
+/** WebSocket request for mempool statistics (no additional fields). */
+export interface GetMempoolInfoWsRequest extends BaseRequest {}
+
+/** WebSocket request to fetch a single pending transaction by hash. */
+export interface GetPendingTransactionWsRequest extends BaseRequest {
+    /** The 64-character hex transaction hash. */
+    readonly hash: string;
+}
+
+/** WebSocket request to fetch the latest pending transactions. */
+export interface GetLatestPendingTransactionsWsRequest extends BaseRequest {
+    /** A single address to auto-resolve into all derived wallet address types. */
+    readonly address?: string;
+    /** Explicit list of addresses to filter by. */
+    readonly addresses?: string[];
+    /** Maximum number of transactions to return. */
+    readonly limit?: number;
+}
+
+// ============================================================================
 // Subscription Requests
 // ============================================================================
 
 export interface SubscribeBlocksRequest extends BaseRequest {}
 
 export interface SubscribeEpochsRequest extends BaseRequest {}
+
+/** WebSocket request to subscribe to new mempool transaction notifications. */
+export interface SubscribeMempoolWsRequest extends BaseRequest {}
 
 export interface UnsubscribeRequest extends BaseRequest {
     readonly subscriptionId: number;

@@ -20,6 +20,7 @@ import { BroadcastOPNetRequest } from '../../../../../threading/interfaces/threa
 import { TransactionSizeValidator } from '../../../../../poc/mempool/data-validator/TransactionSizeValidator.js';
 import { Config } from '../../../../../config/Config.js';
 import { fromBase64, fromHex, Transaction } from '@btc-vision/bitcoin';
+import { WSManager } from '../../../../websocket/WebSocketManager.js';
 
 export class BroadcastTransaction extends Route<
     Routes.BROADCAST_TRANSACTION,
@@ -97,10 +98,17 @@ export class BroadcastTransaction extends Route<
                     };
                 }
 
-                return {
+                const mergedResult = {
                     ...(verification as BroadcastTransactionResult),
                     ...(result as BroadcastTransactionResult),
                 } as BroadcastTransactionResult;
+
+                // Notify mempool subscribers of the new transaction
+                if (mergedResult.success && mergedResult.result) {
+                    WSManager.onMempoolTransaction(mergedResult.result, true);
+                }
+
+                return mergedResult;
             }
 
             return verification;

@@ -442,6 +442,50 @@ export class WebSocketManager extends Logger {
     }
 
     /**
+     * Handle new mempool transaction notification
+     */
+    public onMempoolTransaction(txId: string, isOPNet: boolean): void {
+        if (!this.enabled) {
+            return;
+        }
+
+        const notificationPacket = APIRegistry.getPacketBuilder(
+            APIPacketType.NewMempoolTransactionNotification,
+        );
+        if (!notificationPacket) {
+            return;
+        }
+
+        const notification = {
+            subscriptionId: 0, // Will be set per-client
+            txId,
+            isOPNet,
+            timestamp: BigInt(Date.now()),
+        };
+
+        for (const client of this.clients.values()) {
+            if (!client.isHandshakeCompleted()) {
+                continue;
+            }
+
+            // Check if client has mempool subscription
+            for (const [subId, sub] of client.getSubscriptions()) {
+                if (sub.type === SubscriptionType.MEMPOOL) {
+                    notification.subscriptionId = subId;
+                    try {
+                        const packed = notificationPacket.pack(notification);
+                        client.send(packed);
+                    } catch (error) {
+                        this.error(
+                            `Failed to send mempool notification to ${client.clientId}: ${error}`,
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Broadcast a message to all connected and handshaked clients
      */
     public broadcast(data: Uint8Array): number {

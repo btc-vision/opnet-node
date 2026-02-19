@@ -375,6 +375,32 @@ export class OpcodeRegistry extends APIProtobufLoader {
             WebSocketResponseOpcode.EPOCH_SUBMIT_RESULT,
         );
 
+        // Mempool
+        this.packetBuilders[APIPacketType.GetMempoolInfoRequest] = this.createPacket(
+            APIPacketType.GetMempoolInfoRequest,
+            WebSocketRequestOpcode.GET_MEMPOOL_INFO,
+        );
+        this.packetBuilders[APIPacketType.GetMempoolInfoResponse] = this.createPacket(
+            APIPacketType.GetMempoolInfoResponse,
+            WebSocketResponseOpcode.MEMPOOL_INFO,
+        );
+        this.packetBuilders[APIPacketType.GetPendingTransactionRequest] = this.createPacket(
+            APIPacketType.GetPendingTransactionRequest,
+            WebSocketRequestOpcode.GET_PENDING_TRANSACTION,
+        );
+        this.packetBuilders[APIPacketType.PendingTransactionResponse] = this.createPacket(
+            APIPacketType.PendingTransactionResponse,
+            WebSocketResponseOpcode.PENDING_TRANSACTION,
+        );
+        this.packetBuilders[APIPacketType.GetLatestPendingTransactionsRequest] = this.createPacket(
+            APIPacketType.GetLatestPendingTransactionsRequest,
+            WebSocketRequestOpcode.GET_LATEST_PENDING_TRANSACTIONS,
+        );
+        this.packetBuilders[APIPacketType.LatestPendingTransactionsResponse] = this.createPacket(
+            APIPacketType.LatestPendingTransactionsResponse,
+            WebSocketResponseOpcode.LATEST_PENDING_TRANSACTIONS,
+        );
+
         // Subscriptions
         this.packetBuilders[APIPacketType.SubscribeBlocksRequest] = this.createPacket(
             APIPacketType.SubscribeBlocksRequest,
@@ -390,6 +416,14 @@ export class OpcodeRegistry extends APIProtobufLoader {
         );
         this.packetBuilders[APIPacketType.SubscribeEpochsResponse] = this.createPacket(
             APIPacketType.SubscribeEpochsResponse,
+            WebSocketResponseOpcode.SUBSCRIPTION_CREATED,
+        );
+        this.packetBuilders[APIPacketType.SubscribeMempoolRequest] = this.createPacket(
+            APIPacketType.SubscribeMempoolRequest,
+            WebSocketRequestOpcode.SUBSCRIBE_MEMPOOL,
+        );
+        this.packetBuilders[APIPacketType.SubscribeMempoolResponse] = this.createPacket(
+            APIPacketType.SubscribeMempoolResponse,
             WebSocketResponseOpcode.SUBSCRIPTION_CREATED,
         );
         this.packetBuilders[APIPacketType.UnsubscribeRequest] = this.createPacket(
@@ -409,6 +443,10 @@ export class OpcodeRegistry extends APIProtobufLoader {
         this.packetBuilders[APIPacketType.NewEpochNotification] = this.createPacket(
             APIPacketType.NewEpochNotification,
             WebSocketResponseOpcode.NEW_EPOCH_NOTIFICATION,
+        );
+        this.packetBuilders[APIPacketType.NewMempoolTransactionNotification] = this.createPacket(
+            APIPacketType.NewMempoolTransactionNotification,
+            WebSocketResponseOpcode.NEW_MEMPOOL_TX_NOTIFICATION,
         );
 
         // Register response packets
@@ -546,6 +584,26 @@ export class OpcodeRegistry extends APIProtobufLoader {
             WebSocketResponseOpcode.PREIMAGE,
         );
 
+        // Mempool
+        register(
+            WebSocketRequestOpcode.GET_MEMPOOL_INFO,
+            APIPacketType.GetMempoolInfoRequest,
+            APIPacketType.GetMempoolInfoResponse,
+            WebSocketResponseOpcode.MEMPOOL_INFO,
+        );
+        register(
+            WebSocketRequestOpcode.GET_PENDING_TRANSACTION,
+            APIPacketType.GetPendingTransactionRequest,
+            APIPacketType.PendingTransactionResponse,
+            WebSocketResponseOpcode.PENDING_TRANSACTION,
+        );
+        register(
+            WebSocketRequestOpcode.GET_LATEST_PENDING_TRANSACTIONS,
+            APIPacketType.GetLatestPendingTransactionsRequest,
+            APIPacketType.LatestPendingTransactionsResponse,
+            WebSocketResponseOpcode.LATEST_PENDING_TRANSACTIONS,
+        );
+
         // Addresses
         register(
             WebSocketRequestOpcode.GET_BALANCE,
@@ -644,6 +702,12 @@ export class OpcodeRegistry extends APIProtobufLoader {
             WebSocketRequestOpcode.SUBSCRIBE_EPOCHS,
             APIPacketType.SubscribeEpochsRequest,
             APIPacketType.SubscribeEpochsResponse,
+            WebSocketResponseOpcode.SUBSCRIPTION_CREATED,
+        );
+        register(
+            WebSocketRequestOpcode.SUBSCRIBE_MEMPOOL,
+            APIPacketType.SubscribeMempoolRequest,
+            APIPacketType.SubscribeMempoolResponse,
             WebSocketResponseOpcode.SUBSCRIPTION_CREATED,
         );
         register(

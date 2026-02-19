@@ -21,6 +21,11 @@ export enum WebSocketRequestOpcode {
     BROADCAST_TRANSACTION = 0x22,
     GET_PREIMAGE = 0x23,
 
+    // Mempool Methods (0x24 - 0x2F)
+    GET_MEMPOOL_INFO = 0x24,
+    GET_PENDING_TRANSACTION = 0x25,
+    GET_LATEST_PENDING_TRANSACTIONS = 0x26,
+
     // Address Methods (0x30 - 0x3F)
     GET_BALANCE = 0x30,
     GET_UTXOS = 0x31,
@@ -45,6 +50,7 @@ export enum WebSocketRequestOpcode {
     // Subscription Methods (0x70 - 0x7F)
     SUBSCRIBE_BLOCKS = 0x70,
     SUBSCRIBE_EPOCHS = 0x71,
+    SUBSCRIBE_MEMPOOL = 0x72,
     UNSUBSCRIBE = 0x7f,
 }
 
@@ -71,6 +77,9 @@ export enum WebSocketResponseOpcode {
     TRANSACTION_RECEIPT = 0xa1,
     BROADCAST_RESULT = 0xa2,
     PREIMAGE = 0xa3,
+    MEMPOOL_INFO = 0xa4,
+    PENDING_TRANSACTION = 0xa5,
+    LATEST_PENDING_TRANSACTIONS = 0xa6,
 
     // Address Method Responses (0xB0 - 0xBF)
     BALANCE = 0xb0,
@@ -98,6 +107,7 @@ export enum WebSocketResponseOpcode {
     // Server Push Notifications
     NEW_BLOCK_NOTIFICATION = 0xf8,
     NEW_EPOCH_NOTIFICATION = 0xf9,
+    NEW_MEMPOOL_TX_NOTIFICATION = 0xfa,
 }
 
 /**
@@ -126,6 +136,10 @@ export const RequestToResponseOpcode: Readonly<
     [WebSocketRequestOpcode.BROADCAST_TRANSACTION]: WebSocketResponseOpcode.BROADCAST_RESULT,
     [WebSocketRequestOpcode.GET_PREIMAGE]: WebSocketResponseOpcode.PREIMAGE,
 
+    [WebSocketRequestOpcode.GET_MEMPOOL_INFO]: WebSocketResponseOpcode.MEMPOOL_INFO,
+    [WebSocketRequestOpcode.GET_PENDING_TRANSACTION]: WebSocketResponseOpcode.PENDING_TRANSACTION,
+    [WebSocketRequestOpcode.GET_LATEST_PENDING_TRANSACTIONS]: WebSocketResponseOpcode.LATEST_PENDING_TRANSACTIONS,
+
     [WebSocketRequestOpcode.GET_BALANCE]: WebSocketResponseOpcode.BALANCE,
     [WebSocketRequestOpcode.GET_UTXOS]: WebSocketResponseOpcode.UTXOS,
     [WebSocketRequestOpcode.GET_PUBLIC_KEY_INFO]: WebSocketResponseOpcode.PUBLIC_KEY_INFO,
@@ -145,6 +159,7 @@ export const RequestToResponseOpcode: Readonly<
 
     [WebSocketRequestOpcode.SUBSCRIBE_BLOCKS]: WebSocketResponseOpcode.SUBSCRIPTION_CREATED,
     [WebSocketRequestOpcode.SUBSCRIBE_EPOCHS]: WebSocketResponseOpcode.SUBSCRIPTION_CREATED,
+    [WebSocketRequestOpcode.SUBSCRIBE_MEMPOOL]: WebSocketResponseOpcode.SUBSCRIPTION_CREATED,
     [WebSocketRequestOpcode.UNSUBSCRIBE]: WebSocketResponseOpcode.UNSUBSCRIBE_RESULT,
 };
 
@@ -165,6 +180,9 @@ export const OpcodeNames: Readonly<Record<WebSocketOpcode, string>> = {
     [WebSocketRequestOpcode.GET_TRANSACTION_RECEIPT]: 'GET_TRANSACTION_RECEIPT',
     [WebSocketRequestOpcode.BROADCAST_TRANSACTION]: 'BROADCAST_TRANSACTION',
     [WebSocketRequestOpcode.GET_PREIMAGE]: 'GET_PREIMAGE',
+    [WebSocketRequestOpcode.GET_MEMPOOL_INFO]: 'GET_MEMPOOL_INFO',
+    [WebSocketRequestOpcode.GET_PENDING_TRANSACTION]: 'GET_PENDING_TRANSACTION',
+    [WebSocketRequestOpcode.GET_LATEST_PENDING_TRANSACTIONS]: 'GET_LATEST_PENDING_TRANSACTIONS',
     [WebSocketRequestOpcode.GET_BALANCE]: 'GET_BALANCE',
     [WebSocketRequestOpcode.GET_UTXOS]: 'GET_UTXOS',
     [WebSocketRequestOpcode.GET_PUBLIC_KEY_INFO]: 'GET_PUBLIC_KEY_INFO',
@@ -180,6 +198,7 @@ export const OpcodeNames: Readonly<Record<WebSocketOpcode, string>> = {
     [WebSocketRequestOpcode.SUBMIT_EPOCH]: 'SUBMIT_EPOCH',
     [WebSocketRequestOpcode.SUBSCRIBE_BLOCKS]: 'SUBSCRIBE_BLOCKS',
     [WebSocketRequestOpcode.SUBSCRIBE_EPOCHS]: 'SUBSCRIBE_EPOCHS',
+    [WebSocketRequestOpcode.SUBSCRIBE_MEMPOOL]: 'SUBSCRIBE_MEMPOOL',
     [WebSocketRequestOpcode.UNSUBSCRIBE]: 'UNSUBSCRIBE',
 
     // Response opcodes
@@ -194,6 +213,9 @@ export const OpcodeNames: Readonly<Record<WebSocketOpcode, string>> = {
     [WebSocketResponseOpcode.TRANSACTION_RECEIPT]: 'TRANSACTION_RECEIPT',
     [WebSocketResponseOpcode.BROADCAST_RESULT]: 'BROADCAST_RESULT',
     [WebSocketResponseOpcode.PREIMAGE]: 'PREIMAGE',
+    [WebSocketResponseOpcode.MEMPOOL_INFO]: 'MEMPOOL_INFO',
+    [WebSocketResponseOpcode.PENDING_TRANSACTION]: 'PENDING_TRANSACTION',
+    [WebSocketResponseOpcode.LATEST_PENDING_TRANSACTIONS]: 'LATEST_PENDING_TRANSACTIONS',
     [WebSocketResponseOpcode.BALANCE]: 'BALANCE',
     [WebSocketResponseOpcode.UTXOS]: 'UTXOS',
     [WebSocketResponseOpcode.PUBLIC_KEY_INFO]: 'PUBLIC_KEY_INFO',
@@ -209,4 +231,5 @@ export const OpcodeNames: Readonly<Record<WebSocketOpcode, string>> = {
     [WebSocketResponseOpcode.UNSUBSCRIBE_RESULT]: 'UNSUBSCRIBE_RESULT',
     [WebSocketResponseOpcode.NEW_BLOCK_NOTIFICATION]: 'NEW_BLOCK_NOTIFICATION',
     [WebSocketResponseOpcode.NEW_EPOCH_NOTIFICATION]: 'NEW_EPOCH_NOTIFICATION',
+    [WebSocketResponseOpcode.NEW_MEMPOOL_TX_NOTIFICATION]: 'NEW_MEMPOOL_TX_NOTIFICATION',
 };

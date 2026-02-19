@@ -66,17 +66,28 @@ export enum APIPacketType {
     SubmitEpochRequest = 'SubmitEpochRequest',
     SubmitEpochResponse = 'SubmitEpochResponse',
 
+    // Mempool
+    GetMempoolInfoRequest = 'GetMempoolInfoRequest',
+    GetMempoolInfoResponse = 'GetMempoolInfoResponse',
+    GetPendingTransactionRequest = 'GetPendingTransactionRequest',
+    PendingTransactionResponse = 'PendingTransactionResponse',
+    GetLatestPendingTransactionsRequest = 'GetLatestPendingTransactionsRequest',
+    LatestPendingTransactionsResponse = 'LatestPendingTransactionsResponse',
+
     // Subscriptions
     SubscribeBlocksRequest = 'SubscribeBlocksRequest',
     SubscribeBlocksResponse = 'SubscribeBlocksResponse',
     SubscribeEpochsRequest = 'SubscribeEpochsRequest',
     SubscribeEpochsResponse = 'SubscribeEpochsResponse',
+    SubscribeMempoolRequest = 'SubscribeMempoolRequest',
+    SubscribeMempoolResponse = 'SubscribeMempoolResponse',
     UnsubscribeRequest = 'UnsubscribeRequest',
     UnsubscribeResponse = 'UnsubscribeResponse',
 
     // Notifications
     NewBlockNotification = 'NewBlockNotification',
     NewEpochNotification = 'NewEpochNotification',
+    NewMempoolTransactionNotification = 'NewMempoolTransactionNotification',
 
     // Common types (for internal use)
     BlockIdentifier = 'BlockIdentifier',

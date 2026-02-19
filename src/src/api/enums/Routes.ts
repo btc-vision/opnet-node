@@ -35,6 +35,11 @@ export enum Routes {
     SUBMIT_EPOCH = 'epoch/submit',
     EPOCH_TEMPLATE = 'epoch/template',
 
+    /** Mempool */
+    MEMPOOL_INFO = 'mempool/info',
+    MEMPOOL_TRANSACTION = 'mempool/transaction',
+    MEMPOOL_TRANSACTIONS = 'mempool/transactions',
+
     /** Other */
     PROTOBUF_SCHEMA = 'protobuf/schema',
     PROTOBUF_API_SCHEMA = 'protobuf/api-schema',

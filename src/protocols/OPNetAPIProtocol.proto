@@ -599,6 +599,7 @@ message SubmitEpochResponse {
 enum SubscriptionTypeEnum {
     BLOCKS = 0;
     EPOCHS = 1;
+    MEMPOOL = 2;
 }
 
 message SubscribeBlocksRequest {
@@ -644,4 +645,76 @@ message NewEpochNotification {
     uint32 subscriptionId = 1;
     string epochNumber = 2;
     string epochHash = 3;
+}
+
+// ============================================================================
+// Mempool Methods
+// ============================================================================
+
+message GetMempoolInfoRequest {
+    uint32 requestId = 1;
+}
+
+message GetMempoolInfoResponse {
+    uint32 count = 1;
+    uint32 opnetCount = 2;
+    uint64 size = 3;
+}
+
+message GetPendingTransactionRequest {
+    uint32 requestId = 1;
+    string hash = 2;
+}
+
+message MempoolTransactionOutput {
+    string address = 1;
+    uint32 outputIndex = 2;
+    string value = 3;
+    string scriptPubKey = 4;
+}
+
+message MempoolTransactionInput {
+    string transactionId = 1;
+    uint32 outputIndex = 2;
+}
+
+message PendingTransactionResponse {
+    string id = 1;
+    string firstSeen = 2;
+    string blockHeight = 3;
+    string theoreticalGasLimit = 4;
+    string priorityFee = 5;
+    bool isOPNet = 6;
+    bool psbt = 7;
+    repeated MempoolTransactionInput inputs = 8;
+    repeated MempoolTransactionOutput outputs = 9;
+    string raw = 10;
+}
+
+message GetLatestPendingTransactionsRequest {
+    uint32 requestId = 1;
+    string address = 2;
+    repeated string addresses = 3;
+    uint32 limit = 4;
+}
+
+message LatestPendingTransactionsResponse {
+    repeated PendingTransactionResponse transactions = 1;
+}
+
+// Mempool Subscription
+message SubscribeMempoolRequest {
+    uint32 requestId = 1;
+}
+
+message SubscribeMempoolResponse {
+    uint32 subscriptionId = 1;
+    SubscriptionTypeEnum type = 2;
+}
+
+message NewMempoolTransactionNotification {
+    uint32 subscriptionId = 1;
+    string txId = 2;
+    bool isOPNet = 3;
+    uint64 timestamp = 4;
 }

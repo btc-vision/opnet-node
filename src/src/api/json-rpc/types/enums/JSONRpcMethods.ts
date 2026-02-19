@@ -37,6 +37,11 @@ export enum JSONRpcMethods {
     GET_EPOCH_TEMPLATE = 'btc_getEpochTemplate',
     SUBMIT_EPOCH = 'btc_submitEpoch',
 
+    /** Mempool */
+    GET_MEMPOOL_INFO = 'btc_getMempoolInfo',
+    GET_PENDING_TRANSACTION = 'btc_getPendingTransaction',
+    GET_LATEST_PENDING_TRANSACTIONS = 'btc_getLatestPendingTransactions',
+
     /** Simulation */
     CALL = 'btc_call',
 }

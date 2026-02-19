@@ -11,6 +11,7 @@ import {
     IBlockHeaderBlockDocument,
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { IReorgData, IReorgDocument } from '../../../db/interfaces/IReorgDocument.js';
+import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
 import { ITransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
 import { IParsedBlockWitnessDocument } from '../../../db/models/IBlockWitnessDocument.js';
 import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
@@ -38,7 +39,6 @@ import { TargetEpochRepository } from '../../../db/repositories/TargetEpochRepos
 import { ITargetEpochDocument } from '../../../db/documents/interfaces/ITargetEpochDocument.js';
 import { AttestationProof } from '../../../blockchain-indexer/processor/block/merkle/EpochMerkleTree.js';
 import { ChallengeSolution } from '../../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
-import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
 import {
     SpentUTXOSOutputTransaction,
     UTXOsOutputTransactions,
@@ -517,6 +517,36 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Transaction repository not initialized');
         }
         return await this.transactionRepository.getTransactionByHash(hash);
+    }
+
+    public async getMempoolInfo(): Promise<{
+        count: number;
+        opnetCount: number;
+        size: number;
+    }> {
+        if (!this.mempoolRepository) {
+            throw new Error('Mempool repository not initialized');
+        }
+        return await this.mempoolRepository.getMempoolInfo();
+    }
+
+    public async getMempoolTransaction(
+        id: string,
+    ): Promise<IMempoolTransactionObj | undefined> {
+        if (!this.mempoolRepository) {
+            throw new Error('Mempool repository not initialized');
+        }
+        return await this.mempoolRepository.getTransactionById(id);
+    }
+
+    public async getLatestPendingTransactions(
+        addresses?: string[],
+        limit?: number,
+    ): Promise<IMempoolTransactionObj[]> {
+        if (!this.mempoolRepository) {
+            throw new Error('Mempool repository not initialized');
+        }
+        return await this.mempoolRepository.getLatestTransactions(addresses, limit);
     }
 
     public async close(): Promise<void> {

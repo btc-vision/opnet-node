@@ -38,6 +38,90 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         return this.convertToObj(result);
     }
 
+    public async getMempoolInfo(): Promise<{
+        count: number;
+        opnetCount: number;
+        size: number;
+    }> {
+        const collection = this.getCollection();
+        const options: AggregateOptions = this.getOptions() as AggregateOptions;
+        options.allowDiskUse = true;
+
+        try {
+            const aggregation: Document[] = [
+                {
+                    $group: {
+                        _id: null,
+                        count: { $sum: 1 },
+                        opnetCount: {
+                            $sum: { $cond: [{ $eq: ['$isOPNet', true] }, 1, 0] },
+                        },
+                        size: { $sum: { $bsonSize: '$$ROOT' } },
+                    },
+                },
+                {
+                    $project: {
+                        _id: 0,
+                        count: 1,
+                        opnetCount: 1,
+                        size: 1,
+                    },
+                },
+            ];
+
+            const results = await collection
+                .aggregate<{ count: number; opnetCount: number; size: number }>(
+                    aggregation,
+                    options,
+                )
+                .toArray();
+
+            if (!results.length) {
+                return { count: 0, opnetCount: 0, size: 0 };
+            }
+
+            return results[0];
+        } catch (e) {
+            this.error(`Can not fetch mempool info: ${(e as Error).stack}`);
+            throw e;
+        }
+    }
+
+    public async getLatestTransactions(
+        addresses?: string[],
+        limit: number = 25,
+    ): Promise<IMempoolTransactionObj[]> {
+        const collection = this.getCollection();
+        const options: AggregateOptions = this.getOptions() as AggregateOptions;
+        options.allowDiskUse = true;
+
+        const pipeline: Document[] = [];
+
+        if (addresses && addresses.length > 0) {
+            pipeline.push({
+                $match: {
+                    'outputs.address': { $in: addresses },
+                },
+            });
+        }
+
+        pipeline.push(
+            { $sort: { firstSeen: -1 } },
+            { $limit: limit },
+        );
+
+        try {
+            const results = (await collection
+                .aggregate<IMempoolTransaction>(pipeline, options)
+                .toArray()) as IMempoolTransaction[];
+
+            return results.map(this.convertToObj.bind(this));
+        } catch (e) {
+            this.error(`Can not fetch latest pending transactions: ${(e as Error).stack}`);
+            throw e;
+        }
+    }
+
     /*public async purgeOldTransactions(currentBlock: bigint): Promise<void> {
         // If the transaction is older than 20 blocks, we must purge it.
         const criteria: Filter<IMempoolTransaction> = {

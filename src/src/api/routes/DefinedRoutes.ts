@@ -28,6 +28,9 @@ import { EpochByHash } from './api/v1/epochs/EpochByHash.js';
 import { SubmitEpochRoute } from './api/v1/epochs/SubmitEpochRoute.js';
 import { GetEpochTemplateRoute } from './api/v1/epochs/GetEpochTemplateRoute.js';
 import { BlockByChecksum } from './api/v1/block/BlockByChecksum.js';
+import { GetMempoolInfo } from './api/v1/mempool/GetMempoolInfo.js';
+import { GetPendingTransaction } from './api/v1/mempool/GetPendingTransaction.js';
+import { GetLatestPendingTransactions } from './api/v1/mempool/GetLatestPendingTransactions.js';
 
 export const DefinedRoutes: {
     [key in Routes]: Route<key, JSONRpcMethods, object | string | undefined>;
@@ -66,6 +69,11 @@ export const DefinedRoutes: {
     [Routes.TRANSACTION_RECEIPT]: new TransactionReceipt(),
     [Routes.BROADCAST_TRANSACTION]: new BroadcastTransaction(),
     [Routes.TRANSACTION_PREIMAGE]: new GetPreimage(),
+
+    /** Mempool */
+    [Routes.MEMPOOL_INFO]: new GetMempoolInfo(),
+    [Routes.MEMPOOL_TRANSACTION]: new GetPendingTransaction(),
+    [Routes.MEMPOOL_TRANSACTIONS]: new GetLatestPendingTransactions(),
 
     /** Others */
     [Routes.PROTOBUF_SCHEMA]: new ProtobufSchema(),
