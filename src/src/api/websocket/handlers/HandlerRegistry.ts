@@ -463,6 +463,7 @@ export class HandlerRegistry extends Logger {
         );
     }
 
+    /** Registers WebSocket handlers for mempool query opcodes (info, single tx, latest txs). */
     private registerMempoolHandlers(): void {
         // GET_MEMPOOL_INFO
         APIRegistry.registerHandler(

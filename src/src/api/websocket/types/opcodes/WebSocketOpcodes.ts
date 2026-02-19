@@ -22,8 +22,11 @@ export enum WebSocketRequestOpcode {
     GET_PREIMAGE = 0x23,
 
     // Mempool Methods (0x24 - 0x2F)
+    /** Request aggregate mempool statistics. */
     GET_MEMPOOL_INFO = 0x24,
+    /** Request a single pending transaction by hash. */
     GET_PENDING_TRANSACTION = 0x25,
+    /** Request the latest pending transactions (with optional address filter). */
     GET_LATEST_PENDING_TRANSACTIONS = 0x26,
 
     // Address Methods (0x30 - 0x3F)
@@ -50,6 +53,7 @@ export enum WebSocketRequestOpcode {
     // Subscription Methods (0x70 - 0x7F)
     SUBSCRIBE_BLOCKS = 0x70,
     SUBSCRIBE_EPOCHS = 0x71,
+    /** Subscribe to new mempool transaction notifications. */
     SUBSCRIBE_MEMPOOL = 0x72,
     UNSUBSCRIBE = 0x7f,
 }
@@ -77,8 +81,11 @@ export enum WebSocketResponseOpcode {
     TRANSACTION_RECEIPT = 0xa1,
     BROADCAST_RESULT = 0xa2,
     PREIMAGE = 0xa3,
+    /** Response containing aggregate mempool statistics. */
     MEMPOOL_INFO = 0xa4,
+    /** Response containing a single pending mempool transaction. */
     PENDING_TRANSACTION = 0xa5,
+    /** Response containing the latest pending mempool transactions. */
     LATEST_PENDING_TRANSACTIONS = 0xa6,
 
     // Address Method Responses (0xB0 - 0xBF)
@@ -107,6 +114,7 @@ export enum WebSocketResponseOpcode {
     // Server Push Notifications
     NEW_BLOCK_NOTIFICATION = 0xf8,
     NEW_EPOCH_NOTIFICATION = 0xf9,
+    /** Server push: a new transaction entered the mempool. */
     NEW_MEMPOOL_TX_NOTIFICATION = 0xfa,
 }
 

@@ -442,7 +442,10 @@ export class WebSocketManager extends Logger {
     }
 
     /**
-     * Handle new mempool transaction notification
+     * Broadcasts a new mempool transaction notification to all subscribed WebSocket clients.
+     *
+     * @param txId - The txid of the transaction that entered the mempool.
+     * @param isOPNet - Whether the transaction targets an OPNet contract.
      */
     public onMempoolTransaction(txId: string, isOPNet: boolean): void {
         if (!this.enabled) {
