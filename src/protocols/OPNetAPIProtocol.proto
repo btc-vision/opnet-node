@@ -599,6 +599,7 @@ message SubmitEpochResponse {
 enum SubscriptionTypeEnum {
     BLOCKS = 0;
     EPOCHS = 1;
+    MEMPOOL = 2;
 }
 
 message SubscribeBlocksRequest {
@@ -644,4 +645,118 @@ message NewEpochNotification {
     uint32 subscriptionId = 1;
     string epochNumber = 2;
     string epochHash = 3;
+}
+
+// ============================================================================
+// Mempool Methods
+// ============================================================================
+
+// Request: retrieve aggregate mempool statistics (no parameters required).
+message GetMempoolInfoRequest {
+    uint32 requestId = 1;
+}
+
+// Response: aggregate mempool statistics.
+message GetMempoolInfoResponse {
+    // Total number of pending transactions in the mempool.
+    uint32 count = 1;
+    // Number of pending OPNet-specific transactions.
+    uint32 opnetCount = 2;
+    // Total byte size of the mempool.
+    uint64 size = 3;
+}
+
+// Request: fetch a single pending mempool transaction by hash.
+message GetPendingTransactionRequest {
+    uint32 requestId = 1;
+    // The 64-character hex transaction hash.
+    string hash = 2;
+}
+
+// A single transaction output as exposed by the mempool API.
+message MempoolTransactionOutput {
+    // Destination address, or empty for unspendable outputs.
+    string address = 1;
+    // The vout index within the transaction.
+    uint32 outputIndex = 2;
+    // Output value in satoshis (decimal string).
+    string value = 3;
+    // Hex-encoded scriptPubKey.
+    string scriptPubKey = 4;
+}
+
+// A single transaction input as exposed by the mempool API.
+message MempoolTransactionInput {
+    // The txid of the referenced output.
+    string transactionId = 1;
+    // The vout index of the referenced output.
+    uint32 outputIndex = 2;
+}
+
+// Full representation of a pending mempool transaction.
+message PendingTransactionResponse {
+    // Internal transaction identifier (txid).
+    string id = 1;
+    // ISO-8601 timestamp of when the transaction was first seen.
+    string firstSeen = 2;
+    // Block height at which the transaction was observed (0x-prefixed hex).
+    string blockHeight = 3;
+    // Theoretical gas limit for OPNet execution (0x-prefixed hex).
+    string theoreticalGasLimit = 4;
+    // Priority fee attached to the transaction (0x-prefixed hex).
+    string priorityFee = 5;
+    // Whether this transaction targets an OPNet contract.
+    bool isOPNet = 6;
+    // Whether the transaction was submitted as a PSBT.
+    bool psbt = 7;
+    // The transaction inputs.
+    repeated MempoolTransactionInput inputs = 8;
+    // The transaction outputs.
+    repeated MempoolTransactionOutput outputs = 9;
+    // The full raw transaction as a hex string.
+    string raw = 10;
+}
+
+// Request: fetch the latest pending transactions with optional address filter.
+message GetLatestPendingTransactionsRequest {
+    uint32 requestId = 1;
+    // A single address to auto-resolve into all derived wallet address types.
+    string address = 2;
+    // Explicit list of addresses to filter by.
+    repeated string addresses = 3;
+    // Maximum number of transactions to return.
+    uint32 limit = 4;
+}
+
+// Response: list of latest pending mempool transactions.
+message LatestPendingTransactionsResponse {
+    // The matching pending transactions.
+    repeated PendingTransactionResponse transactions = 1;
+}
+
+// Mempool Subscription
+
+// Request: subscribe to new mempool transaction notifications.
+message SubscribeMempoolRequest {
+    uint32 requestId = 1;
+}
+
+// Response: mempool subscription confirmation.
+message SubscribeMempoolResponse {
+    // Server-assigned subscription identifier.
+    uint32 subscriptionId = 1;
+    // The subscription type (MEMPOOL).
+    SubscriptionTypeEnum type = 2;
+}
+
+// Server push: a new transaction entered the mempool.
+message NewMempoolTransactionNotification {
+    // The subscription identifier this notification belongs to.
+    uint32 subscriptionId = 1;
+    // The txid of the new mempool transaction.
+    string txId = 2;
+    // Whether this transaction targets an OPNet contract.
+    bool isOPNet = 3;
+    // Unix timestamp in milliseconds when the transaction was observed.
+    uint64 timestamp = 4;
 }

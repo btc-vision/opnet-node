@@ -8,6 +8,7 @@ import {
     BlockHeaderDocument,
 } from '../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { IReorgData, IReorgDocument } from '../../db/interfaces/IReorgDocument.js';
+import { IMempoolTransactionObj } from '../../db/interfaces/IMempoolTransaction.js';
 import { ITransactionDocument } from '../../db/interfaces/ITransactionDocument.js';
 import { IParsedBlockWitnessDocument } from '../../db/models/IBlockWitnessDocument.js';
 import { MemoryValue, ProvenMemoryValue, ProvenPointers } from './types/MemoryValue.js';
@@ -22,7 +23,6 @@ import { SafeBigInt } from '../../api/routes/safe/BlockParamsConverter.js';
 import { ITargetEpochDocument } from '../../db/documents/interfaces/ITargetEpochDocument.js';
 import { AttestationProof } from '../../blockchain-indexer/processor/block/merkle/EpochMerkleTree.js';
 import { ChallengeSolution } from '../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
-import { IMempoolTransactionObj } from '../../db/interfaces/IMempoolTransaction.js';
 import { IMLDSAPublicKey, MLDSAUpdateData } from '../../db/interfaces/IMLDSAPublicKey.js';
 import { MLDSAPublicKeyExists } from '../../db/repositories/MLDSAPublicKeysRepository.js';
 
@@ -113,6 +113,21 @@ export abstract class VMStorage extends Logger {
     public abstract getTransactionByHash(
         hash: string,
     ): Promise<ITransactionDocument<OPNetTransactionTypes> | undefined>;
+
+    public abstract getMempoolInfo(): Promise<{
+        count: number;
+        opnetCount: number;
+        size: number;
+    }>;
+
+    public abstract getMempoolTransaction(
+        id: string,
+    ): Promise<IMempoolTransactionObj | undefined>;
+
+    public abstract getLatestPendingTransactions(
+        addresses?: string[],
+        limit?: number,
+    ): Promise<IMempoolTransactionObj[]>;
 
     public abstract saveTransactions(
         transaction: ITransactionDocument<OPNetTransactionTypes>[],

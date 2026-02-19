@@ -133,6 +133,16 @@ export interface WebSocketConfig {
     readonly MAX_SUBSCRIPTIONS: number; // Maximum subscriptions per client
 }
 
+/** Configuration for mempool-related API endpoints. */
+export interface APIMempoolConfig {
+    /** Maximum number of addresses allowed in a single query. */
+    readonly MAX_ADDRESSES: number;
+    /** Default number of transactions returned when no limit is specified. */
+    readonly DEFAULT_LIMIT: number;
+    /** Absolute maximum number of transactions a client can request per query. */
+    readonly MAX_LIMIT: number;
+}
+
 export interface APIExtendedConfigurations extends APIConfig {
     readonly MAXIMUM_PENDING_REQUESTS_PER_THREADS: number; // Maximum number of pending requests per thread
     readonly BATCH_PROCESSING_SIZE: number; // Batch processing size
@@ -149,6 +159,7 @@ export interface APIExtendedConfigurations extends APIConfig {
     readonly UTXO_LIMIT: number; // UTXO limit
 
     readonly WEBSOCKET: WebSocketConfig; // WebSocket configuration
+    readonly MEMPOOL: APIMempoolConfig; // Mempool API configuration
 }
 
 export interface DevConfig {

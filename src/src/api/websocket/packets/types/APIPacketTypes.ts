@@ -66,17 +66,37 @@ export enum APIPacketType {
     SubmitEpochRequest = 'SubmitEpochRequest',
     SubmitEpochResponse = 'SubmitEpochResponse',
 
+    // Mempool
+    /** Request: aggregate mempool statistics. */
+    GetMempoolInfoRequest = 'GetMempoolInfoRequest',
+    /** Response: aggregate mempool statistics. */
+    GetMempoolInfoResponse = 'GetMempoolInfoResponse',
+    /** Request: single pending transaction by hash. */
+    GetPendingTransactionRequest = 'GetPendingTransactionRequest',
+    /** Response: single pending mempool transaction. */
+    PendingTransactionResponse = 'PendingTransactionResponse',
+    /** Request: latest pending transactions with optional address filter. */
+    GetLatestPendingTransactionsRequest = 'GetLatestPendingTransactionsRequest',
+    /** Response: list of latest pending mempool transactions. */
+    LatestPendingTransactionsResponse = 'LatestPendingTransactionsResponse',
+
     // Subscriptions
     SubscribeBlocksRequest = 'SubscribeBlocksRequest',
     SubscribeBlocksResponse = 'SubscribeBlocksResponse',
     SubscribeEpochsRequest = 'SubscribeEpochsRequest',
     SubscribeEpochsResponse = 'SubscribeEpochsResponse',
+    /** Request: subscribe to new mempool transaction notifications. */
+    SubscribeMempoolRequest = 'SubscribeMempoolRequest',
+    /** Response: mempool subscription confirmation. */
+    SubscribeMempoolResponse = 'SubscribeMempoolResponse',
     UnsubscribeRequest = 'UnsubscribeRequest',
     UnsubscribeResponse = 'UnsubscribeResponse',
 
     // Notifications
     NewBlockNotification = 'NewBlockNotification',
     NewEpochNotification = 'NewEpochNotification',
+    /** Server push notification: a new transaction entered the mempool. */
+    NewMempoolTransactionNotification = 'NewMempoolTransactionNotification',
 
     // Common types (for internal use)
     BlockIdentifier = 'BlockIdentifier',

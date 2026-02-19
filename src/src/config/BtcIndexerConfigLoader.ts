@@ -152,6 +152,12 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 MAX_REQUESTS_PER_SECOND: 50,
                 MAX_SUBSCRIPTIONS: 10,
             },
+
+            MEMPOOL: {
+                MAX_ADDRESSES: 20,
+                DEFAULT_LIMIT: 25,
+                MAX_LIMIT: 100,
+            },
         },
 
         POC: {
@@ -886,6 +892,11 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             if (parsedConfig.API.WEBSOCKET) {
                 this.verifyWebSocketConfig(parsedConfig.API.WEBSOCKET);
             }
+
+            // Validate Mempool API config
+            if (parsedConfig.API.MEMPOOL) {
+                this.verifyAPIMempoolConfig(parsedConfig.API.MEMPOOL);
+            }
         }
 
         if (parsedConfig.EPOCH) {
@@ -1113,6 +1124,28 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         }
     }
 
+    private verifyAPIMempoolConfig(
+        parsedConfig: Partial<IBtcIndexerConfig['API']['MEMPOOL']>,
+    ): void {
+        if (
+            parsedConfig.MAX_ADDRESSES !== undefined &&
+            typeof parsedConfig.MAX_ADDRESSES !== 'number'
+        ) {
+            throw new Error(`Oops the property API.MEMPOOL.MAX_ADDRESSES is not a number.`);
+        }
+
+        if (
+            parsedConfig.DEFAULT_LIMIT !== undefined &&
+            typeof parsedConfig.DEFAULT_LIMIT !== 'number'
+        ) {
+            throw new Error(`Oops the property API.MEMPOOL.DEFAULT_LIMIT is not a number.`);
+        }
+
+        if (parsedConfig.MAX_LIMIT !== undefined && typeof parsedConfig.MAX_LIMIT !== 'number') {
+            throw new Error(`Oops the property API.MEMPOOL.MAX_LIMIT is not a number.`);
+        }
+    }
+
     private verifyBase58Configs(parsedConfig: Partial<IBtcIndexerConfig['BASE58']>): void {
         if (
             typeof parsedConfig.PUBKEY_ADDRESS !== 'string' &&
@@ -1259,10 +1292,25 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                     wsConfig?.MAX_REQUESTS_PER_SECOND ?? defaultWsConfig.MAX_REQUESTS_PER_SECOND,
                 MAX_SUBSCRIPTIONS: wsConfig?.MAX_SUBSCRIPTIONS ?? defaultWsConfig.MAX_SUBSCRIPTIONS,
             };
-            // Reconstruct API config with merged WEBSOCKET
+            // Merge MEMPOOL config separately to handle nested defaults properly
+            let mergedMempoolConfig = apiConfig.MEMPOOL;
+            if (defaultConfigs.API?.MEMPOOL) {
+                const mempoolApiConfig = parsedConfig.API?.MEMPOOL;
+                const defaultMempoolApiConfig = defaultConfigs.API.MEMPOOL;
+                mergedMempoolConfig = {
+                    MAX_ADDRESSES:
+                        mempoolApiConfig?.MAX_ADDRESSES ?? defaultMempoolApiConfig.MAX_ADDRESSES,
+                    DEFAULT_LIMIT:
+                        mempoolApiConfig?.DEFAULT_LIMIT ?? defaultMempoolApiConfig.DEFAULT_LIMIT,
+                    MAX_LIMIT: mempoolApiConfig?.MAX_LIMIT ?? defaultMempoolApiConfig.MAX_LIMIT,
+                };
+            }
+
+            // Reconstruct API config with merged nested configs
             this.config.API = {
                 ...apiConfig,
                 WEBSOCKET: mergedWsConfig,
+                MEMPOOL: mergedMempoolConfig,
             };
         } else {
             this.config.API = apiConfig;

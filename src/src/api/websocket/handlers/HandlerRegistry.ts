@@ -33,6 +33,9 @@ import {
     GetEpochTemplateRequest,
     GetGasRequest,
     GetLatestEpochRequest,
+    GetLatestPendingTransactionsWsRequest,
+    GetMempoolInfoWsRequest,
+    GetPendingTransactionWsRequest,
     GetPreimageRequest,
     GetPublicKeyInfoRequest,
     GetReorgRequest,
@@ -43,6 +46,7 @@ import {
     SubmitEpochRequest,
     SubscribeBlocksRequest,
     SubscribeEpochsRequest,
+    SubscribeMempoolWsRequest,
     UnsubscribeRequest,
 } from '../types/requests/WebSocketRequestTypes.js';
 
@@ -71,6 +75,9 @@ import { EpochByHash } from '../../routes/api/v1/epochs/EpochByHash.js';
 import { GetEpochTemplateRoute } from '../../routes/api/v1/epochs/GetEpochTemplateRoute.js';
 import { SubmitEpochRoute } from '../../routes/api/v1/epochs/SubmitEpochRoute.js';
 import { SubmissionStatus } from '../../json-rpc/types/interfaces/results/epochs/SubmittedEpochResult.js';
+import { GetMempoolInfo } from '../../routes/api/v1/mempool/GetMempoolInfo.js';
+import { GetPendingTransaction } from '../../routes/api/v1/mempool/GetPendingTransaction.js';
+import { GetLatestPendingTransactions } from '../../routes/api/v1/mempool/GetLatestPendingTransactions.js';
 
 /**
  * Converts bigint to string for protobuf serialization (uint64 needs special handling)
@@ -265,6 +272,7 @@ export class HandlerRegistry extends Logger {
     public registerAll(): void {
         this.registerBlockHandlers();
         this.registerTransactionHandlers();
+        this.registerMempoolHandlers();
         this.registerAddressHandlers();
         this.registerChainHandlers();
         this.registerStateHandlers();
@@ -449,6 +457,50 @@ export class HandlerRegistry extends Logger {
                 if (!result) {
                     throw new WebSocketAPIError(InternalError.INTERNAL_ERROR);
                 }
+
+                return result;
+            },
+        );
+    }
+
+    /** Registers WebSocket handlers for mempool query opcodes (info, single tx, latest txs). */
+    private registerMempoolHandlers(): void {
+        // GET_MEMPOOL_INFO
+        APIRegistry.registerHandler(
+            WebSocketRequestOpcode.GET_MEMPOOL_INFO,
+            async (_request: PackedMessage<GetMempoolInfoWsRequest>) => {
+                const route = DefinedRoutes[Routes.MEMPOOL_INFO] as GetMempoolInfo;
+                const result = await route.getData();
+
+                return {
+                    count: result.count,
+                    opnetCount: result.opnetCount,
+                    size: BigInt(result.size),
+                };
+            },
+        );
+
+        // GET_PENDING_TRANSACTION
+        APIRegistry.registerHandler(
+            WebSocketRequestOpcode.GET_PENDING_TRANSACTION,
+            async (request: PackedMessage<GetPendingTransactionWsRequest>) => {
+                const route = DefinedRoutes[Routes.MEMPOOL_TRANSACTION] as GetPendingTransaction;
+                const result = await route.getData({ hash: request.hash });
+
+                return result;
+            },
+        );
+
+        // GET_LATEST_PENDING_TRANSACTIONS
+        APIRegistry.registerHandler(
+            WebSocketRequestOpcode.GET_LATEST_PENDING_TRANSACTIONS,
+            async (request: PackedMessage<GetLatestPendingTransactionsWsRequest>) => {
+                const route = DefinedRoutes[Routes.MEMPOOL_TRANSACTIONS] as GetLatestPendingTransactions;
+                const result = await route.getData({
+                    address: request.address || undefined,
+                    addresses: request.addresses?.length ? request.addresses : undefined,
+                    limit: request.limit || undefined,
+                });
 
                 return result;
             },
@@ -804,6 +856,36 @@ export class HandlerRegistry extends Logger {
                 return {
                     subscriptionId,
                     type: SubscriptionType.EPOCHS,
+                };
+            },
+        );
+
+        // SUBSCRIBE_MEMPOOL
+        APIRegistry.registerHandler(
+            WebSocketRequestOpcode.SUBSCRIBE_MEMPOOL,
+            (
+                _request: PackedMessage<SubscribeMempoolWsRequest>,
+                _requestId: number,
+                clientId: string,
+            ) => {
+                const client = WSManager.getClient(clientId);
+                if (!client) {
+                    throw new WebSocketAPIError(InternalError.INTERNAL_ERROR);
+                }
+
+                // Check if already subscribed
+                if (client.hasSubscription(SubscriptionType.MEMPOOL)) {
+                    throw new WebSocketAPIError(ResourceError.SUBSCRIPTION_ALREADY_EXISTS);
+                }
+
+                const subscriptionId = client.addSubscription(SubscriptionType.MEMPOOL);
+                if (subscriptionId === null) {
+                    throw new WebSocketAPIError(ResourceError.MAX_SUBSCRIPTIONS_REACHED);
+                }
+
+                return {
+                    subscriptionId,
+                    type: SubscriptionType.MEMPOOL,
                 };
             },
         );

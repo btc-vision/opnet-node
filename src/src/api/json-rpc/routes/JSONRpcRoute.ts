@@ -40,4 +40,9 @@ export const JSONRpcRouteMethods: JSONRpcRoute = {
     [JSONRpcMethods.GET_EPOCH_BY_HASH]: Routes.EPOCH_BY_HASH,
     [JSONRpcMethods.GET_EPOCH_TEMPLATE]: Routes.EPOCH_TEMPLATE,
     [JSONRpcMethods.SUBMIT_EPOCH]: Routes.SUBMIT_EPOCH,
+
+    /** Mempool */
+    [JSONRpcMethods.GET_MEMPOOL_INFO]: Routes.MEMPOOL_INFO,
+    [JSONRpcMethods.GET_PENDING_TRANSACTION]: Routes.MEMPOOL_TRANSACTION,
+    [JSONRpcMethods.GET_LATEST_PENDING_TRANSACTIONS]: Routes.MEMPOOL_TRANSACTIONS,
 };
