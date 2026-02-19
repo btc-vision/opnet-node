@@ -4,8 +4,12 @@ import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middl
 import { Config } from '../../../../../config/Config.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
-import { GetLatestPendingTransactionsParams } from '../../../../json-rpc/types/interfaces/params/mempool/GetLatestPendingTransactionsParams.js';
-import { GetLatestPendingTransactionsResult } from '../../../../json-rpc/types/interfaces/results/mempool/GetLatestPendingTransactionsResult.js';
+import {
+    GetLatestPendingTransactionsParams
+} from '../../../../json-rpc/types/interfaces/params/mempool/GetLatestPendingTransactionsParams.js';
+import {
+    GetLatestPendingTransactionsResult
+} from '../../../../json-rpc/types/interfaces/results/mempool/GetLatestPendingTransactionsResult.js';
 import {
     IPubKeyNotFoundError,
     PublicKeyInfo,
@@ -175,7 +179,7 @@ export class GetLatestPendingTransactions extends Route<
     }
 
     /**
-     * Normalises both array-style and object-style RPC parameters into a uniform shape.
+     * Normalizes both array-style and object-style RPC parameters into a uniform shape.
      *
      * @param params - Raw RPC parameters (array or object form).
      * @returns Normalised parameter object with a guaranteed `limit` value.
