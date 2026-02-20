@@ -1,12 +1,10 @@
 import { TransactionVerifier } from '../../TransactionVerifier.js';
 import { TransactionTypes } from '../../../transaction/TransactionTypes.js';
-import { Network, networks, toHex, Transaction } from '@btc-vision/bitcoin';
+import { Network, networks, toHex, Transaction as BitcoinTransaction } from '@btc-vision/bitcoin';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { KnownTransaction } from '../../../transaction/TransactionVerifierManager.js';
 import { Config } from '../../../../../config/Config.js';
-import {
-    TransactionFactory
-} from '../../../../../blockchain-indexer/processor/transaction/transaction-factory/TransactionFactory.js';
+import { TransactionFactory } from '../../../../../blockchain-indexer/processor/transaction/transaction-factory/TransactionFactory.js';
 import { IMempoolTransactionObj } from '../../../../../db/interfaces/IMempoolTransaction.js';
 import { TransactionData, VOut } from '@btc-vision/bitcoin-rpc/src/rpc/types/BlockData.js';
 import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
@@ -16,9 +14,8 @@ import { OPNetConsensus } from '../../../../configurations/OPNetConsensus.js';
 import { ChallengeSolution } from '../../../../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
 import { AddressMap } from '@btc-vision/transaction';
 import { EpochRepository } from '../../../../../db/repositories/EpochRepository.js';
-import {
-    OPNetTransactionTypes
-} from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { OPNetTransactionTypes } from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { Transaction } from '../../../../../blockchain-indexer/processor/transaction/Transaction.js';
 
 const EMPTY_BLOCK_HASH = toHex(new Uint8Array(32));
 
@@ -69,7 +66,7 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
 
     public async verify(
         transaction: IMempoolTransactionObj,
-        data: Transaction,
+        data: BitcoinTransaction,
         txData?: TransactionData,
     ): Promise<KnownTransaction | false> {
         let tx: KnownTransaction | false = false;
@@ -99,6 +96,13 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
                     transaction,
                     opnetDecodedTransaction as Transaction<OPNetTransactionTypes.Interaction>,
                 );
+            } else if (
+                opnetDecodedTransaction.transactionType === OPNetTransactionTypes.Deployment
+            ) {
+                this.insertDeploymentProperty(
+                    transaction,
+                    opnetDecodedTransaction as Transaction<OPNetTransactionTypes.Deployment>,
+                );
             }
         } catch (e) {
             if (Config.DEV_MODE) {
@@ -109,13 +113,30 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
         return tx;
     }
 
+    protected insertSharedProperty(
+        transaction: IMempoolTransactionObj,
+        decodedTransaction:
+            | Transaction<OPNetTransactionTypes.Interaction>
+            | Transaction<OPNetTransactionTypes.Deployment>,
+    ): void {}
+
+    protected insertInteractionProperty(
+        transaction: IMempoolTransactionObj,
+        decodedTransaction: Transaction<OPNetTransactionTypes.Interaction>,
+    ): void {}
+
+    protected insertDeploymentProperty(
+        transaction: IMempoolTransactionObj,
+        decodedTransaction: Transaction<OPNetTransactionTypes.Deployment>,
+    ): void {}
+
     protected getTxVersion(version: number): TransactionTypes {
         return version === 2
             ? TransactionTypes.BITCOIN_TRANSACTION_V2
             : TransactionTypes.BITCOIN_TRANSACTION_V1;
     }
 
-    private toRawTransactionData(data: Transaction): TransactionData {
+    private toRawTransactionData(data: BitcoinTransaction): TransactionData {
         const outputs: VOut[] = [];
         for (let i = 0; i < data.outs.length; i++) {
             const output = data.outs[i];
