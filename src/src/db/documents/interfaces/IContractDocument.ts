@@ -14,8 +14,10 @@ export interface IContractDocumentBase {
     readonly contractSaltHash: Binary | string;
 }
 
-export interface IContractAPIDocument
-    extends Omit<IContractDocumentBase, 'deployerPubKey' | 'blockHeight'> {
+export interface IContractAPIDocument extends Omit<
+    IContractDocumentBase,
+    'deployerPubKey' | 'blockHeight'
+> {
     readonly bytecode: string;
     readonly deployerPubKey: string;
     readonly deployerAddress: string;

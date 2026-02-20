@@ -1,4 +1,8 @@
-import { IOPNetConsensus, IOPNetConsensusObj, OPNetEnabledConfigs, } from './types/IOPNetConsensus.js';
+import {
+    IOPNetConsensus,
+    IOPNetConsensusObj,
+    OPNetEnabledConfigs,
+} from './types/IOPNetConsensus.js';
 import { Consensus } from './consensus/Consensus.js';
 import { RoswellConsensus } from './consensus/RoswellConsensus.js';
 import { Logger } from '@btc-vision/bsi-common';

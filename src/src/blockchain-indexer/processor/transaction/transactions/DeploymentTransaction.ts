@@ -1,5 +1,12 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
-import bitcoin, { alloc, concat, equals as bytesEquals, networks, opcodes, toXOnly } from '@btc-vision/bitcoin';
+import bitcoin, {
+    alloc,
+    concat,
+    equals as bytesEquals,
+    networks,
+    opcodes,
+    toXOnly,
+} from '@btc-vision/bitcoin';
 import { createPublicKey, UniversalSigner } from '@btc-vision/ecpair';
 import { DeploymentTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
@@ -254,7 +261,10 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
 
         if (
             !this.contractSigner.publicKey ||
-            !bytesEquals(deploymentWitnessData.contractSaltPubKey, toXOnly(this.contractSigner.publicKey))
+            !bytesEquals(
+                deploymentWitnessData.contractSaltPubKey,
+                toXOnly(this.contractSigner.publicKey),
+            )
         ) {
             throw new Error(`OP_NET: Invalid contract signer.`);
         }
@@ -353,10 +363,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
             contractSaltPubKey: this.contractSigner.publicKey,
             originalSalt: this.contractSeed,
             bytecode: this.bytecode,
-            calldata:
-                this._calldata && this._calldata.length > 0
-                    ? this._calldata
-                    : undefined,
+            calldata: this._calldata && this._calldata.length > 0 ? this._calldata : undefined,
             challenge: unsafePreimage,
             network: this.network,
             priorityFee: priorityFee,
@@ -471,7 +478,11 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         }
 
         const magic = scriptData.shift();
-        if (!(magic instanceof Uint8Array) || magic.length !== 2 || !bytesEquals(magic, OPNet_MAGIC)) {
+        if (
+            !(magic instanceof Uint8Array) ||
+            magic.length !== 2 ||
+            !bytesEquals(magic, OPNet_MAGIC)
+        ) {
             return;
         }
 

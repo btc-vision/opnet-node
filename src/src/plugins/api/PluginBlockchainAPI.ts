@@ -507,7 +507,8 @@ export class PluginBlockchainAPI implements IPluginBlockchainAPI {
                 success: revertBytes.length === 0,
                 gasUsed: gasUsed ?? 0n,
                 events: [],
-                revertReason: revertBytes.length > 0 ? new TextDecoder().decode(revertBytes) : undefined,
+                revertReason:
+                    revertBytes.length > 0 ? new TextDecoder().decode(revertBytes) : undefined,
             };
         }
 

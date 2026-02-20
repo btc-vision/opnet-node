@@ -73,7 +73,9 @@ export class GetBalanceRoute extends Route<
             if (data) {
                 this.safeJson(res, 200, data);
             } else {
-                this.safeJson(res, 400, { error: 'Could not fetch balance for the given address.' });
+                this.safeJson(res, 400, {
+                    error: 'Could not fetch balance for the given address.',
+                });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);

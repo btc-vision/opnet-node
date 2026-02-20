@@ -12,9 +12,7 @@ import { WebSocketConfig } from '../../config/interfaces/IBtcIndexerConfig.js';
 import { P2PVersion } from '../../poc/configurations/P2PVersion.js';
 import type { PluginOpcodeRegistry } from '../../plugins/api/websocket/PluginOpcodeRegistry.js';
 import type { IPluginOpcodeInfo } from '../../plugins/interfaces/IPluginMessages.js';
-import {
-    OPNetTransactionTypes,
-} from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 
 /**
  * Manager metrics

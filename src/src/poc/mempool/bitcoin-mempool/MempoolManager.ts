@@ -23,9 +23,7 @@ import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thr
 import { TransactionVerifierManager } from '../transaction/TransactionVerifierManager.js';
 import { fromHex, Network } from '@btc-vision/bitcoin';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
-import {
-    OPNetTransactionTypes,
-} from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { getMongodbMajorVersion } from '../../../vm/storage/databases/MongoUtils.js';
 
 export class MempoolManager extends Logger {

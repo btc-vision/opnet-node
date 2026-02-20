@@ -13,8 +13,10 @@ export interface EventReceiptDataForAPI {
     readonly data: string;
 }
 
-export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
-    extends Omit<TransactionDocumentBase<T>, 'outputs' | 'inputs' | 'id' | 'hash'> {
+export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes> extends Omit<
+    TransactionDocumentBase<T>,
+    'outputs' | 'inputs' | 'id' | 'hash'
+> {
     readonly hash: string;
     readonly id: string;
     readonly blockNumber?: string;

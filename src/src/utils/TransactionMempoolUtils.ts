@@ -23,7 +23,10 @@ export function getOutputAddressForScript(script: Uint8Array): string | null {
     }
 }
 
-export function parseAndStoreInputOutputs(data: Uint8Array, transaction: IMempoolTransactionObj): void {
+export function parseAndStoreInputOutputs(
+    data: Uint8Array,
+    transaction: IMempoolTransactionObj,
+): void {
     try {
         const decoded = Transaction.fromBuffer(data);
 

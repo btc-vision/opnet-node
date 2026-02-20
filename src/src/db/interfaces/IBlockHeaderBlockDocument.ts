@@ -32,8 +32,10 @@ export interface BaseBlockDocument {
     gasUsed: bigint;
 }
 
-export interface BlockHeaderDocument
-    extends Omit<BaseBlockDocument, 'ema' | 'baseGas' | 'gasUsed'> {
+export interface BlockHeaderDocument extends Omit<
+    BaseBlockDocument,
+    'ema' | 'baseGas' | 'gasUsed'
+> {
     height: Decimal128;
     time: Date;
     medianTime: Date;
@@ -42,8 +44,10 @@ export interface BlockHeaderDocument
     gasUsed: Long;
 }
 
-export interface BlockHeaderAPIBlockDocument
-    extends Omit<BaseBlockDocument, 'ema' | 'baseGas' | 'gasUsed'> {
+export interface BlockHeaderAPIBlockDocument extends Omit<
+    BaseBlockDocument,
+    'ema' | 'baseGas' | 'gasUsed'
+> {
     height: string;
 
     time: number;

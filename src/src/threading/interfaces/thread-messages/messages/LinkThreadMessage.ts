@@ -23,8 +23,9 @@ export interface LinkData<T extends LinkType> {
     readonly port: MessagePort;
 }
 
-export interface LinkThreadMessage<T extends LinkType>
-    extends ThreadMessageBase<MessageType.LINK_THREAD> {
+export interface LinkThreadMessage<
+    T extends LinkType,
+> extends ThreadMessageBase<MessageType.LINK_THREAD> {
     readonly type: MessageType.LINK_THREAD;
 
     readonly data: LinkData<T>;

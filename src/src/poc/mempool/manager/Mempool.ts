@@ -18,11 +18,9 @@ import { BitcoinRPC, FeeEstimation, SmartFeeEstimation } from '@btc-vision/bitco
 import { Config } from '../../../config/Config.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
-import { concat, Network, toBase64, toHex } from '@btc-vision/bitcoin';
+import { Network, toHex } from '@btc-vision/bitcoin';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
-import {
-    OPNetTransactionTypes,
-} from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
 import { TransactionSizeValidator } from '../data-validator/TransactionSizeValidator.js';

@@ -17,7 +17,6 @@ export type FeeMessageResponse = ThreadData & {
     readonly bitcoinFees: BitcoinFees;
 };
 
-export interface FeeRequestMessageData
-    extends RPCMessageData<BitcoinRPCThreadMessageType.GET_MEMPOOL_FEES> {
+export interface FeeRequestMessageData extends RPCMessageData<BitcoinRPCThreadMessageType.GET_MEMPOOL_FEES> {
     readonly rpcMethod: BitcoinRPCThreadMessageType.GET_MEMPOOL_FEES;
 }

@@ -120,9 +120,7 @@ export abstract class VMStorage extends Logger {
         size: number;
     }>;
 
-    public abstract getMempoolTransaction(
-        id: string,
-    ): Promise<IMempoolTransactionObj | undefined>;
+    public abstract getMempoolTransaction(id: string): Promise<IMempoolTransactionObj | undefined>;
 
     public abstract getLatestPendingTransactions(
         addresses?: string[],
@@ -196,7 +194,9 @@ export abstract class VMStorage extends Logger {
     /**
      * Get epoch by epoch hash
      */
-    public abstract getEpochByHash(epochHash: Uint8Array | Binary): Promise<IEpochDocument | undefined>;
+    public abstract getEpochByHash(
+        epochHash: Uint8Array | Binary,
+    ): Promise<IEpochDocument | undefined>;
 
     /**
      * Get epoch by block height (find which epoch contains this block)
@@ -218,7 +218,9 @@ export abstract class VMStorage extends Logger {
     /**
      * Get epochs by target hash
      */
-    public abstract getEpochsByTargetHash(targetHash: Uint8Array | Binary): Promise<IEpochDocument[]>;
+    public abstract getEpochsByTargetHash(
+        targetHash: Uint8Array | Binary,
+    ): Promise<IEpochDocument[]>;
 
     /**
      * Save or update an epoch

@@ -48,7 +48,7 @@ components:
         address:
           type: string
           description: An address or public key hash.
-          example: "0222513da2b72f9f8e26a016087ee191fc60be4671cae286bd2f16261c026dcb12"
+          example: '0222513da2b72f9f8e26a016087ee191fc60be4671cae286bd2f16261c026dcb12'
           required: true
     InteractionTransaction:
       allOf:
@@ -181,7 +181,7 @@ components:
         data:
           type: string
           description: The transaction to broadcast.
-          example: "02000000000101"
+          example: '02000000000101'
           required: true
         psbt:
           type: boolean
@@ -200,6 +200,6 @@ components:
         amount:
           type: number
           description: The amount to wrap in satoshis
-          example: "0"
+          example: '0'
           default: 1000
           required: true

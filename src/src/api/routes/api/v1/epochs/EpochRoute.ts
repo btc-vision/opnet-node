@@ -254,7 +254,9 @@ export abstract class EpochRoute<T extends Routes> extends Route<
                 throw new Error('Invalid hash parameter: expected a string');
             }
 
-            const cleanHash: string | undefined = params.hash?.startsWith('0x') ? params.hash.slice(2) : params.hash;
+            const cleanHash: string | undefined = params.hash?.startsWith('0x')
+                ? params.hash.slice(2)
+                : params.hash;
             if (cleanHash.length !== 64) {
                 throw new Error('Invalid hash length. Expected 64 hex characters for SHA-256 hash');
             }

@@ -5,8 +5,7 @@ export interface CurrentIndexerBlockResponseData {
     readonly blockNumber: bigint;
 }
 
-export interface BlockProcessedMessage
-    extends ThreadMessageBase<MessageType.CURRENT_INDEXER_BLOCK> {
+export interface BlockProcessedMessage extends ThreadMessageBase<MessageType.CURRENT_INDEXER_BLOCK> {
     readonly type: MessageType.CURRENT_INDEXER_BLOCK;
 
     readonly data: object;

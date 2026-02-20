@@ -61,7 +61,9 @@ export class ReorgRoute extends Route<Routes.REORG, JSONRpcMethods.REORG, ReorgR
             if (data) {
                 this.safeJson(res, 200, data);
             } else {
-                this.safeJson(res, 400, { error: 'Could not fetch latest block header. Is this node synced?' });
+                this.safeJson(res, 400, {
+                    error: 'Could not fetch latest block header. Is this node synced?',
+                });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);

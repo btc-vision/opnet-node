@@ -160,7 +160,9 @@ export class AnyoneCanSpendDetector extends Logger {
         return undefined;
     }
 
-    private detectOpSuccessBare(asm: (number | Uint8Array)[] | null): AnyoneCanSpendHit | undefined {
+    private detectOpSuccessBare(
+        asm: (number | Uint8Array)[] | null,
+    ): AnyoneCanSpendHit | undefined {
         if (!asm || asm.length === 0) return;
         let i = 0;
         while (i < asm.length && asm[i] === opcodes.OP_NOP) i++;
@@ -249,7 +251,9 @@ export class AnyoneCanSpendDetector extends Logger {
         };
     }
 
-    private detectFutureWitness(asm: (number | Uint8Array)[] | null): AnyoneCanSpendHit | undefined {
+    private detectFutureWitness(
+        asm: (number | Uint8Array)[] | null,
+    ): AnyoneCanSpendHit | undefined {
         if (!asm || asm.length !== 2) return;
         const [vOp, prog] = asm;
         if (typeof vOp !== 'number' || !(prog instanceof Uint8Array)) return;

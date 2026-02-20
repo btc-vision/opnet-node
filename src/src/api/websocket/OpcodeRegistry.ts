@@ -2,7 +2,11 @@ import { Type } from 'protobufjs';
 import { APIProtobufLoader } from './proto/APIProtobufLoader.js';
 import { APIPacket, PackedMessage } from './packets/APIPacket.js';
 import { APIPacketType } from './packets/types/APIPacketTypes.js';
-import { OpcodeNames, WebSocketRequestOpcode, WebSocketResponseOpcode, } from './types/opcodes/WebSocketOpcodes.js';
+import {
+    OpcodeNames,
+    WebSocketRequestOpcode,
+    WebSocketResponseOpcode,
+} from './types/opcodes/WebSocketOpcodes.js';
 
 /**
  * Handler function type for processing incoming requests.

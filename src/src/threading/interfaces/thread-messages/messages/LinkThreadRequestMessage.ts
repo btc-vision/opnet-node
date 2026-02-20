@@ -12,8 +12,7 @@ export interface LinkThreadRequestData {
     mainTargetThreadId: number | null;
 }
 
-export interface LinkThreadRequestMessage
-    extends ThreadMessageBase<MessageType.LINK_THREAD_REQUEST> {
+export interface LinkThreadRequestMessage extends ThreadMessageBase<MessageType.LINK_THREAD_REQUEST> {
     readonly type: MessageType.LINK_THREAD_REQUEST;
 
     readonly data: LinkThreadRequestData;

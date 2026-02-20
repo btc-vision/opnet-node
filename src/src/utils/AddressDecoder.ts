@@ -42,11 +42,17 @@ export function scriptToAddress(output: Uint8Array, network: Network): ScriptAdd
     }
 
     try {
-        return { address: payments.p2pkh({ output: outputScript, network }).address, type: 'pubkeyhash' };
+        return {
+            address: payments.p2pkh({ output: outputScript, network }).address,
+            type: 'pubkeyhash',
+        };
     } catch {}
 
     try {
-        return { address: payments.p2sh({ output: outputScript, network }).address, type: 'scripthash' };
+        return {
+            address: payments.p2sh({ output: outputScript, network }).address,
+            type: 'scripthash',
+        };
     } catch {}
 
     if ((output.length === 35 || output.length === 67) && output.at(-1) === opcodes.OP_CHECKSIG) {
@@ -68,7 +74,10 @@ export function scriptToAddress(output: Uint8Array, network: Network): ScriptAdd
     } catch {}
 
     try {
-        return { address: payments.p2tr({ output: outputScript, network }).address, type: 'witness_v1_taproot' };
+        return {
+            address: payments.p2tr({ output: outputScript, network }).address,
+            type: 'witness_v1_taproot',
+        };
     } catch {}
 
     try {

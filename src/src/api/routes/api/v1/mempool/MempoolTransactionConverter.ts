@@ -35,9 +35,7 @@ export class MempoolTransactionConverter {
                     ? '0x' + tx.theoreticalGasLimit.toString(16)
                     : undefined,
             priorityFee:
-                tx.priorityFee !== undefined
-                    ? '0x' + tx.priorityFee.toString(16)
-                    : undefined,
+                tx.priorityFee !== undefined ? '0x' + tx.priorityFee.toString(16) : undefined,
             from: tx.from,
             contractAddress: tx.contractAddress,
             calldata: tx.calldata,

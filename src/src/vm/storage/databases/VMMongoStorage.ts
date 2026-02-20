@@ -530,9 +530,7 @@ export class VMMongoStorage extends VMStorage {
         return await this.mempoolRepository.getMempoolInfo();
     }
 
-    public async getMempoolTransaction(
-        id: string,
-    ): Promise<IMempoolTransactionObj | undefined> {
+    public async getMempoolTransaction(id: string): Promise<IMempoolTransactionObj | undefined> {
         if (!this.mempoolRepository) {
             throw new Error('Mempool repository not initialized');
         }

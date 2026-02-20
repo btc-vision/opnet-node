@@ -2,9 +2,7 @@ import { BaseRepository, DataConverter } from '@btc-vision/bsi-common';
 import { AggregateOptions, Binary, Collection, Db, Document, Filter, Long } from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { IMempoolTransaction, IMempoolTransactionObj } from '../interfaces/IMempoolTransaction.js';
-import {
-    OPNetTransactionTypes,
-} from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { Config } from '../../config/Config.js';
 import {
     MempoolTransactionAggregation,
@@ -681,12 +679,12 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             blockHeight: DataConverter.toDecimal128(data.blockHeight),
             firstSeen: data.firstSeen,
             transactionType: data.transactionType,
-            theoreticalGasLimit: data.theoreticalGasLimit !== undefined
-                ? Long.fromBigInt(data.theoreticalGasLimit)
-                : undefined,
-            priorityFee: data.priorityFee !== undefined
-                ? Long.fromBigInt(data.priorityFee)
-                : undefined,
+            theoreticalGasLimit:
+                data.theoreticalGasLimit !== undefined
+                    ? Long.fromBigInt(data.theoreticalGasLimit)
+                    : undefined,
+            priorityFee:
+                data.priorityFee !== undefined ? Long.fromBigInt(data.priorityFee) : undefined,
             from: data.from,
             contractAddress: data.contractAddress,
             calldata: data.calldata,
@@ -716,17 +714,17 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             previousPsbtId: data.previousPsbtId,
             blockHeight: DataConverter.fromDecimal128(data.blockHeight),
             firstSeen: data.firstSeen,
-            transactionType:
-                (data.transactionType || OPNetTransactionTypes.Generic) as OPNetTransactionTypes,
+            transactionType: (data.transactionType ||
+                OPNetTransactionTypes.Generic) as OPNetTransactionTypes,
             theoreticalGasLimit: data.theoreticalGasLimit
-                ? (Long.isLong(data.theoreticalGasLimit)
+                ? Long.isLong(data.theoreticalGasLimit)
                     ? data.theoreticalGasLimit.toBigInt()
-                    : BigInt(`${data.theoreticalGasLimit}`))
+                    : BigInt(`${data.theoreticalGasLimit}`)
                 : undefined,
             priorityFee: data.priorityFee
-                ? (Long.isLong(data.priorityFee)
+                ? Long.isLong(data.priorityFee)
                     ? data.priorityFee.toBigInt()
-                    : BigInt(0))
+                    : BigInt(0)
                 : undefined,
             from: data.from,
             contractAddress: data.contractAddress,

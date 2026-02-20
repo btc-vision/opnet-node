@@ -4,12 +4,8 @@ import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middl
 import { Config } from '../../../../../config/Config.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
-import {
-    GetLatestPendingTransactionsParams
-} from '../../../../json-rpc/types/interfaces/params/mempool/GetLatestPendingTransactionsParams.js';
-import {
-    GetLatestPendingTransactionsResult
-} from '../../../../json-rpc/types/interfaces/results/mempool/GetLatestPendingTransactionsResult.js';
+import { GetLatestPendingTransactionsParams } from '../../../../json-rpc/types/interfaces/params/mempool/GetLatestPendingTransactionsParams.js';
+import { GetLatestPendingTransactionsResult } from '../../../../json-rpc/types/interfaces/results/mempool/GetLatestPendingTransactionsResult.js';
 import {
     IPubKeyNotFoundError,
     PublicKeyInfo,

@@ -9,8 +9,9 @@ export interface RPCMessageData<T extends BitcoinRPCThreadMessageType> {
     readonly data?: ThreadData | PromiseLike<ThreadData>;
 }
 
-export interface RPCMessage<T extends BitcoinRPCThreadMessageType>
-    extends ThreadMessageBase<MessageType.RPC_METHOD> {
+export interface RPCMessage<
+    T extends BitcoinRPCThreadMessageType,
+> extends ThreadMessageBase<MessageType.RPC_METHOD> {
     readonly type: MessageType.RPC_METHOD;
 
     readonly data: RPCMessageData<T>;

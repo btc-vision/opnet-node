@@ -171,7 +171,11 @@ export class EpochMerkleTree {
         return merkleProof.verify(root, RustMerkleTree.hash(attestationBytes));
     }
 
-    public static verifyEpochData(root: Uint8Array, proofs: Uint8Array[], data: Uint8Array): boolean {
+    public static verifyEpochData(
+        root: Uint8Array,
+        proofs: Uint8Array[],
+        data: Uint8Array,
+    ): boolean {
         const merkleProof = new MerkleProof(proofs);
         return merkleProof.verifyData(root, data);
     }
@@ -221,7 +225,11 @@ export class EpochMerkleTree {
             const attestation: Attestation = {
                 type: attPackage.attestation.type,
                 blockNumber: attPackage.attestation.blockNumber,
-                checksumRoot: fromHex(attPackage.attestation.checksumRoot.startsWith('0x') ? attPackage.attestation.checksumRoot.slice(2) : attPackage.attestation.checksumRoot),
+                checksumRoot: fromHex(
+                    attPackage.attestation.checksumRoot.startsWith('0x')
+                        ? attPackage.attestation.checksumRoot.slice(2)
+                        : attPackage.attestation.checksumRoot,
+                ),
                 signature: attPackage.attestation.signature,
                 timestamp: attPackage.attestation.timestamp,
                 publicKey: attPackage.attestation.publicKey,
@@ -229,7 +237,11 @@ export class EpochMerkleTree {
 
             const isValid = EpochMerkleTree.verifyAttestation(root, attestation, attPackage.proofs);
             const computedRoot = new MerkleProof(attPackage.proofs).rootHex(
-                fromHex(attPackage.leafHash.startsWith('0x') ? attPackage.leafHash.slice(2) : attPackage.leafHash),
+                fromHex(
+                    attPackage.leafHash.startsWith('0x')
+                        ? attPackage.leafHash.slice(2)
+                        : attPackage.leafHash,
+                ),
             );
 
             return {
@@ -414,7 +426,9 @@ export class EpochMerkleTree {
             .map((hash) => new Uint8Array(hash));
     }
 
-    public getEpochDataProof(epochDataBytes: Uint8Array | undefined = this.epochBytes): Uint8Array[] {
+    public getEpochDataProof(
+        epochDataBytes: Uint8Array | undefined = this.epochBytes,
+    ): Uint8Array[] {
         if (!epochDataBytes) {
             throw new Error('Epoch data bytes are not provided');
         }
@@ -512,8 +526,7 @@ export class EpochMerkleTree {
             epoch: this.getEpochData(),
             metadata: {
                 chainId: '0x' + toHex(new Uint8Array(chainId)),
-                protocolId:
-                    '0x' + toHex(new Uint8Array(OPNetConsensus.consensus.PROTOCOL_ID)),
+                protocolId: '0x' + toHex(new Uint8Array(OPNetConsensus.consensus.PROTOCOL_ID)),
                 treeHeight: Math.ceil(Math.log2(this.attestations.length + 1)),
                 leafCount: this.attestations.length + 1,
                 generatedAt: Date.now(),

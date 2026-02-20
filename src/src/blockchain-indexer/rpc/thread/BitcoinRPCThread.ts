@@ -154,10 +154,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
 
             for (let i = 0; i < value.length; i++) {
                 const innerValue = value[i];
-                const event: NetEvent = new NetEvent(
-                    innerValue[0],
-                    fromHex(innerValue[1]),
-                );
+                const event: NetEvent = new NetEvent(innerValue[0], fromHex(innerValue[1]));
 
                 events.push(event);
             }

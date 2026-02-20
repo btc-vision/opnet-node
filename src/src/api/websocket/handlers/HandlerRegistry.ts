@@ -9,12 +9,8 @@ import { WebSocketAPIError } from '../ProtocolHandler.js';
 import { DefinedRoutes } from '../../routes/DefinedRoutes.js';
 import { Routes } from '../../enums/Routes.js';
 import { PackedMessage } from '../packets/APIPacket.js';
-import {
-    BlockHeaderAPIDocumentWithTransactions
-} from '../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
-import {
-    OPNetTransactionTypes
-} from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { BlockHeaderAPIDocumentWithTransactions } from '../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
+import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 
 // Import typed request interfaces
 import {
@@ -430,9 +426,10 @@ export class HandlerRegistry extends Logger {
             WebSocketRequestOpcode.BROADCAST_TRANSACTION,
             async (request: PackedMessage<BroadcastTransactionRequest>) => {
                 const route = DefinedRoutes[Routes.BROADCAST_TRANSACTION] as BroadcastTransaction;
-                const txHex = request.transaction instanceof Uint8Array
-                    ? toHex(request.transaction)
-                    : toHex(new Uint8Array(request.transaction));
+                const txHex =
+                    request.transaction instanceof Uint8Array
+                        ? toHex(request.transaction)
+                        : toHex(new Uint8Array(request.transaction));
 
                 const result = await route.getData({
                     data: txHex,
@@ -495,7 +492,9 @@ export class HandlerRegistry extends Logger {
         APIRegistry.registerHandler(
             WebSocketRequestOpcode.GET_LATEST_PENDING_TRANSACTIONS,
             async (request: PackedMessage<GetLatestPendingTransactionsWsRequest>) => {
-                const route = DefinedRoutes[Routes.MEMPOOL_TRANSACTIONS] as GetLatestPendingTransactions;
+                const route = DefinedRoutes[
+                    Routes.MEMPOOL_TRANSACTIONS
+                ] as GetLatestPendingTransactions;
                 const result = await route.getData({
                     address: request.address || undefined,
                     addresses: request.addresses?.length ? request.addresses : undefined,

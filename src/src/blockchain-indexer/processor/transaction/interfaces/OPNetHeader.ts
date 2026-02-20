@@ -79,8 +79,6 @@ export class OPNetHeader {
 
         // Read 3-byte big-endian unsigned integer from bytes [1..3]
         this._flags =
-            (this._headerBytes[1] << 16) |
-            (this._headerBytes[2] << 8) |
-            this._headerBytes[3];
+            (this._headerBytes[1] << 16) | (this._headerBytes[2] << 8) | this._headerBytes[3];
     }
 }

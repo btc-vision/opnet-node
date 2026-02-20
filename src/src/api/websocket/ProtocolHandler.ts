@@ -130,7 +130,11 @@ export class ProtocolHandler extends Logger {
             const opcodeName =
                 OpcodeNames[opcode as WebSocketRequestOpcode] ?? `0x${opcode.toString(16)}`;
             this.warn(`Failed to deserialize ${opcodeName}: ${error}`);
-            client.sendError(requestId, ProtocolError.MALFORMED_MESSAGE, 'Failed to deserialize request');
+            client.sendError(
+                requestId,
+                ProtocolError.MALFORMED_MESSAGE,
+                'Failed to deserialize request',
+            );
             return false;
         }
 
@@ -353,7 +357,11 @@ export class ProtocolHandler extends Logger {
             this.warn(
                 `Failed to decode plugin request for opcode 0x${opcode.toString(16)}: ${error}`,
             );
-            client.sendError(requestId, ProtocolError.MALFORMED_MESSAGE, 'Failed to deserialize request');
+            client.sendError(
+                requestId,
+                ProtocolError.MALFORMED_MESSAGE,
+                'Failed to deserialize request',
+            );
             return false;
         }
 
