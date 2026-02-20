@@ -1,4 +1,6 @@
 import { Binary, Decimal128, Long } from 'mongodb';
+import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { Address } from '@btc-vision/transaction';
 
 export interface IMempoolTransaction {
     id: string;
@@ -28,17 +30,18 @@ export interface IMempoolTransaction {
     }[];
 }
 
-export interface IMempoolTransactionObj
-    extends Omit<
-        IMempoolTransaction,
-        'data' | 'blockHeight' | 'outputs' | 'inputs' | 'theoreticalGasLimit' | 'priorityFee'
-    > {
+export interface IMempoolTransactionObj extends Omit<
+    IMempoolTransaction,
+    'data' | 'blockHeight' | 'outputs' | 'inputs' | 'theoreticalGasLimit' | 'priorityFee'
+> {
     readonly data: Uint8Array;
     readonly blockHeight: bigint;
 
-    isOPNet: boolean;
+    transactionType: OPNetTransactionTypes;
     theoreticalGasLimit: bigint;
     priorityFee: bigint;
+
+    from?: Address;
 
     readonly inputs: {
         readonly transactionId: string;

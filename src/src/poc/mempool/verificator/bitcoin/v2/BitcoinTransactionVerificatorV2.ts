@@ -4,17 +4,21 @@ import { Network, networks, toHex, Transaction } from '@btc-vision/bitcoin';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { KnownTransaction } from '../../../transaction/TransactionVerifierManager.js';
 import { Config } from '../../../../../config/Config.js';
-import { TransactionFactory } from '../../../../../blockchain-indexer/processor/transaction/transaction-factory/TransactionFactory.js';
+import {
+    TransactionFactory
+} from '../../../../../blockchain-indexer/processor/transaction/transaction-factory/TransactionFactory.js';
 import { IMempoolTransactionObj } from '../../../../../db/interfaces/IMempoolTransaction.js';
 import { TransactionData, VOut } from '@btc-vision/bitcoin-rpc/src/rpc/types/BlockData.js';
 import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
 import { scriptToAddress } from '../../../../../utils/AddressDecoder.js';
 import BigNumber from 'bignumber.js';
 import { OPNetConsensus } from '../../../../configurations/OPNetConsensus.js';
-import { OPNetTransactionTypes } from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { ChallengeSolution } from '../../../../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
 import { AddressMap } from '@btc-vision/transaction';
 import { EpochRepository } from '../../../../../db/repositories/EpochRepository.js';
+import {
+    OPNetTransactionTypes
+} from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 
 const EMPTY_BLOCK_HASH = toHex(new Uint8Array(32));
 
@@ -78,7 +82,6 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
                 this.currentBlockHeight,
                 this.network,
                 solutions,
-                false,
             );
 
             tx = {
@@ -87,10 +90,16 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
                 transaction: opnetDecodedTransaction,
             };
 
-            transaction.isOPNet =
-                opnetDecodedTransaction.transactionType !== OPNetTransactionTypes.Generic;
+            transaction.transactionType = opnetDecodedTransaction.transactionType;
             transaction.theoreticalGasLimit = opnetDecodedTransaction.gasSatFee;
             transaction.priorityFee = opnetDecodedTransaction.priorityFee;
+
+            if (opnetDecodedTransaction.transactionType === OPNetTransactionTypes.Interaction) {
+                this.insertInteractionProperty(
+                    transaction,
+                    opnetDecodedTransaction as Transaction<OPNetTransactionTypes.Interaction>,
+                );
+            }
         } catch (e) {
             if (Config.DEV_MODE) {
                 this.error(`Error verifying Bitcoin Transaction V2: ${(e as Error).message}`);
