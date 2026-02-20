@@ -1,10 +1,12 @@
 import { TransactionVerifier } from '../../TransactionVerifier.js';
 import { TransactionTypes } from '../../../transaction/TransactionTypes.js';
-import { Network, networks, toHex, Transaction as BitcoinTransaction } from '@btc-vision/bitcoin';
+import { Network, networks, toHex, Transaction } from '@btc-vision/bitcoin';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { KnownTransaction } from '../../../transaction/TransactionVerifierManager.js';
 import { Config } from '../../../../../config/Config.js';
-import { TransactionFactory } from '../../../../../blockchain-indexer/processor/transaction/transaction-factory/TransactionFactory.js';
+import {
+    TransactionFactory
+} from '../../../../../blockchain-indexer/processor/transaction/transaction-factory/TransactionFactory.js';
 import { IMempoolTransactionObj } from '../../../../../db/interfaces/IMempoolTransaction.js';
 import { TransactionData, VOut } from '@btc-vision/bitcoin-rpc/src/rpc/types/BlockData.js';
 import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
@@ -14,8 +16,18 @@ import { OPNetConsensus } from '../../../../configurations/OPNetConsensus.js';
 import { ChallengeSolution } from '../../../../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
 import { AddressMap } from '@btc-vision/transaction';
 import { EpochRepository } from '../../../../../db/repositories/EpochRepository.js';
-import { OPNetTransactionTypes } from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import { Transaction } from '../../../../../blockchain-indexer/processor/transaction/Transaction.js';
+import {
+    OPNetTransactionTypes
+} from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import {
+    Transaction as OPNetDecodedTransaction
+} from '../../../../../blockchain-indexer/processor/transaction/Transaction.js';
+import {
+    InteractionTransaction
+} from '../../../../../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
+import {
+    DeploymentTransaction
+} from '../../../../../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
 
 const EMPTY_BLOCK_HASH = toHex(new Uint8Array(32));
 
@@ -66,7 +78,7 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
 
     public async verify(
         transaction: IMempoolTransactionObj,
-        data: BitcoinTransaction,
+        data: Transaction,
         txData?: TransactionData,
     ): Promise<KnownTransaction | false> {
         let tx: KnownTransaction | false = false;
@@ -87,21 +99,17 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
                 transaction: opnetDecodedTransaction,
             };
 
-            transaction.transactionType = opnetDecodedTransaction.transactionType;
-            transaction.theoreticalGasLimit = opnetDecodedTransaction.gasSatFee;
-            transaction.priorityFee = opnetDecodedTransaction.priorityFee;
+            this.insertSharedProperty(transaction, opnetDecodedTransaction);
 
             if (opnetDecodedTransaction.transactionType === OPNetTransactionTypes.Interaction) {
                 this.insertInteractionProperty(
                     transaction,
-                    opnetDecodedTransaction as Transaction<OPNetTransactionTypes.Interaction>,
+                    opnetDecodedTransaction as InteractionTransaction,
                 );
-            } else if (
-                opnetDecodedTransaction.transactionType === OPNetTransactionTypes.Deployment
-            ) {
+            } else if (opnetDecodedTransaction.transactionType === OPNetTransactionTypes.Deployment) {
                 this.insertDeploymentProperty(
                     transaction,
-                    opnetDecodedTransaction as Transaction<OPNetTransactionTypes.Deployment>,
+                    opnetDecodedTransaction as DeploymentTransaction,
                 );
             }
         } catch (e) {
@@ -113,30 +121,58 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
         return tx;
     }
 
-    protected insertSharedProperty(
-        transaction: IMempoolTransactionObj,
-        decodedTransaction:
-            | Transaction<OPNetTransactionTypes.Interaction>
-            | Transaction<OPNetTransactionTypes.Deployment>,
-    ): void {}
-
-    protected insertInteractionProperty(
-        transaction: IMempoolTransactionObj,
-        decodedTransaction: Transaction<OPNetTransactionTypes.Interaction>,
-    ): void {}
-
-    protected insertDeploymentProperty(
-        transaction: IMempoolTransactionObj,
-        decodedTransaction: Transaction<OPNetTransactionTypes.Deployment>,
-    ): void {}
-
     protected getTxVersion(version: number): TransactionTypes {
         return version === 2
             ? TransactionTypes.BITCOIN_TRANSACTION_V2
             : TransactionTypes.BITCOIN_TRANSACTION_V1;
     }
 
-    private toRawTransactionData(data: BitcoinTransaction): TransactionData {
+    private insertSharedProperty(
+        transaction: IMempoolTransactionObj,
+        decoded: OPNetDecodedTransaction<OPNetTransactionTypes>,
+    ): void {
+        transaction.transactionType = decoded.transactionType;
+        transaction.theoreticalGasLimit = decoded.gasSatFee;
+        transaction.priorityFee = decoded.priorityFee;
+
+        try {
+            transaction.from = decoded.from.p2tr(this.network);
+        } catch {
+            // from may not be set for all transaction types
+        }
+    }
+
+    private insertInteractionProperty(
+        transaction: IMempoolTransactionObj,
+        decoded: InteractionTransaction,
+    ): void {
+        try {
+            transaction.contractAddress = decoded.contractAddress;
+        } catch {
+            // contractAddress may not be set
+        }
+
+        transaction.calldata = toHex(decoded.calldata);
+    }
+
+    private insertDeploymentProperty(
+        transaction: IMempoolTransactionObj,
+        decoded: DeploymentTransaction,
+    ): void {
+        try {
+            transaction.contractAddress = decoded.contractAddress;
+        } catch {
+            // contractAddress may not be set
+        }
+
+        transaction.calldata = toHex(decoded.calldata);
+
+        if (decoded.bytecode) {
+            transaction.bytecode = toHex(decoded.bytecode);
+        }
+    }
+
+    private toRawTransactionData(data: Transaction): TransactionData {
         const outputs: VOut[] = [];
         for (let i = 0; i < data.outs.length; i++) {
             const output = data.outs[i];

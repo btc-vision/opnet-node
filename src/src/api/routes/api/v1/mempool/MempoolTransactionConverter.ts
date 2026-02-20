@@ -17,9 +17,7 @@ export class MempoolTransactionConverter {
             id: tx.id,
             firstSeen: tx.firstSeen ? tx.firstSeen.toISOString() : new Date(0).toISOString(),
             blockHeight: '0x' + tx.blockHeight.toString(16),
-            theoreticalGasLimit: '0x' + tx.theoreticalGasLimit.toString(16),
-            priorityFee: '0x' + tx.priorityFee.toString(16),
-            isOPNet: tx.isOPNet,
+            transactionType: tx.transactionType,
             psbt: tx.psbt,
             inputs: tx.inputs.map((input) => ({
                 transactionId: input.transactionId,
@@ -32,6 +30,18 @@ export class MempoolTransactionConverter {
                 scriptPubKey: toHex(output.data),
             })),
             raw: toHex(tx.data),
+            theoreticalGasLimit:
+                tx.theoreticalGasLimit !== undefined
+                    ? '0x' + tx.theoreticalGasLimit.toString(16)
+                    : undefined,
+            priorityFee:
+                tx.priorityFee !== undefined
+                    ? '0x' + tx.priorityFee.toString(16)
+                    : undefined,
+            from: tx.from,
+            contractAddress: tx.contractAddress,
+            calldata: tx.calldata,
+            bytecode: tx.bytecode,
         };
     }
 

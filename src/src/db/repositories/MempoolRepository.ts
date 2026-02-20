@@ -2,6 +2,9 @@ import { BaseRepository, DataConverter } from '@btc-vision/bsi-common';
 import { AggregateOptions, Binary, Collection, Db, Document, Filter, Long } from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { IMempoolTransaction, IMempoolTransactionObj } from '../interfaces/IMempoolTransaction.js';
+import {
+    OPNetTransactionTypes,
+} from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { Config } from '../../config/Config.js';
 import {
     MempoolTransactionAggregation,
@@ -54,7 +57,13 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
                         _id: null,
                         count: { $sum: 1 },
                         opnetCount: {
-                            $sum: { $cond: [{ $eq: ['$isOPNet', true] }, 1, 0] },
+                            $sum: {
+                                $cond: [
+                                    { $ne: ['$transactionType', OPNetTransactionTypes.Generic] },
+                                    1,
+                                    0,
+                                ],
+                            },
                         },
                         size: { $sum: { $bsonSize: '$$ROOT' } },
                     },
@@ -665,12 +674,23 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
 
     private convertToDb(data: IMempoolTransactionObj): IMempoolTransaction {
         return {
-            ...data,
+            id: data.id,
             data: new Binary(data.data),
+            psbt: data.psbt,
+            previousPsbtId: data.previousPsbtId,
             blockHeight: DataConverter.toDecimal128(data.blockHeight),
-            theoreticalGasLimit: Long.fromBigInt(data.theoreticalGasLimit),
-            priorityFee: Long.fromBigInt(data.priorityFee),
-            isOPNet: data.isOPNet || false,
+            firstSeen: data.firstSeen,
+            transactionType: data.transactionType,
+            theoreticalGasLimit: data.theoreticalGasLimit !== undefined
+                ? Long.fromBigInt(data.theoreticalGasLimit)
+                : undefined,
+            priorityFee: data.priorityFee !== undefined
+                ? Long.fromBigInt(data.priorityFee)
+                : undefined,
+            from: data.from,
+            contractAddress: data.contractAddress,
+            calldata: data.calldata,
+            bytecode: data.bytecode,
             inputs: data.inputs.map((input) => {
                 return {
                     transactionId: input.transactionId,
@@ -690,14 +710,28 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
 
     private convertToObj(data: IMempoolTransaction): IMempoolTransactionObj {
         return {
-            ...data,
+            id: data.id,
             data: new Uint8Array(data.data.buffer),
+            psbt: data.psbt,
+            previousPsbtId: data.previousPsbtId,
             blockHeight: DataConverter.fromDecimal128(data.blockHeight),
-            theoreticalGasLimit: Long.isLong(data.theoreticalGasLimit)
-                ? data.theoreticalGasLimit.toBigInt()
-                : BigInt(`${data.theoreticalGasLimit}`),
-            isOPNet: data.isOPNet || false,
-            priorityFee: Long.isLong(data.priorityFee) ? data.priorityFee.toBigInt() : BigInt(0),
+            firstSeen: data.firstSeen,
+            transactionType:
+                (data.transactionType || OPNetTransactionTypes.Generic) as OPNetTransactionTypes,
+            theoreticalGasLimit: data.theoreticalGasLimit
+                ? (Long.isLong(data.theoreticalGasLimit)
+                    ? data.theoreticalGasLimit.toBigInt()
+                    : BigInt(`${data.theoreticalGasLimit}`))
+                : undefined,
+            priorityFee: data.priorityFee
+                ? (Long.isLong(data.priorityFee)
+                    ? data.priorityFee.toBigInt()
+                    : BigInt(0))
+                : undefined,
+            from: data.from,
+            contractAddress: data.contractAddress,
+            calldata: data.calldata,
+            bytecode: data.bytecode,
             inputs: data.inputs.map((input) => {
                 return {
                     transactionId: input.transactionId,

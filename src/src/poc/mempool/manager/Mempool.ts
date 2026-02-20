@@ -20,6 +20,9 @@ import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
 import { concat, Network, toBase64, toHex } from '@btc-vision/bitcoin';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
+import {
+    OPNetTransactionTypes,
+} from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
 import { TransactionSizeValidator } from '../data-validator/TransactionSizeValidator.js';
@@ -348,9 +351,7 @@ export class Mempool extends Logger {
             const transaction: IMempoolTransactionObj = {
                 id: id,
                 psbt: psbt,
-                theoreticalGasLimit: 0n,
-                isOPNet: false,
-                priorityFee: 0n,
+                transactionType: OPNetTransactionTypes.Generic,
                 data: raw,
                 firstSeen: new Date(),
                 blockHeight: OPNetConsensus.getBlockHeight(),
@@ -410,12 +411,14 @@ export class Mempool extends Logger {
             await this.cleanupEvictedTransactions(transaction);
         }
 
-        return (
-            broadcast || {
-                success: false,
-                result: 'Could not broadcast transaction to the network.',
-            }
-        );
+        const response: BroadcastResponse = broadcast || {
+            success: false,
+            result: 'Could not broadcast transaction to the network.',
+        };
+
+        response.transactionType = transaction.transactionType;
+
+        return response;
     }
 
     private async cleanupEvictedTransactions(transaction: IMempoolTransactionObj): Promise<void> {
