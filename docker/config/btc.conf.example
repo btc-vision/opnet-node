@@ -60,7 +60,6 @@ UTXO_SAVE_INTERVAL = 120000 # Save UTXOs interval in milliseconds
 [OP_NET]
 MODE = "ARCHIVE" # ARCHIVE, FULL, SNAP, LIGHT. Only ARCHIVE is supported at this time
 
-ENABLED_AT_BLOCK = 0 # Block height at which the OP_NET should be enabled
 REINDEX = false # Set to true to reindex the OP_NET
 REINDEX_FROM_BLOCK = 0 # Block height from which to reindex the OP_NET
 

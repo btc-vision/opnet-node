@@ -196,7 +196,6 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         },
 
         OP_NET: {
-            ENABLED_AT_BLOCK: 0,
             PENDING_BLOCK_THRESHOLD: 1_000,
             TRANSACTIONS_MAXIMUM_CONCURRENT: 100,
             MAXIMUM_PREFETCH_BLOCKS: 12,
