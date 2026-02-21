@@ -1,8 +1,6 @@
 import { ConfigBase, IConfig } from '@btc-vision/bsi-common';
 import {
     APIExtendedConfigurations,
-    Base58Config,
-    Bech32Config,
     BitcoinConfig,
     BlockchainConfig,
     DevConfig,
@@ -39,9 +37,6 @@ export class BtcIndexerConfig extends ConfigBase<IConfig<IBtcIndexerConfig>> {
     public readonly DEV: DevConfig;
     public readonly DEV_MODE: boolean = false;
 
-    public readonly BECH32: Bech32Config;
-    public readonly BASE58: Base58Config;
-
     public readonly BLOCKCHAIN: BlockchainConfig;
 
     public readonly BITCOIN: BitcoinConfig;
@@ -56,9 +51,6 @@ export class BtcIndexerConfig extends ConfigBase<IConfig<IBtcIndexerConfig>> {
         this.DEV = config.DEV;
 
         this.EPOCH = config.EPOCH;
-
-        this.BECH32 = config.BECH32;
-        this.BASE58 = config.BASE58;
 
         this.BITCOIN = config.BITCOIN;
 

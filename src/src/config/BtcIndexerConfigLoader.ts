@@ -11,7 +11,7 @@ import { BitcoinNetwork } from './network/BitcoinNetwork.js';
 export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerConfig>> {
     private defaultConfig: Partial<IBtcIndexerConfig> = {
         DOCS: {
-            ENABLED: true,
+            ENABLED: false,
             PORT: 7000,
         },
 
@@ -54,41 +54,42 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
         DEV_MODE: false,
         INDEXER: {
-            ENABLED: false,
+            ENABLED: true,
             BLOCK_UPDATE_METHOD: BlockUpdateMethods.RPC,
             STORAGE_TYPE: IndexerStorageType.MONGODB,
-            ALLOW_PURGE: true,
+            ALLOW_PURGE: false,
             BLOCK_QUERY_INTERVAL: 5000,
             READONLY_MODE: false,
             SOLVE_UNKNOWN_UTXOS: false,
 
             /** UTXOs */
             PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: 1000,
-            UTXO_SAVE_INTERVAL: 30000,
-            START_INDEXING_UTXO_AT_BLOCK_HEIGHT: 0,
+            UTXO_SAVE_INTERVAL: 120_000,
+            START_INDEXING_UTXO_AT_BLOCK_HEIGHT: 800_000,
         },
 
         DEV: {
             PROCESS_ONLY_X_BLOCK: 0,
-            DEBUG_TRANSACTION_FAILURE: false,
-            DEBUG_TRANSACTION_PARSE_FAILURE: false,
+
+            DEBUG_TRANSACTION_FAILURE: true,
+            DEBUG_TRANSACTION_PARSE_FAILURE: true,
+
             CAUSE_FETCHING_FAILURE: false,
             DISPLAY_VALID_BLOCK_WITNESS: false,
-            DISPLAY_INVALID_BLOCK_WITNESS: true,
+            DISPLAY_INVALID_BLOCK_WITNESS: false,
+
             SAVE_TIMEOUTS_TO_FILE: false,
             SIMULATE_HIGH_GAS_USAGE: false,
-            DEBUG_VALID_TRANSACTIONS: false,
+            DEBUG_VALID_TRANSACTIONS: true,
+
             DEBUG_API_ERRORS: false,
             ENABLE_CONTRACT_DEBUG: false,
+
             ALWAYS_ENABLE_REORG_VERIFICATION: false,
             ENABLE_REORG_NIGHTMARE: false,
             DEBUG_API_CALLS: false,
             DEBUG_PENDING_REQUESTS: false,
         },
-
-        BASE58: {},
-
-        BECH32: {},
 
         P2P: {
             IS_BOOTSTRAP_NODE: false,
@@ -104,7 +105,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             P2P_PORT_V6: 9801,
 
             P2P_HOST: '0.0.0.0',
-            P2P_PORT: 9800,
+            P2P_PORT: 9805,
             P2P_PROTOCOL: PeerToPeerMethod.TCP,
 
             ENABLE_P2P_LOGGING: false,
@@ -114,7 +115,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             MAXIMUM_PEERS: 100,
             MAXIMUM_INCOMING_PENDING_PEERS: 50,
 
-            PEER_INACTIVITY_TIMEOUT: 120_000,
+            PEER_INACTIVITY_TIMEOUT: 10_000,
 
             MAXIMUM_INBOUND_STREAMS: 100,
             MAXIMUM_OUTBOUND_STREAMS: 100,
@@ -126,29 +127,29 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
         API: {
             ENABLED: true,
-            PORT: 9001,
+            PORT: 9000,
 
-            THREADS: 2,
-            MAXIMUM_PENDING_REQUESTS_PER_THREADS: 100,
+            THREADS: 16,
+            MAXIMUM_PENDING_REQUESTS_PER_THREADS: 1_000,
 
             BATCH_PROCESSING_SIZE: 15,
-            MAXIMUM_PARALLEL_BLOCK_QUERY: 50, // on mainnet, 50 blocks can load a lot of data in memory.
+            MAXIMUM_PARALLEL_BLOCK_QUERY: 50,
             MAXIMUM_REQUESTS_PER_BATCH: 500,
 
-            MAXIMUM_TRANSACTION_BROADCAST: 50,
-            MAXIMUM_PENDING_CALL_REQUESTS: 100,
+            MAXIMUM_TRANSACTION_BROADCAST: 80,
+            MAXIMUM_PENDING_CALL_REQUESTS: 200,
             MAXIMUM_PARALLEL_EPOCH_QUERY: 50,
 
             EPOCH_CACHE_SIZE: 15,
-            UTXO_LIMIT: 1000,
+            UTXO_LIMIT: 2_000,
 
             WEBSOCKET: {
                 ENABLED: true,
-                MAX_CONNECTIONS: 1000,
+                MAX_CONNECTIONS: 1_000,
                 IDLE_TIMEOUT: 120,
                 MAX_PAYLOAD_SIZE: 16 * 1024 * 1024, // 16MB
                 MAX_PENDING_REQUESTS: 100,
-                REQUEST_TIMEOUT: 30000,
+                REQUEST_TIMEOUT: 30_000,
                 MAX_REQUESTS_PER_SECOND: 50,
                 MAX_SUBSCRIPTIONS: 10,
             },
@@ -161,7 +162,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         },
 
         POC: {
-            ENABLED: false,
+            ENABLED: true,
         },
 
         MEMPOOL: {
@@ -170,13 +171,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             EXPIRATION_BLOCKS: 20,
             ENABLE_BLOCK_PURGE: true,
             BATCH_SIZE: 25,
-            FETCH_INTERVAL: 30000,
+            FETCH_INTERVAL: 30_000,
         },
 
         RPC: {
-            CHILD_PROCESSES: 2,
-            THREADS: 2,
-            VM_CONCURRENCY: 1,
+            CHILD_PROCESSES: 8,
+            THREADS: 6,
+            VM_CONCURRENCY: 30,
         },
 
         SSH: {
@@ -195,9 +196,10 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         },
 
         OP_NET: {
-            PENDING_BLOCK_THRESHOLD: 12,
+            ENABLED_AT_BLOCK: 0,
+            PENDING_BLOCK_THRESHOLD: 1_000,
             TRANSACTIONS_MAXIMUM_CONCURRENT: 100,
-            MAXIMUM_PREFETCH_BLOCKS: 10,
+            MAXIMUM_PREFETCH_BLOCKS: 12,
 
             REINDEX: false,
             REINDEX_FROM_BLOCK: 0,
@@ -213,9 +215,10 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             MODE: OPNetIndexerMode.ARCHIVE,
 
             /* LIGHT MODE */
-            LIGHT_MODE_FROM_BLOCK: 10000,
+            LIGHT_MODE_FROM_BLOCK: 10_000,
         },
     };
+
     private verifiedConfig: boolean = false;
 
     constructor(fullFileName: string) {
@@ -1040,14 +1043,6 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             );
         }
 
-        if (parsedConfig.BASE58) {
-            this.verifyBase58Configs(parsedConfig.BASE58);
-        }
-
-        if (parsedConfig.BECH32) {
-            this.verifyBech32Configs(parsedConfig.BECH32);
-        }
-
         this.verifiedConfig = true;
     }
 
@@ -1055,12 +1050,6 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         super.parsePartialConfig(parsedConfig);
 
         this.parseConfig(parsedConfig);
-    }
-
-    private verifyBech32Configs(parsedConfig: Partial<IBtcIndexerConfig['BECH32']>): void {
-        if (parsedConfig.HRP && typeof parsedConfig.HRP !== 'string') {
-            throw new Error(`Oops the property BECH32.HRP is not a string.`);
-        }
     }
 
     private verifyWebSocketConfig(
@@ -1143,70 +1132,6 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
         if (parsedConfig.MAX_LIMIT !== undefined && typeof parsedConfig.MAX_LIMIT !== 'number') {
             throw new Error(`Oops the property API.MEMPOOL.MAX_LIMIT is not a number.`);
-        }
-    }
-
-    private verifyBase58Configs(parsedConfig: Partial<IBtcIndexerConfig['BASE58']>): void {
-        if (
-            typeof parsedConfig.PUBKEY_ADDRESS !== 'string' &&
-            parsedConfig.PUBKEY_ADDRESS !== undefined
-        ) {
-            throw new Error(`Oops the property BASE58.PUBKEY_ADDRESS is not a string.`);
-        } else if (parsedConfig.PUBKEY_ADDRESS) {
-            parsedConfig.PUBKEY_ADDRESS = Number(parsedConfig.PUBKEY_ADDRESS);
-
-            if (isNaN(parsedConfig.PUBKEY_ADDRESS)) {
-                throw new Error(`Oops the property BASE58.PUBKEY_ADDRESS is not a number.`);
-            }
-        }
-
-        if (
-            typeof parsedConfig.SCRIPT_ADDRESS !== 'string' &&
-            parsedConfig.SCRIPT_ADDRESS !== undefined
-        ) {
-            throw new Error(`Oops the property BASE58.SCRIPT_ADDRESS is not a string.`);
-        } else if (parsedConfig.SCRIPT_ADDRESS) {
-            parsedConfig.SCRIPT_ADDRESS = Number(parsedConfig.SCRIPT_ADDRESS);
-
-            if (isNaN(parsedConfig.SCRIPT_ADDRESS)) {
-                throw new Error(`Oops the property BASE58.SCRIPT_ADDRESS is not a number.`);
-            }
-        }
-
-        if (typeof parsedConfig.SECRET_KEY !== 'string' && parsedConfig.SECRET_KEY !== undefined) {
-            throw new Error(`Oops the property BASE58.SECRET_KEY is not a number.`);
-        } else if (parsedConfig.SECRET_KEY) {
-            parsedConfig.SECRET_KEY = Number(parsedConfig.SECRET_KEY);
-
-            if (isNaN(parsedConfig.SECRET_KEY)) {
-                throw new Error(`Oops the property BASE58.SECRET_KEY is not a number.`);
-            }
-        }
-
-        if (
-            typeof parsedConfig.EXT_PUBLIC_KEY !== 'string' &&
-            parsedConfig.EXT_PUBLIC_KEY !== undefined
-        ) {
-            throw new Error(`Oops the property BASE58.EXT_PUBLIC_KEY is not a string.`);
-        } else if (parsedConfig.EXT_PUBLIC_KEY) {
-            parsedConfig.EXT_PUBLIC_KEY = Number(parsedConfig.EXT_PUBLIC_KEY);
-
-            if (isNaN(parsedConfig.EXT_PUBLIC_KEY)) {
-                throw new Error(`Oops the property BASE58.EXT_PUBLIC_KEY is not a number.`);
-            }
-        }
-
-        if (
-            typeof parsedConfig.EXT_SECRET_KEY !== 'string' &&
-            parsedConfig.EXT_SECRET_KEY !== undefined
-        ) {
-            throw new Error(`Oops the property BASE58.EXT_SECRET_KEY is not a string.`);
-        } else if (parsedConfig.EXT_SECRET_KEY) {
-            parsedConfig.EXT_SECRET_KEY = Number(parsedConfig.EXT_SECRET_KEY);
-
-            if (isNaN(parsedConfig.EXT_SECRET_KEY)) {
-                throw new Error(`Oops the property BASE58.EXT_SECRET_KEY is not a number.`);
-            }
         }
     }
 
@@ -1315,16 +1240,6 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         } else {
             this.config.API = apiConfig;
         }
-
-        this.config.BECH32 = this.getConfigModified<
-            keyof IBtcIndexerConfig,
-            IBtcIndexerConfig['BECH32']
-        >(parsedConfig.BECH32 || {}, defaultConfigs.BECH32 || {});
-
-        this.config.BASE58 = this.getConfigModified<
-            keyof IBtcIndexerConfig,
-            IBtcIndexerConfig['BASE58']
-        >(parsedConfig.BASE58 || {}, defaultConfigs.BASE58 || {});
 
         this.config.BITCOIN = this.getConfigModified<
             keyof IBtcIndexerConfig,
