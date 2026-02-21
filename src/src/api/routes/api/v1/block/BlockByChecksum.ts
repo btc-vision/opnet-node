@@ -23,7 +23,12 @@ export class BlockByChecksum extends BlockRoute<Routes.BLOCK_BY_CHECKSUM> {
             let blockChecksum: SafeString =
                 BlockParamsConverter.getParameterAsStringForBlock(params);
 
-            blockChecksum = blockChecksum ? (blockChecksum.startsWith('0x') ? blockChecksum.slice(2) : blockChecksum).toLowerCase() : null;
+            blockChecksum = blockChecksum
+                ? (blockChecksum.startsWith('0x')
+                      ? blockChecksum.slice(2)
+                      : blockChecksum
+                  ).toLowerCase()
+                : null;
 
             const includeTransactions: boolean = this.getParameterAsBoolean(params);
             if (!blockChecksum) {
@@ -34,7 +39,12 @@ export class BlockByChecksum extends BlockRoute<Routes.BLOCK_BY_CHECKSUM> {
 
             if (blockChecksum.length !== 64) throw new Error(`Invalid checksum length`);
 
-            return await this.getCachedBlockData(includeTransactions, undefined, blockChecksum, true);
+            return await this.getCachedBlockData(
+                includeTransactions,
+                undefined,
+                blockChecksum,
+                true,
+            );
         } catch (e) {
             if (Config.DEV_MODE) {
                 this.error(`Error details: ${(e as Error).stack}`);
@@ -86,7 +96,9 @@ export class BlockByChecksum extends BlockRoute<Routes.BLOCK_BY_CHECKSUM> {
             if (data) {
                 this.safeJson(res, 200, data);
             } else {
-                this.safeJson(res, 400, { error: 'Could not fetch latest block header. Is this node synced?' });
+                this.safeJson(res, 400, {
+                    error: 'Could not fetch latest block header. Is this node synced?',
+                });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);

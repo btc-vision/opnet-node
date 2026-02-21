@@ -65,7 +65,9 @@ export class GetPreimage extends Route<
             if (data) {
                 this.safeJson(res, 200, data);
             } else {
-                this.safeJson(res, 400, { error: 'Could not fetch preimage data. Is this node synced?' });
+                this.safeJson(res, 400, {
+                    error: 'Could not fetch preimage data. Is this node synced?',
+                });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);

@@ -146,7 +146,8 @@ export const RequestToResponseOpcode: Readonly<
 
     [WebSocketRequestOpcode.GET_MEMPOOL_INFO]: WebSocketResponseOpcode.MEMPOOL_INFO,
     [WebSocketRequestOpcode.GET_PENDING_TRANSACTION]: WebSocketResponseOpcode.PENDING_TRANSACTION,
-    [WebSocketRequestOpcode.GET_LATEST_PENDING_TRANSACTIONS]: WebSocketResponseOpcode.LATEST_PENDING_TRANSACTIONS,
+    [WebSocketRequestOpcode.GET_LATEST_PENDING_TRANSACTIONS]:
+        WebSocketResponseOpcode.LATEST_PENDING_TRANSACTIONS,
 
     [WebSocketRequestOpcode.GET_BALANCE]: WebSocketResponseOpcode.BALANCE,
     [WebSocketRequestOpcode.GET_UTXOS]: WebSocketResponseOpcode.UTXOS,

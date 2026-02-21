@@ -1,5 +1,14 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
-import bitcoin, { alloc, concat, equals as bytesEquals, fromHex, initEccLib, networks, opcodes, toHex } from '@btc-vision/bitcoin';
+import bitcoin, {
+    alloc,
+    concat,
+    equals as bytesEquals,
+    fromHex,
+    initEccLib,
+    networks,
+    opcodes,
+    toHex,
+} from '@btc-vision/bitcoin';
 import { createLegacyBackend } from '@btc-vision/ecpair';
 import { Binary } from 'mongodb';
 import {
@@ -180,7 +189,11 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         if (scriptData.shift() !== opcodes.OP_IF) return;
 
         const magic = scriptData.shift();
-        if (!(magic instanceof Uint8Array) || magic.length !== 2 || !bytesEquals(magic, OPNet_MAGIC)) {
+        if (
+            !(magic instanceof Uint8Array) ||
+            magic.length !== 2 ||
+            !bytesEquals(magic, OPNet_MAGIC)
+        ) {
             return;
         }
 
@@ -442,7 +455,10 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         const scriptBytes = fromHex(contractScript);
         const contractKey = scriptBytes.subarray(3); // Skip OP_16 and get the next 32 bytes
 
-        if (!this.safeEq(contractKey, hashContractSalt) || !bytesEquals(contractKey, hashContractSalt)) {
+        if (
+            !this.safeEq(contractKey, hashContractSalt) ||
+            !bytesEquals(contractKey, hashContractSalt)
+        ) {
             throw new Error(`OP_NET: Malformed UTXO output or mismatched pubKey.`);
         }
 

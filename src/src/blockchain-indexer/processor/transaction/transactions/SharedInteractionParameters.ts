@@ -90,7 +90,9 @@ export abstract class SharedInteractionParameters<
         return data;
     }
 
-    public static getDataUntilBufferEnd(scriptData: Array<number | Uint8Array>): Uint8Array | undefined {
+    public static getDataUntilBufferEnd(
+        scriptData: Array<number | Uint8Array>,
+    ): Uint8Array | undefined {
         let data: Uint8Array | undefined;
 
         // Keep reading until we see the break opcode or run out of script data.
@@ -116,7 +118,10 @@ export abstract class SharedInteractionParameters<
         scriptData: Array<number | Uint8Array>,
     ): OPNetHeader | undefined {
         const header = scriptData.shift();
-        if (!(header instanceof Uint8Array) || header.length !== OPNetHeader.EXPECTED_HEADER_LENGTH) {
+        if (
+            !(header instanceof Uint8Array) ||
+            header.length !== OPNetHeader.EXPECTED_HEADER_LENGTH
+        ) {
             return;
         }
 

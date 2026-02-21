@@ -299,7 +299,11 @@ export class EpochManager extends Logger {
             throw new Error(`No block header found for mining target block ${targetBlock}`);
         }
 
-        const checksumRoot = fromHex(header.checksumRoot.startsWith('0x') ? header.checksumRoot.slice(2) : header.checksumRoot);
+        const checksumRoot = fromHex(
+            header.checksumRoot.startsWith('0x')
+                ? header.checksumRoot.slice(2)
+                : header.checksumRoot,
+        );
         if (checksumRoot.length !== 32) {
             throw new Error(
                 `Invalid checksum root length: ${checksumRoot.length}. Expected 32 bytes.`,
@@ -325,7 +329,11 @@ export class EpochManager extends Logger {
         for (const header of headers) {
             if (header) {
                 const blockNumber = DataConverter.fromDecimal128(header.height);
-                const checksumRoot = fromHex(header.checksumRoot.startsWith('0x') ? header.checksumRoot.slice(2) : header.checksumRoot);
+                const checksumRoot = fromHex(
+                    header.checksumRoot.startsWith('0x')
+                        ? header.checksumRoot.slice(2)
+                        : header.checksumRoot,
+                );
                 if (checksumRoot.length !== 32) {
                     throw new Error(
                         `Invalid checksum root length: ${checksumRoot.length}. Expected 32 bytes.`,
@@ -660,7 +668,11 @@ export class EpochManager extends Logger {
             );
         }
 
-        const root = fromHex(blockHeader.checksumRoot.startsWith('0x') ? blockHeader.checksumRoot.slice(2) : blockHeader.checksumRoot);
+        const root = fromHex(
+            blockHeader.checksumRoot.startsWith('0x')
+                ? blockHeader.checksumRoot.slice(2)
+                : blockHeader.checksumRoot,
+        );
         if (root.length !== 32) {
             throw new Error(`Invalid checksum root length: ${root.length}. Expected 32 bytes.`);
         }

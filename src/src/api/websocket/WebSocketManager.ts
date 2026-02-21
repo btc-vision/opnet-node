@@ -12,6 +12,7 @@ import { WebSocketConfig } from '../../config/interfaces/IBtcIndexerConfig.js';
 import { P2PVersion } from '../../poc/configurations/P2PVersion.js';
 import type { PluginOpcodeRegistry } from '../../plugins/api/websocket/PluginOpcodeRegistry.js';
 import type { IPluginOpcodeInfo } from '../../plugins/interfaces/IPluginMessages.js';
+import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 
 /**
  * Manager metrics
@@ -445,9 +446,9 @@ export class WebSocketManager extends Logger {
      * Broadcasts a new mempool transaction notification to all subscribed WebSocket clients.
      *
      * @param txId - The txid of the transaction that entered the mempool.
-     * @param isOPNet - Whether the transaction targets an OPNet contract.
+     * @param transactionType - The OPNet transaction type (Generic, Interaction, Deployment).
      */
-    public onMempoolTransaction(txId: string, isOPNet: boolean): void {
+    public onMempoolTransaction(txId: string, transactionType: OPNetTransactionTypes): void {
         if (!this.enabled) {
             return;
         }
@@ -462,7 +463,7 @@ export class WebSocketManager extends Logger {
         const notification = {
             subscriptionId: 0, // Will be set per-client
             txId,
-            isOPNet,
+            transactionType,
             timestamp: BigInt(Date.now()),
         };
 

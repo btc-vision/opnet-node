@@ -24,7 +24,6 @@ export class TransactionFactory {
         blockHeight: bigint,
         network: networks.Network,
         allowedChallenges: ChallengeSolution,
-        enableVerification: boolean,
         addressCache?: AddressCache,
     ): Transaction<OPNetTransactionTypes> {
         const parser: TransactionInformation = this.getTransactionType(data);

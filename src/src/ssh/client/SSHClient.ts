@@ -215,7 +215,9 @@ export class SSHClient extends Logger {
             return;
         }
 
-        const allowedKey = matchingKeys.find((k) => this.verifySafeBuffer(key.data, k.getPublicSSH()));
+        const allowedKey = matchingKeys.find((k) =>
+            this.verifySafeBuffer(key.data, k.getPublicSSH()),
+        );
         if (!allowedKey) {
             return this.rejectAuth(ctx);
         }

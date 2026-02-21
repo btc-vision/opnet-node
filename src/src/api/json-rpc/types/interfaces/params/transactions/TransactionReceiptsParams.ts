@@ -1,8 +1,7 @@
 import { JSONRpcMethods } from '../../../enums/JSONRpcMethods.js';
 import { JSONRpcParams } from '../../JSONRpcParams.js';
 
-export interface TransactionReceiptsParamsAsObject
-    extends JSONRpcParams<JSONRpcMethods.GET_TRANSACTION_RECEIPT> {
+export interface TransactionReceiptsParamsAsObject extends JSONRpcParams<JSONRpcMethods.GET_TRANSACTION_RECEIPT> {
     readonly hash: string;
 }
 

@@ -57,7 +57,9 @@ export class LatestEpoch extends Route<
             if (data) {
                 this.safeJson(res, 200, data);
             } else {
-                this.safeJson(res, 400, { error: 'Could not fetch latest epoch. Is this node synced?' });
+                this.safeJson(res, 400, {
+                    error: 'Could not fetch latest epoch. Is this node synced?',
+                });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);

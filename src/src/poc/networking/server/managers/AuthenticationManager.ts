@@ -490,7 +490,9 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
             await this.verifyNetwork();
         }
 
-        this.encryptem.setClientSignaturePublicKey(new Uint8Array(unpackedAuthData.clientAuthCipher));
+        this.encryptem.setClientSignaturePublicKey(
+            new Uint8Array(unpackedAuthData.clientAuthCipher),
+        );
         await this.onPassedVersionCheck();
     }
 }

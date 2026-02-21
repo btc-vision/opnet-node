@@ -12,8 +12,7 @@ export type OPNetBroadcastResponse = ThreadData & {
     readonly peers: number;
 };
 
-export interface BroadcastOPNetRequest
-    extends RPCMessageData<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> {
+export interface BroadcastOPNetRequest extends RPCMessageData<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> {
     readonly rpcMethod: BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET;
     readonly data: OPNetBroadcastData;
 }

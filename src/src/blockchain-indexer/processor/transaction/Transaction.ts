@@ -1,6 +1,18 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-common';
-import { alloc, concat, equals, fromHex, fromUtf8, Bytes32, Network, Script, Satoshi, script, Transaction as BitcoinTransaction } from '@btc-vision/bitcoin';
+import {
+    alloc,
+    concat,
+    equals,
+    fromHex,
+    fromUtf8,
+    Bytes32,
+    Network,
+    Script,
+    Satoshi,
+    script,
+    Transaction as BitcoinTransaction,
+} from '@btc-vision/bitcoin';
 import { createBytes32, createPublicKey, createSatoshi } from '@btc-vision/ecpair';
 import crypto from 'crypto';
 import { Binary, Long } from 'mongodb';
@@ -78,9 +90,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this.txid = fromHex(rawTransactionData.txid);
         this.txidHex = rawTransactionData.txid;
         this.transactionHash = fromHex(rawTransactionData.hash);
-        this.raw = rawTransactionData.hex
-            ? fromHex(rawTransactionData.hex)
-            : new Uint8Array(0);
+        this.raw = rawTransactionData.hex ? fromHex(rawTransactionData.hex) : new Uint8Array(0);
 
         this.inActiveChain = rawTransactionData.in_active_chain || false;
         this.size = rawTransactionData.size;
@@ -257,7 +267,10 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         });
     }
 
-    public static verifyChecksum(scriptData: (number | Uint8Array)[], typeChecksum: Uint8Array): boolean {
+    public static verifyChecksum(
+        scriptData: (number | Uint8Array)[],
+        typeChecksum: Uint8Array,
+    ): boolean {
         const checksum = this.getDataChecksum(scriptData);
         return equals(checksum, typeChecksum);
     }
@@ -273,7 +286,14 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
                     finishFlush: zlib.constants.Z_SYNC_FLUSH,
                     maxOutputLength: OPNetConsensus.consensus.COMPRESSION.MAX_DECOMPRESSED_SIZE,
                 });
-                return { out: new Uint8Array(decompressed.buffer, decompressed.byteOffset, decompressed.byteLength), compressed: true };
+                return {
+                    out: new Uint8Array(
+                        decompressed.buffer,
+                        decompressed.byteOffset,
+                        decompressed.byteLength,
+                    ),
+                    compressed: true,
+                };
             } catch {
                 throw new Error('OP_NET: Invalid compressed data.');
             }
@@ -606,7 +626,10 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         const h1 = crypto.createHash('sha256').update(prefix).digest();
         const h2 = crypto.createHash('sha256').update(prefix).digest();
 
-        const tagHash = concat([new Uint8Array(h1.buffer, h1.byteOffset, h1.byteLength), new Uint8Array(h2.buffer, h2.byteOffset, h2.byteLength)]); // 64 bytes
+        const tagHash = concat([
+            new Uint8Array(h1.buffer, h1.byteOffset, h1.byteLength),
+            new Uint8Array(h2.buffer, h2.byteOffset, h2.byteLength),
+        ]); // 64 bytes
         const result = crypto.createHash('sha256').update(tagHash).update(data).digest();
         return new Uint8Array(result.buffer, result.byteOffset, result.byteLength);
     }
@@ -678,7 +701,13 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
         // 4) call hashForWitnessV1
         // -> If leafHash is provided, it's Tapscript path
-        return txObj.hashForWitnessV1(this.vInputIndex, prevOutScripts, values, hashType, createBytes32(leafHash));
+        return txObj.hashForWitnessV1(
+            this.vInputIndex,
+            prevOutScripts,
+            values,
+            hashType,
+            createBytes32(leafHash),
+        );
     }
 
     private strToBuffer(str: string): Uint8Array {

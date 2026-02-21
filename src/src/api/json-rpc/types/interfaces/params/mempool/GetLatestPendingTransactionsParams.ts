@@ -2,8 +2,7 @@ import { JSONRpcMethods } from '../../../enums/JSONRpcMethods.js';
 import { JSONRpcParams } from '../../JSONRpcParams.js';
 
 /** Object-form parameters for {@link JSONRpcMethods.GET_LATEST_PENDING_TRANSACTIONS}. */
-export interface GetLatestPendingTransactionsParamsAsObject
-    extends JSONRpcParams<JSONRpcMethods.GET_LATEST_PENDING_TRANSACTIONS> {
+export interface GetLatestPendingTransactionsParamsAsObject extends JSONRpcParams<JSONRpcMethods.GET_LATEST_PENDING_TRANSACTIONS> {
     /** A single address to auto-resolve into all derived wallet address types. */
     readonly address?: string;
     /** Explicit list of addresses to filter mempool transactions by. */

@@ -180,19 +180,6 @@ export interface DevConfig {
     readonly ENABLE_REORG_NIGHTMARE: boolean;
 }
 
-export interface Bech32Config {
-    readonly HRP?: string;
-}
-
-export interface Base58Config {
-    PUBKEY_ADDRESS?: number;
-    SCRIPT_ADDRESS?: number;
-    SECRET_KEY?: number;
-
-    EXT_PUBLIC_KEY?: number;
-    EXT_SECRET_KEY?: number;
-}
-
 export interface BitcoinConfig {
     readonly CHAIN_ID: ChainIds;
     readonly NETWORK: BitcoinNetwork;
@@ -234,8 +221,6 @@ export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {
     EPOCH: EpochConfigs;
 
     BITCOIN: BitcoinConfig;
-    BECH32: Bech32Config;
-    BASE58: Base58Config;
 
     INDEXER: IndexerConfig;
     RPC: RPCConfig;

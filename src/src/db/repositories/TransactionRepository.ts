@@ -1,4 +1,9 @@
-import { BaseRepository, DataAccessError, DataAccessErrorType, DataConverter, } from '@btc-vision/bsi-common';
+import {
+    BaseRepository,
+    DataAccessError,
+    DataAccessErrorType,
+    DataConverter,
+} from '@btc-vision/bsi-common';
 import {
     AnyBulkWriteOperation,
     Binary,

@@ -1,5 +1,5 @@
 import { DataConverter } from '@btc-vision/bsi-common';
-import { toBase64, toHex } from '@btc-vision/bitcoin';
+import { toHex } from '@btc-vision/bitcoin';
 import { Binary } from 'mongodb';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import {
@@ -40,18 +40,35 @@ export class TransactionConverterForAPI {
                   ) satisfies EventReceiptDataForAPI[])
                 : [];
 
+        const hash: string =
+            transaction.hash instanceof Uint8Array
+                ? toHex(transaction.hash)
+                : (transaction.hash as Binary).toString('hex');
+
+        const id: string =
+            transaction.id instanceof Uint8Array
+                ? toHex(transaction.id)
+                : (transaction.id as Binary).toString('hex');
+
         const newTx: TransactionDocumentForAPI<OPNetTransactionTypes> = {
             ...transaction,
-            hash: toHex(transaction.hash),
-            id: toHex(transaction.id),
+            hash: hash,
+            id: id,
             blockNumber:
                 '0x' + DataConverter.fromDecimal128(transaction.blockHeight || 0n).toString(16),
             inputs: transaction.inputs?.map((input) => {
+                let originalTransactionId: string | undefined;
+
+                if (input.originalTransactionId) {
+                    originalTransactionId =
+                        input.originalTransactionId instanceof Uint8Array
+                            ? toHex(input.originalTransactionId)
+                            : (input.originalTransactionId as Binary).toString('hex');
+                }
+
                 return {
                     ...input,
-                    originalTransactionId: input.originalTransactionId
-                        ? toHex(input.originalTransactionId)
-                        : undefined,
+                    originalTransactionId: originalTransactionId,
                     scriptSignature: input.scriptSignature,
                 };
             }),

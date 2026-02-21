@@ -179,9 +179,7 @@ class RPCManager extends Logger {
         for (const [key, value] of storage) {
             const innerArray: string[] = [];
             for (const innerKey of value.keys()) {
-                innerArray.push(
-                    toBase64(BufferHelper.pointerToUint8Array(innerKey)),
-                );
+                innerArray.push(toBase64(BufferHelper.pointerToUint8Array(innerKey)));
             }
 
             array[key.toHex()] = innerArray;
@@ -262,9 +260,7 @@ class RPCManager extends Logger {
                     txId: fromBase64(input.txId),
                     outputIndex: input.outputIndex,
                     scriptSig: fromBase64(input.scriptSig),
-                    witnesses: input.witnesses
-                        ? input.witnesses.map((w) => fromBase64(w))
-                        : [],
+                    witnesses: input.witnesses ? input.witnesses.map((w) => fromBase64(w)) : [],
                     coinbase: input.coinbase ? fromBase64(input.coinbase) : undefined,
                     flags: input.flags || 0,
                 };

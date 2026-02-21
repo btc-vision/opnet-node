@@ -55,9 +55,32 @@ export class IndexedMempool extends IndexedCollection<OPNetCollections.Mempool> 
 
             {
                 key: {
-                    isOPNet: 1,
+                    transactionType: 1,
                 },
-                name: 'isOPNet_1',
+                name: 'transactionType_1',
+            },
+
+            {
+                key: {
+                    from: 1,
+                },
+                name: 'from_1',
+                sparse: true,
+            },
+
+            {
+                key: {
+                    contractAddress: 1,
+                },
+                name: 'contractAddress_1',
+                sparse: true,
+            },
+
+            {
+                key: {
+                    firstSeen: -1,
+                },
+                name: 'firstSeen_-1',
             },
         ];
     }

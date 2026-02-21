@@ -144,7 +144,9 @@ export class ReceiptMerkleTree extends MerkleTree<string, Uint8Array> {
         return proofs;
     }
 
-    public getEverythingWithProofs(): AddressMap<FastStringMap<[Uint8Array, string[]]>> | undefined {
+    public getEverythingWithProofs():
+        | AddressMap<FastStringMap<[Uint8Array, string[]]>>
+        | undefined {
         if (!this._tree) {
             return;
         }

@@ -701,12 +701,12 @@ message PendingTransactionResponse {
     string firstSeen = 2;
     // Block height at which the transaction was observed (0x-prefixed hex).
     string blockHeight = 3;
-    // Theoretical gas limit for OPNet execution (0x-prefixed hex).
-    string theoreticalGasLimit = 4;
-    // Priority fee attached to the transaction (0x-prefixed hex).
-    string priorityFee = 5;
-    // Whether this transaction targets an OPNet contract.
-    bool isOPNet = 6;
+    // Theoretical gas limit for OPNet execution (0x-prefixed hex). Present only for OPNet transactions.
+    optional string theoreticalGasLimit = 4;
+    // Priority fee attached to the transaction (0x-prefixed hex). Present only for OPNet transactions.
+    optional string priorityFee = 5;
+    // The OPNet transaction type (Generic, Interaction, Deployment).
+    string transactionType = 6;
     // Whether the transaction was submitted as a PSBT.
     bool psbt = 7;
     // The transaction inputs.
@@ -715,6 +715,14 @@ message PendingTransactionResponse {
     repeated MempoolTransactionOutput outputs = 9;
     // The full raw transaction as a hex string.
     string raw = 10;
+    // The sender address (p2tr format). Present only for OPNet transactions.
+    optional string from = 11;
+    // The target contract address (p2op format). Present only for OPNet transactions.
+    optional string contractAddress = 12;
+    // Hex-encoded calldata. Present only for OPNet transactions.
+    optional string calldata = 13;
+    // Hex-encoded bytecode. Present only for deployment transactions.
+    optional string bytecode = 14;
 }
 
 // Request: fetch the latest pending transactions with optional address filter.
@@ -755,8 +763,8 @@ message NewMempoolTransactionNotification {
     uint32 subscriptionId = 1;
     // The txid of the new mempool transaction.
     string txId = 2;
-    // Whether this transaction targets an OPNet contract.
-    bool isOPNet = 3;
+    // The OPNet transaction type (Generic, Interaction, Deployment).
+    string transactionType = 3;
     // Unix timestamp in milliseconds when the transaction was observed.
     uint64 timestamp = 4;
 }

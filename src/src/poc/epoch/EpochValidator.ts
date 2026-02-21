@@ -2,7 +2,10 @@ import { DataConverter, Logger } from '@btc-vision/bsi-common';
 import { equals, toHex } from '@btc-vision/bitcoin';
 import { Binary } from 'mongodb';
 import crypto from 'crypto';
-import { ITargetEpochDocument, PendingTargetEpoch, } from '../../db/documents/interfaces/ITargetEpochDocument.js';
+import {
+    ITargetEpochDocument,
+    PendingTargetEpoch,
+} from '../../db/documents/interfaces/ITargetEpochDocument.js';
 import { VMStorage } from '../../vm/storage/VMStorage.js';
 import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
 import { SHA1 } from '../../utils/SHA1.js';

@@ -4,12 +4,12 @@ info:
   title: OpNet RPC API
   description: This document is the official API documentation of OpNet JSON-RPC.
   version: 1.0.0
-  pointerResolutionBasePath: "/"
+  pointerResolutionBasePath: '/'
   swagger: 2.0
-  basePath: "/"
+  basePath: '/'
 tags:
-  - name: "Websocket"
-    description: "OpNet websocket configuration related endpoints."
+  - name: 'Websocket'
+    description: 'OpNet websocket configuration related endpoints.'
 components:
   securitySchemes:
     BearerAuth:

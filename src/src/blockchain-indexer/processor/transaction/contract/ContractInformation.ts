@@ -35,29 +35,35 @@ export class ContractInformation {
     ) {}
 
     public static fromDocument(contractDocument: IContractDocument): ContractInformation {
-        const bytecodeBytes = contractDocument.bytecode instanceof Uint8Array
-            ? contractDocument.bytecode
-            : new Uint8Array(contractDocument.bytecode.buffer);
+        const bytecodeBytes =
+            contractDocument.bytecode instanceof Uint8Array
+                ? contractDocument.bytecode
+                : new Uint8Array(contractDocument.bytecode.buffer);
 
-        const deployerPubKeyBytes = contractDocument.deployerPubKey instanceof Uint8Array
-            ? contractDocument.deployerPubKey
-            : new Uint8Array(contractDocument.deployerPubKey.buffer);
+        const deployerPubKeyBytes =
+            contractDocument.deployerPubKey instanceof Uint8Array
+                ? contractDocument.deployerPubKey
+                : new Uint8Array(contractDocument.deployerPubKey.buffer);
 
-        const contractSeedBytes = contractDocument.contractSeed instanceof Uint8Array
-            ? contractDocument.contractSeed
-            : new Uint8Array(contractDocument.contractSeed.buffer);
+        const contractSeedBytes =
+            contractDocument.contractSeed instanceof Uint8Array
+                ? contractDocument.contractSeed
+                : new Uint8Array(contractDocument.contractSeed.buffer);
 
-        const contractSaltHashBytes = contractDocument.contractSaltHash instanceof Uint8Array
-            ? contractDocument.contractSaltHash
-            : new Uint8Array(contractDocument.contractSaltHash.buffer);
+        const contractSaltHashBytes =
+            contractDocument.contractSaltHash instanceof Uint8Array
+                ? contractDocument.contractSaltHash
+                : new Uint8Array(contractDocument.contractSaltHash.buffer);
 
-        const transactionIdBytes = contractDocument.deployedTransactionId instanceof Uint8Array
-            ? contractDocument.deployedTransactionId
-            : new Uint8Array(contractDocument.deployedTransactionId.buffer);
+        const transactionIdBytes =
+            contractDocument.deployedTransactionId instanceof Uint8Array
+                ? contractDocument.deployedTransactionId
+                : new Uint8Array(contractDocument.deployedTransactionId.buffer);
 
-        const deployedTransactionHashBytes = contractDocument.deployedTransactionHash instanceof Uint8Array
-            ? contractDocument.deployedTransactionHash
-            : new Uint8Array(contractDocument.deployedTransactionHash.buffer);
+        const deployedTransactionHashBytes =
+            contractDocument.deployedTransactionHash instanceof Uint8Array
+                ? contractDocument.deployedTransactionHash
+                : new Uint8Array(contractDocument.deployedTransactionHash.buffer);
 
         return new ContractInformation(
             DataConverter.fromDecimal128(contractDocument.blockHeight),

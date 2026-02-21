@@ -7,6 +7,7 @@ interface IBroadcastTransactionResult {
     identifier?: bigint;
     modifiedTransaction?: string;
     finalizedTransaction?: boolean;
+    transactionType?: string;
 }
 
 export type BroadcastTransactionResult = IBroadcastTransactionResult;

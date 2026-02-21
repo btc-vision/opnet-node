@@ -21,6 +21,7 @@ import { TransactionSizeValidator } from '../../../../../poc/mempool/data-valida
 import { Config } from '../../../../../config/Config.js';
 import { fromBase64, fromHex, Transaction } from '@btc-vision/bitcoin';
 import { WSManager } from '../../../../websocket/WebSocketManager.js';
+import { OPNetTransactionTypes } from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 
 export class BroadcastTransaction extends Route<
     Routes.BROADCAST_TRANSACTION,
@@ -105,7 +106,11 @@ export class BroadcastTransaction extends Route<
 
                 // Notify mempool subscribers of the new transaction
                 if (mergedResult.success && mergedResult.result) {
-                    WSManager.onMempoolTransaction(mergedResult.result, true);
+                    const txType =
+                        (mergedResult.transactionType as OPNetTransactionTypes) ||
+                        OPNetTransactionTypes.Generic;
+
+                    WSManager.onMempoolTransaction(mergedResult.result, txType);
                 }
 
                 return mergedResult;
@@ -171,7 +176,9 @@ export class BroadcastTransaction extends Route<
             if (data) {
                 this.safeJson(res, 200, data);
             } else {
-                this.safeJson(res, 400, { error: 'Could not fetch latest block header. Is this node synced?' });
+                this.safeJson(res, 400, {
+                    error: 'Could not fetch latest block header. Is this node synced?',
+                });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);

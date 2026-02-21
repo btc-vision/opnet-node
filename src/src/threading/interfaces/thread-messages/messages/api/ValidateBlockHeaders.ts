@@ -13,8 +13,7 @@ export interface ValidatedBlockHeader {
     readonly storedBlockHeader: BlockHeaderDocument | null;
 }
 
-export interface ValidateBlockHeaders
-    extends RPCMessageData<BitcoinRPCThreadMessageType.VALIDATE_BLOCK_HEADERS> {
+export interface ValidateBlockHeaders extends RPCMessageData<BitcoinRPCThreadMessageType.VALIDATE_BLOCK_HEADERS> {
     readonly rpcMethod: BitcoinRPCThreadMessageType.VALIDATE_BLOCK_HEADERS;
     readonly data: BlockDataAtHeightData;
 }

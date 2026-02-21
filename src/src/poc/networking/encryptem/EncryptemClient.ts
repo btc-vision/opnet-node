@@ -277,7 +277,11 @@ export class EncryptemClient extends Logger {
 
         return {
             publicKey: Buffer.from(publicKey.buffer, publicKey.byteOffset, publicKey.byteLength),
-            privateKey: Buffer.from(privateKey.buffer, privateKey.byteOffset, privateKey.byteLength),
+            privateKey: Buffer.from(
+                privateKey.buffer,
+                privateKey.byteOffset,
+                privateKey.byteLength,
+            ),
         };
     }
 }

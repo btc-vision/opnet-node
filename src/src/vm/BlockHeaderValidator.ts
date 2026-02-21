@@ -89,7 +89,9 @@ export class BlockHeaderValidator extends Logger {
         const blockHash: string | undefined = blockHeader.hash;
         const blockMerkelRoot: string | undefined = blockHeader.merkleRoot;
         const checksumRoot: Uint8Array | undefined = fromHex(
-            blockHeader.checksumRoot.startsWith('0x') ? blockHeader.checksumRoot.slice(2) : blockHeader.checksumRoot,
+            blockHeader.checksumRoot.startsWith('0x')
+                ? blockHeader.checksumRoot.slice(2)
+                : blockHeader.checksumRoot,
         );
         const proofs: BlockHeaderChecksumProof | undefined = blockHeader.checksumProofs;
 

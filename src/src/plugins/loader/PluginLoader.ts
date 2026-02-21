@@ -214,7 +214,9 @@ export class PluginLoader extends Logger {
                 filePath,
             );
         }
-        const rawMetadata = new TextDecoder().decode(buffer.subarray(offset, offset + metadataLength));
+        const rawMetadata = new TextDecoder().decode(
+            buffer.subarray(offset, offset + metadataLength),
+        );
         offset += metadataLength;
 
         let metadata: IPluginMetadata;
@@ -430,7 +432,11 @@ export class PluginLoader extends Logger {
     /**
      * Compute SHA-256 checksum of metadata + bytecode + proto
      */
-    private computeChecksum(rawMetadata: string, bytecode: Uint8Array, proto?: Uint8Array): Uint8Array {
+    private computeChecksum(
+        rawMetadata: string,
+        bytecode: Uint8Array,
+        proto?: Uint8Array,
+    ): Uint8Array {
         const hash = crypto.createHash('sha256');
         hash.update(rawMetadata);
         hash.update(bytecode);

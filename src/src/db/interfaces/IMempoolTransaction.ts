@@ -1,4 +1,5 @@
 import { Binary, Decimal128, Long } from 'mongodb';
+import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 
 export interface IMempoolTransaction {
     id: string;
@@ -9,11 +10,17 @@ export interface IMempoolTransaction {
     readonly previousPsbtId?: string | null;
 
     readonly blockHeight: Decimal128;
-    readonly theoreticalGasLimit: Long;
-    readonly priorityFee: Long;
     readonly firstSeen: Date | undefined;
 
-    readonly isOPNet: boolean;
+    readonly transactionType: string;
+
+    // OPNet-specific fields (present only for OPNet transactions)
+    readonly theoreticalGasLimit?: Long;
+    readonly priorityFee?: Long;
+    readonly from?: string;
+    readonly contractAddress?: string;
+    readonly calldata?: string;
+    readonly bytecode?: string;
 
     readonly inputs: {
         readonly transactionId: string;
@@ -28,17 +35,25 @@ export interface IMempoolTransaction {
     }[];
 }
 
-export interface IMempoolTransactionObj
-    extends Omit<
-        IMempoolTransaction,
-        'data' | 'blockHeight' | 'outputs' | 'inputs' | 'theoreticalGasLimit' | 'priorityFee'
-    > {
-    readonly data: Uint8Array;
-    readonly blockHeight: bigint;
+export interface IMempoolTransactionObj {
+    id: string;
 
-    isOPNet: boolean;
-    theoreticalGasLimit: bigint;
-    priorityFee: bigint;
+    readonly data: Uint8Array;
+    readonly psbt: boolean;
+    readonly previousPsbtId?: string | null;
+
+    readonly blockHeight: bigint;
+    readonly firstSeen: Date | undefined;
+
+    transactionType: OPNetTransactionTypes;
+
+    // OPNet-specific fields (optional on base, required on OPNet subtypes)
+    theoreticalGasLimit?: bigint;
+    priorityFee?: bigint;
+    from?: string;
+    contractAddress?: string;
+    calldata?: string;
+    bytecode?: string;
 
     readonly inputs: {
         readonly transactionId: string;
@@ -52,3 +67,22 @@ export interface IMempoolTransactionObj
         value: Long;
     }[];
 }
+
+export interface IMempoolOPNetTransactionObj extends IMempoolTransactionObj {
+    theoreticalGasLimit: bigint;
+    priorityFee: bigint;
+    from: string;
+    contractAddress: string;
+    calldata: string;
+}
+
+export interface IMempoolInteractionTransactionObj extends IMempoolOPNetTransactionObj {}
+
+export interface IMempoolDeploymentTransactionObj extends IMempoolOPNetTransactionObj {
+    bytecode: string;
+}
+
+export type AnyMempoolTransactionObj =
+    | IMempoolTransactionObj
+    | IMempoolInteractionTransactionObj
+    | IMempoolDeploymentTransactionObj;

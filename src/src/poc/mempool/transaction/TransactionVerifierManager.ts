@@ -1,5 +1,11 @@
 import { TransactionTypes } from './TransactionTypes.js';
-import { Network, networks, Psbt, toBase64, Transaction as BitcoinTransaction } from '@btc-vision/bitcoin';
+import {
+    Network,
+    networks,
+    Psbt,
+    toBase64,
+    Transaction as BitcoinTransaction,
+} from '@btc-vision/bitcoin';
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { TransactionVerifier } from '../verificator/TransactionVerifier.js';
 import { Consensus } from '../../configurations/consensus/Consensus.js';

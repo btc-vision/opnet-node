@@ -28,19 +28,23 @@ export interface TransactionDocumentBasic<T extends OPNetTransactionTypes> {
     readonly OPNetType: T;
 }
 
-export interface ITransactionDocumentBasic<T extends OPNetTransactionTypes>
-    extends TransactionDocumentBasic<T> {
+export interface ITransactionDocumentBasic<
+    T extends OPNetTransactionTypes,
+> extends TransactionDocumentBasic<T> {
     readonly blockHeight: Decimal128;
 }
 
-export interface TransactionDocumentBase<T extends OPNetTransactionTypes>
-    extends TransactionDocumentBasic<T> {
+export interface TransactionDocumentBase<
+    T extends OPNetTransactionTypes,
+> extends TransactionDocumentBasic<T> {
     readonly burnedBitcoin: Decimal128 | string;
     readonly revert: Binary | undefined | string;
 }
 
-export interface TransactionDocument<T extends OPNetTransactionTypes>
-    extends Omit<TransactionDocumentBase<T>, 'inputs' | 'outputs'> {
+export interface TransactionDocument<T extends OPNetTransactionTypes> extends Omit<
+    TransactionDocumentBase<T>,
+    'inputs' | 'outputs'
+> {
     readonly blockHeight: Decimal128;
     readonly burnedBitcoin: Decimal128;
     readonly reward: Long;
@@ -90,8 +94,7 @@ interface InteractionBase {
 }
 
 export interface DeploymentTransactionDocument
-    extends ExtendedBaseInfo<OPNetTransactionTypes.Deployment>,
-        InteractionBase {
+    extends ExtendedBaseInfo<OPNetTransactionTypes.Deployment>, InteractionBase {
     readonly preimage: Binary;
     readonly calldata: Binary;
 }
@@ -103,8 +106,7 @@ export interface NetEventDocument {
 }
 
 export interface InteractionTransactionDocument
-    extends ExtendedBaseInfo<InteractionTransactionType>,
-        InteractionBase {
+    extends ExtendedBaseInfo<InteractionTransactionType>, InteractionBase {
     readonly calldata: Binary;
     readonly preimage: Binary;
     readonly senderPubKeyHash: Binary;

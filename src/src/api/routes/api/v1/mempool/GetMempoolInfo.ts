@@ -41,9 +41,7 @@ export class GetMempoolInfo extends Route<
     }
 
     /** {@inheritDoc Route.getDataRPC} */
-    public async getDataRPC(
-        _params?: GetMempoolInfoParams,
-    ): Promise<GetMempoolInfoResult> {
+    public async getDataRPC(_params?: GetMempoolInfoParams): Promise<GetMempoolInfoResult> {
         return await this.getData();
     }
 

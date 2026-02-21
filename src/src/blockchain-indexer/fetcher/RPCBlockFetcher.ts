@@ -136,9 +136,7 @@ export class RPCBlockFetcher extends BlockFetcher {
         throw new Error(`Error fetching block ${blockHash}. (response is null)`);
     }
 
-    private async getBlockHashAndRetryIfNull(
-        blockHeight: bigint,
-    ): Promise<string | null> {
+    private async getBlockHashAndRetryIfNull(blockHeight: bigint): Promise<string | null> {
         for (let retries = 0; retries <= this.maxRetries; retries++) {
             try {
                 const blockHash: string | null = await this.rpc.getBlockHash(Number(blockHeight));

@@ -18,8 +18,7 @@ type BlockChangeStream =
     | ChangeStream<{ inProgressBlock: number }, BlockChangeStreamDocument>
     | undefined;
 
-interface UpdatedChangeStreamDocument
-    extends ChangeStreamUpdateDocument<IBlockchainInformationDocument> {
+interface UpdatedChangeStreamDocument extends ChangeStreamUpdateDocument<IBlockchainInformationDocument> {
     readonly wallTime?: Date;
 }
 

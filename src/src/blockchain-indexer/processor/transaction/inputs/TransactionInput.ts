@@ -68,9 +68,7 @@ export class TransactionInput implements ITransactionInput {
 
         this.scriptSignature = data.scriptSig;
         this.sequenceId = data.sequence;
-        this.transactionInWitness = data.txinwitness
-            ? data.txinwitness.map((w) => fromHex(w))
-            : [];
+        this.transactionInWitness = data.txinwitness ? data.txinwitness.map((w) => fromHex(w)) : [];
 
         // for P2PK, P2WPKH, and P2PKH
         this.decodedPubKey = this.decodePubKey();
@@ -112,7 +110,9 @@ export class TransactionInput implements ITransactionInput {
         return {
             txId: this.originalTransactionId,
             outputIndex: this.outputTransactionIndex || 0,
-            scriptSig: this.scriptSignature?.hex ? fromHex(this.scriptSignature.hex) : new Uint8Array(0),
+            scriptSig: this.scriptSignature?.hex
+                ? fromHex(this.scriptSignature.hex)
+                : new Uint8Array(0),
             witnesses: this.transactionInWitness,
             flags: flags,
             coinbase: this.coinbase,
@@ -140,7 +140,11 @@ export class TransactionInput implements ITransactionInput {
             const secondPart = parts[1];
 
             // Check for P2PKH with compressed (66 hex = 33 bytes) or uncompressed (130 hex = 65 bytes) public key
-            if (parts.length === 2 && secondPart && (secondPart.length === 66 || secondPart.length === 130)) {
+            if (
+                parts.length === 2 &&
+                secondPart &&
+                (secondPart.length === 66 || secondPart.length === 130)
+            ) {
                 const pubkeyBytes = fromHex(secondPart);
                 // Validate the public key prefix to avoid mistaking scripts for pubkeys
                 if (this.isValidPublicKeyBytes(pubkeyBytes, pubkeyBytes.length)) {
