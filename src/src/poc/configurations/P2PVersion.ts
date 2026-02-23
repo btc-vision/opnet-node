@@ -1,7 +1,7 @@
 import { ChainIds } from '../../config/enums/ChainIds.js';
 import { MainnetTrustedKeys001 } from './keys/bitcoin/0.0.1/MainnetTrustedKeys001.js';
 import { RegTestTrustedKeys001 } from './keys/bitcoin/0.0.1/RegtestTrustedKeys001.js';
-import { TestNetTrustedKeys001 } from './keys/bitcoin/0.0.1/TestnetTrustedKeys001.js';
+import { Testnet4TrustedKeys001 } from './keys/bitcoin/0.0.1/Testnet4TrustedKeys001.js';
 import { TrustedPublicKeys } from './types/TrustedPublicKeys.js';
 import { SignetTrustedKeys001 } from './keys/bitcoin/0.0.1/SignetTrustedKeys001.js';
 import { TrustedVersion } from './version/TrustedVersion.js';
@@ -13,6 +13,7 @@ import { DogecoinMainnetTrustedKeys } from './keys/dogecoin/0.0.1/MainnetTrusted
 import { DogecoinTestnetTrustedKeys } from './keys/dogecoin/0.0.1/TestnetTrustedKeys001.js';
 import { LitecoinMainnetTrustedKeys } from './keys/litecoin/0.0.1/MainnetTrustedKeys001.js';
 import { LitecoinTestnetTrustedKeys } from './keys/litecoin/0.0.1/TestnetTrustedKeys001.js';
+import { TestnetOpnetTrustedKeys001 } from './keys/bitcoin/0.0.1/TestnetOpnetTrustedKeys001.js';
 
 /**
  * DO NOT MODIFY THIS FILE IF YOU DON'T KNOW WHAT YOU ARE DOING.
@@ -32,7 +33,8 @@ export const TRUSTED_PUBLIC_KEYS: { [key in TrustedVersion]: TrustedPublicKeys }
     [TrustedVersion.V0_0_1]: {
         [ChainIds.Bitcoin]: {
             [BitcoinNetwork.mainnet]: MainnetTrustedKeys001,
-            [BitcoinNetwork.testnet]: TestNetTrustedKeys001,
+            [BitcoinNetwork.testnet]: TestnetOpnetTrustedKeys001,
+            [BitcoinNetwork.testnet4]: Testnet4TrustedKeys001,
             [BitcoinNetwork.regtest]: RegTestTrustedKeys001,
             [BitcoinNetwork.signet]: SignetTrustedKeys001,
         },
@@ -54,7 +56,8 @@ export const TRUSTED_PUBLIC_KEYS: { [key in TrustedVersion]: TrustedPublicKeys }
     [TrustedVersion.V0_0_2]: {
         [ChainIds.Bitcoin]: {
             [BitcoinNetwork.mainnet]: MainnetTrustedKeys001,
-            [BitcoinNetwork.testnet]: TestNetTrustedKeys001,
+            [BitcoinNetwork.testnet]: TestnetOpnetTrustedKeys001,
+            [BitcoinNetwork.testnet4]: Testnet4TrustedKeys001,
             [BitcoinNetwork.regtest]: RegTestTrustedKeys001,
             [BitcoinNetwork.signet]: SignetTrustedKeys001,
         },
