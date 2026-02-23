@@ -57,13 +57,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ENABLED: true,
             BLOCK_UPDATE_METHOD: BlockUpdateMethods.RPC,
             STORAGE_TYPE: IndexerStorageType.MONGODB,
-            ALLOW_PURGE: false,
             BLOCK_QUERY_INTERVAL: 5000,
             READONLY_MODE: false,
             SOLVE_UNKNOWN_UTXOS: false,
 
             /** UTXOs */
-            PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: 1000,
+            ALLOW_PURGE: false,
+            PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: 10_000_000,
             UTXO_SAVE_INTERVAL: 120_000,
             START_INDEXING_UTXO_AT_BLOCK_HEIGHT: 800_000,
         },
