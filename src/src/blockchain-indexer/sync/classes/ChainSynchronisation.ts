@@ -290,7 +290,9 @@ export class ChainSynchronisation extends Logger {
             return;
         }
 
-        //this.info(`Deserializing block ${block.header.height} with ${txs.length} transactions...`);
+        if (block.height === 0n) {
+            return; // Don't index the coinbase transaction of the genesis blocK.
+        }
 
         block.setRawTransactionData(txs);
         block.deserialize(false);
