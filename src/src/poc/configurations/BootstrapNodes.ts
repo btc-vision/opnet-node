@@ -13,10 +13,12 @@ type BootstrapNodes = {
 export const BootstrapNodes: BootstrapNodes = {
     [ChainIds.Bitcoin]: {
         [BitcoinNetwork.mainnet]: [
-            '/dns/bootstrap-mainnet.opnet.org/tcp/9700/p2p/12D3KooWJtgbNFdx1g57N3fEpaVkd3QdfwT2Sbp4Gs3XJUrUnZGf',
+            '/dns/bootstrap-mainnet.opnet.org/tcp/9805/p2p/12D3KooWJtgbNFdx1g57N3fEpaVkd3QdfwT2Sbp4Gs3XJUrUnZGf',
         ],
 
-        [BitcoinNetwork.testnet]: [],
+        [BitcoinNetwork.testnet]: [
+            '/dns/bootstrap-testnet.opnet.org/tcp/9901/p2p/12D3KooWRyqLF68AsTWTvKavxB2KKhGBnLPXQ6ev6Eq9GcBqinJm',
+        ],
 
         [BitcoinNetwork.testnet4]: [],
 
