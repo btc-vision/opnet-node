@@ -77,7 +77,7 @@
         "@typescript-eslint/parser": "^8.56.0",
         "@typescript-eslint/utils": "^8.56.0",
         "asyncapi-validator": "^5.1.1",
-        "bignumber.js": "^9.3.1",
+        "bignumber.js": "^10.0.0",
         "bip174": "^3.0.0",
         "bip39": "^3.1.0",
         "bson": "^7.2.0",
