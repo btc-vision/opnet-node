@@ -103,9 +103,9 @@ export class P2PManager extends Logger {
     private blackListedPeerIps: FastStringMap<BlacklistedPeerInfo> = new FastStringMap();
 
     private discoveredExternalAddresses: FastStringMap<number> = new FastStringMap();
-    private hasConfirmedExternalAddress: boolean = false;
+    private confirmedExternalAddresses: FastStringSet = new FastStringSet();
 
-    private readonly EXTERNAL_ADDRESS_THRESHOLD: number = 1;
+    private readonly EXTERNAL_ADDRESS_THRESHOLD: number;
 
     private knownMempoolIdentifiers: FastStringSet = new FastStringSet();
 
@@ -119,6 +119,10 @@ export class P2PManager extends Logger {
 
     constructor(private readonly config: BtcIndexerConfig) {
         super();
+
+        this.EXTERNAL_ADDRESS_THRESHOLD = this.config.P2P.IS_BOOTSTRAP_NODE
+            ? 1
+            : (this.config.P2P.EXTERNAL_ADDRESS_THRESHOLD ?? 3);
 
         this.p2pConfigurations = new P2PConfigurations(this.config);
         this.identity = new OPNetIdentity(this.config, this.currentAuthority);
@@ -573,6 +577,11 @@ export class P2PManager extends Logger {
         this.warn(`Failed to reconnect to peer ${peerId}.`);
     }
 
+    private resetExternalAddressDiscovery(): void {
+        this.discoveredExternalAddresses.clear();
+        this.confirmedExternalAddresses.clear();
+    }
+
     private async monitorConnectionHealth(): Promise<void> {
         if (!this.node) return;
 
@@ -586,6 +595,10 @@ export class P2PManager extends Logger {
         this.debug(
             `Connection health: ${healthyConnections.length} connections, ${authenticatedPeers} authenticated peers`,
         );
+
+        if (healthyConnections.length === 0) {
+            this.resetExternalAddressDiscovery();
+        }
 
         if (!this.isBootstrapNode()) {
             if (healthyConnections.length < this.config.P2P.MINIMUM_PEERS) {
@@ -683,14 +696,13 @@ export class P2PManager extends Logger {
         }
     }
 
-    private onPeerIdentify(evt: CustomEvent<IdentifyResult>): void {
+    private async onPeerIdentify(evt: CustomEvent<IdentifyResult>): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
 
         const peerInfo: IdentifyResult = evt.detail;
 
-        // Learn our own external address from what peers observe
-        if (peerInfo.observedAddr && !this.hasConfirmedExternalAddress) {
-            this.processObservedAddress(peerInfo.observedAddr);
+        if (peerInfo.observedAddr) {
+            await this.processObservedAddress(peerInfo.observedAddr);
         }
 
         const reachableAddrs = this.filterReachableAddresses(peerInfo.listenAddrs);
@@ -703,51 +715,81 @@ export class P2PManager extends Logger {
         }
     }
 
-    private processObservedAddress(observed: Multiaddr): void {
+    private async processObservedAddress(observed: Multiaddr): Promise<void> {
         if (!this.node) return;
 
-        const ip = extractIPAddress(observed);
-        if (!ip) return;
+        if (this.discoveredExternalAddresses.size >= 500) {
+            this.discoveredExternalAddresses.clear();
+            this.confirmedExternalAddresses.clear();
 
-        // Ignore private/loopback observations
-        if (
-            ip.startsWith('127.') ||
-            ip.startsWith('10.') ||
-            ip.startsWith('192.168.') ||
-            ip.startsWith('fe80:') ||
-            ip === '::1'
-        ) {
+            this.warn('External address observation maps flushed due to size limit');
+        }
+
+        const components = observed.getComponents();
+        const port = this.config.P2P.P2P_PORT;
+        if (!port) return;
+
+        const addressComponent = components.find(
+            (c) =>
+                c.name === 'ip4' ||
+                c.name === 'ip6' ||
+                c.name === 'dns' ||
+                c.name === 'dns4' ||
+                c.name === 'dns6' ||
+                c.name === 'dnsaddr',
+        );
+
+        if (!addressComponent?.value) return;
+
+        const address = addressComponent.value;
+        const isDns =
+            addressComponent.name === 'dns' ||
+            addressComponent.name === 'dns4' ||
+            addressComponent.name === 'dns6' ||
+            addressComponent.name === 'dnsaddr';
+
+        if (!isDns) {
+            if (
+                address.startsWith('127.') ||
+                address.startsWith('10.') ||
+                address.startsWith('192.168.') ||
+                address.startsWith('fe80:') ||
+                address.startsWith('fc00:') ||
+                address.startsWith('fd00:') ||
+                address === '::1' ||
+                address === '0.0.0.0'
+            ) {
+                return;
+            }
+
+            if (address.startsWith('172.')) {
+                const second = parseInt(address.split('.')[1], 10);
+                if (second >= 16 && second <= 31) return;
+            }
+        }
+
+        const transportComponent = components.find((c) => c.name === 'tcp' || c.name === 'udp');
+        const transport = transportComponent?.name ?? 'tcp';
+        const candidateAddr = `/${addressComponent.name}/${address}/${transport}/${port}`;
+
+        if (this.confirmedExternalAddresses.has(candidateAddr)) {
             return;
         }
 
-        // Also ignore 172.16-31.x.x
-        if (ip.startsWith('172.')) {
-            const second = parseInt(ip.split('.')[1], 10);
-            if (second >= 16 && second <= 31) return;
-        }
+        const count = (this.discoveredExternalAddresses.get(candidateAddr) ?? 0) + 1;
+        this.discoveredExternalAddresses.set(candidateAddr, count);
 
-        const key = observed.toString();
-        const count = (this.discoveredExternalAddresses.get(key) ?? 0) + 1;
-        this.discoveredExternalAddresses.set(key, count);
+        if (count >= this.EXTERNAL_ADDRESS_THRESHOLD) {
+            this.confirmedExternalAddresses.add(candidateAddr);
 
-        if (count >= this.EXTERNAL_ADDRESS_THRESHOLD && !this.hasConfirmedExternalAddress) {
-            this.hasConfirmedExternalAddress = true;
+            const externalAddr = multiaddr(candidateAddr);
+            this.node.components.addressManager.confirmObservedAddr(externalAddr);
 
-            // Extract IP and port, rebuild as a clean address with our listen port
-            const components = observed.getComponents();
-            const port = this.config.P2P.P2P_PORT;
-            const ipComponent = components.find((c) => c.name === 'ip4' || c.name === 'ip6');
+            this.success(
+                `Discovered external address: ${candidateAddr} (confirmed by ${count} peer(s))`,
+            );
 
-            if (ipComponent?.value && port) {
-                const protocol = ipComponent.name === 'ip4' ? 'ip4' : 'ip6';
-                const externalAddr = multiaddr(`/${protocol}/${ipComponent.value}/tcp/${port}`);
-
-                this.node.components.addressManager.addObservedAddr(externalAddr);
-
-                this.success(
-                    `Discovered external address: ${externalAddr.toString()} (confirmed by ${count} peer(s))`,
-                );
-            }
+            await this.node.services.identifyPush.push();
         }
     }
 
