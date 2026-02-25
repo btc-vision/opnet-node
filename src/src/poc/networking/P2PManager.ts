@@ -641,7 +641,7 @@ export class P2PManager extends Logger {
                 try {
                     this.addBoostrapNodesToPeerStore();
 
-                    await this.node.services.aminoDHT.refreshRoutingTable();
+                    await this.refreshRouting();
 
                     // Try to dial known peers that we're not connected to
                     const knownPeers = await this.node.peerStore.all();
@@ -825,6 +825,7 @@ export class P2PManager extends Logger {
             );
 
             await this.node.services.identifyPush.push();
+            await this.refreshRouting();
         }
     }
 
