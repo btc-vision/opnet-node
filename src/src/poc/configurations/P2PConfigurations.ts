@@ -1,9 +1,9 @@
 import type { YamuxMuxerInit } from '@chainsafe/libp2p-yamux';
 import type { BootstrapInit } from '@libp2p/bootstrap';
 import type { IdentifyInit } from '@libp2p/identify';
-import type { NodeInfo, PeerId, PrivateKey } from '@libp2p/interface';
+import type { NodeInfo, PeerId, PeerInfo, PrivateKey } from '@libp2p/interface';
 import { FaultTolerance } from '@libp2p/interface-transport';
-import { KadDHTInit, removePrivateAddressesMapper } from '@libp2p/kad-dht';
+import { KadDHTInit, PeerInfoMapper, removePrivateAddressesMapper } from '@libp2p/kad-dht';
 import { MulticastDNSInit } from '@libp2p/mdns';
 import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { TCPOptions } from '@libp2p/tcp';
@@ -188,18 +188,18 @@ export class P2PConfigurations extends OPNetPathFinder {
             addressFilter: (peerId: PeerId, multiaddr: Multiaddr) => {
                 const str = multiaddr.toString();
 
-                // Always keep bootstrap peer addresses
-                if (this.isBootstrapPeer(peerId.toString())) {
-                    return true;
-                }
-
-                // Filter out obvious private/local addresses
+                // Nobody should be dialing 127.0.0.1 on a remote peer.
                 if (
                     str.includes('/127.0.0.1/') ||
                     str.includes('/::1/') ||
                     str.includes('/0.0.0.0/')
                 ) {
                     return false;
+                }
+
+                // Always keep bootstrap peer addresses
+                if (this.isBootstrapPeer(peerId.toString())) {
+                    return true;
                 }
 
                 // Keep all other addresses (including private network for testing)
@@ -252,7 +252,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             kBucketSize: 30,
             clientMode: this.config.P2P.CLIENT_MODE,
             protocol: this.protocol,
-            peerInfoMapper: removePrivateAddressesMapper,
+            peerInfoMapper: this.removePrivateAddressesMapper,
             logPrefix: 'libp2p:dht-amino',
             datastorePrefix: '/dht-amino',
             metricsPrefix: 'libp2p_dht_amino',
@@ -274,7 +274,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             // Limit concurrent streams to prevent resource exhaustion
             maxInboundStreams: 2,
             maxOutboundStreams: 2,
-            connectionThreshold: 80,
+            connectionThreshold: 20,
 
             // 8KB is reasonable for autonat messages
             maxMessageSize: 8192,
@@ -301,6 +301,22 @@ export class P2PConfigurations extends OPNetPathFinder {
     public get protocol(): string {
         return `${P2PConfigurations.protocolName}/op/${P2PMajorVersion}`;
     }
+
+    public removePrivateAddressesMapper: PeerInfoMapper = (peer: PeerInfo): PeerInfo => {
+        const privateAddressRemoval = removePrivateAddressesMapper(peer);
+
+        console.log(
+            'peer original',
+            peer.multiaddrs.map((addr) => addr.toString()),
+            'peer filtered',
+            privateAddressRemoval.multiaddrs.map((addr) => addr.toString()),
+        );
+
+        console.log('peer before', peer);
+        console.log('peer after', privateAddressRemoval);
+
+        return privateAddressRemoval;
+    };
 
     public isBootstrapPeer(peerId: string): boolean {
         return this.bootstrapPeerIds.has(peerId);

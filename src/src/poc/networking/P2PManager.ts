@@ -227,6 +227,11 @@ export class P2PManager extends Logger {
         await this.blockWitnessManager.setCurrentBlock();
 
         this.node = await this.createNode();
+        console.log(
+            'libp2p multiaddrs:',
+            this.node.getMultiaddrs().map((a) => a.toString()),
+        );
+
         this._peerChecker = new PeerChecker(this.node, this.onPeerUnreachable.bind(this));
         this.streamManager = new ReusableStreamManager(
             this.node,
