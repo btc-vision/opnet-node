@@ -1,3 +1,5 @@
+import { OPNetTransactionTypes } from '../../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+
 interface IBroadcastTransactionResult {
     success: boolean;
     result?: string;
@@ -7,7 +9,7 @@ interface IBroadcastTransactionResult {
     identifier?: bigint;
     modifiedTransaction?: string;
     finalizedTransaction?: boolean;
-    transactionType?: string;
+    transactionType?: OPNetTransactionTypes;
 }
 
 export type BroadcastTransactionResult = IBroadcastTransactionResult;

@@ -962,8 +962,7 @@ export class P2PManager extends Logger {
             }
 
             const txType: OPNetTransactionTypes =
-                (verifiedTransaction.transactionType as OPNetTransactionTypes) ||
-                OPNetTransactionTypes.Generic;
+                verifiedTransaction.transactionType || OPNetTransactionTypes.Generic;
 
             // Notify all API threads so WebSocket subscribers get the mempool notification
             const notification: MempoolTransactionNotificationMessage = {
