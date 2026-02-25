@@ -24,7 +24,8 @@ interface ReusableStreamOptions {
 export class ReusableStream extends Logger {
     public readonly logColor: string = '#ff9933';
 
-    private isClosed = false;
+    private isClosed: boolean = false;
+    private enableDebug: boolean = false;
 
     /** Limit how many outbound messages we queue at once */
     private readonly MAX_QUEUE_SIZE = 100;
@@ -69,9 +70,11 @@ export class ReusableStream extends Logger {
         super();
 
         const direction = opts.isInbound ? 'INBOUND' : 'OUTBOUND';
-        this.debug(
-            `[${direction}] Stream created for ${this.peerIdStr} proto=${protocol} streamId=${libp2pStream.id}`,
-        );
+        if (this.enableDebug) {
+            this.debug(
+                `[${direction}] Stream created for ${this.peerIdStr} proto=${protocol} streamId=${libp2pStream.id}`,
+            );
+        }
 
         // Set up event listeners for the MessageStream interface
         this.messageHandler = (event: StreamMessageEvent) => {
@@ -79,9 +82,12 @@ export class ReusableStream extends Logger {
         };
 
         this.closeHandler = (_event: StreamCloseEvent) => {
-            this.debug(
-                `[${direction}] Stream close event from ${this.peerIdStr} (out=${this.outboundMessageCount} in=${this.inboundMessageCount} ackRx=${this.ackReceivedCount} ackTx=${this.ackSentCount})`,
-            );
+            if (this.enableDebug) {
+                this.debug(
+                    `[${direction}] Stream close event from ${this.peerIdStr} (out=${this.outboundMessageCount} in=${this.inboundMessageCount} ackRx=${this.ackReceivedCount} ackTx=${this.ackSentCount})`,
+                );
+            }
+
             void this.closeStream();
         };
 
@@ -138,9 +144,11 @@ export class ReusableStream extends Logger {
         this.isClosed = true;
         this._isProcessingQueue = false;
 
-        this.debug(
-            `[${this.direction}] Closing stream for ${this.peerIdStr} (out=${this.outboundMessageCount} in=${this.inboundMessageCount} ackRx=${this.ackReceivedCount} ackTx=${this.ackSentCount} queueLen=${this.messageQueue.length})`,
-        );
+        if (this.enableDebug) {
+            this.debug(
+                `[${this.direction}] Closing stream for ${this.peerIdStr} (out=${this.outboundMessageCount} in=${this.inboundMessageCount} ackRx=${this.ackReceivedCount} ackTx=${this.ackSentCount} queueLen=${this.messageQueue.length})`,
+            );
+        }
 
         if (this.idleTimer) {
             clearTimeout(this.idleTimer);
@@ -184,9 +192,11 @@ export class ReusableStream extends Logger {
             // If data is exactly [0x01], treat as ack
             if (bytes.length === 1 && bytes[0] === 0x01) {
                 this.ackReceivedCount++;
-                this.debug(
-                    `[${this.direction}] Received ACK from ${this.peerIdStr} (total ackRx=${this.ackReceivedCount})`,
-                );
+                if (this.enableDebug) {
+                    this.debug(
+                        `[${this.direction}] Received ACK from ${this.peerIdStr} (total ackRx=${this.ackReceivedCount})`,
+                    );
+                }
                 return;
             }
 
@@ -199,17 +209,22 @@ export class ReusableStream extends Logger {
             }
 
             this.inboundMessageCount++;
-            this.debug(
-                `[${this.direction}] Received message from ${this.peerIdStr}: ${bytes.byteLength} bytes (total in=${this.inboundMessageCount})`,
-            );
+            if (this.enableDebug) {
+                this.debug(
+                    `[${this.direction}] Received message from ${this.peerIdStr}: ${bytes.byteLength} bytes (total in=${this.inboundMessageCount})`,
+                );
+            }
 
             // Otherwise, this is a real message. We always ack it:
             try {
                 this.libp2pStream.send(Uint8Array.of(0x01));
                 this.ackSentCount++;
-                this.debug(
-                    `[${this.direction}] Sent ACK to ${this.peerIdStr} (total ackTx=${this.ackSentCount})`,
-                );
+
+                if (this.enableDebug) {
+                    this.debug(
+                        `[${this.direction}] Sent ACK to ${this.peerIdStr} (total ackTx=${this.ackSentCount})`,
+                    );
+                }
             } catch (err) {
                 this.warn(`[${this.direction}] Failed to send ACK to ${this.peerIdStr}: ${err}`);
             }
@@ -253,16 +268,22 @@ export class ReusableStream extends Logger {
         this.resetIdleTimer();
 
         this.outboundMessageCount++;
-        this.debug(
-            `[${this.direction}] Sending ${data.byteLength} bytes to ${this.peerIdStr} (total out=${this.outboundMessageCount})`,
-        );
+
+        if (this.enableDebug) {
+            this.debug(
+                `[${this.direction}] Sending ${data.byteLength} bytes to ${this.peerIdStr} (total out=${this.outboundMessageCount})`,
+            );
+        }
 
         // Send the data directly - MessageStream handles framing
         this.libp2pStream.send(data);
 
         // Wait for drain if needed
         if (this.libp2pStream.writableNeedsDrain) {
-            this.debug(`[${this.direction}] Waiting for drain to ${this.peerIdStr}`);
+            if (this.enableDebug) {
+                this.debug(`[${this.direction}] Waiting for drain to ${this.peerIdStr}`);
+            }
+
             await this.libp2pStream.onDrain();
         }
     }
@@ -277,9 +298,12 @@ export class ReusableStream extends Logger {
 
         if (this.opts.idleTimeoutMs > 0) {
             this.idleTimer = setTimeout(() => {
-                this.debug(
-                    `[${this.direction}] Idle timeout for ${this.peerIdStr} after ${this.opts.idleTimeoutMs}ms`,
-                );
+                if (this.enableDebug) {
+                    this.debug(
+                        `[${this.direction}] Idle timeout for ${this.peerIdStr} after ${this.opts.idleTimeoutMs}ms`,
+                    );
+                }
+
                 void this.closeStream();
             }, this.opts.idleTimeoutMs);
         }

@@ -17,6 +17,8 @@ const MAX_OUTBOUND_STREAMS_PER_PEER = 1024;
 export class ReusableStreamManager extends Logger {
     public readonly logColor: string = `#33ccff`;
 
+    private enableDebug: boolean = false;
+
     private node: Libp2p;
 
     private outboundMap: FastStringMap<ReusableStream> = new FastStringMap();
@@ -72,7 +74,9 @@ export class ReusableStreamManager extends Logger {
             void existing.closeStream();
         }
 
-        this.debug(`Inbound stream from ${peerIdStr} connId=${connection.id}`);
+        if (this.enableDebug) {
+            this.debug(`Inbound stream from ${peerIdStr} connId=${connection.id}`);
+        }
 
         // Create the new inbound ReusableStream
         const streamObj = new ReusableStream(
@@ -121,7 +125,9 @@ export class ReusableStreamManager extends Logger {
         }
 
         if (closePromises.length > 0) {
-            this.debug(`Closing ${closePromises.length} streams for peer ${peerIdStr}`);
+            if (this.enableDebug) {
+                this.debug(`Closing ${closePromises.length} streams for peer ${peerIdStr}`);
+            }
 
             await Promise.allSettled(closePromises);
         }
@@ -159,7 +165,9 @@ export class ReusableStreamManager extends Logger {
             });
         }
 
-        this.debug(`Outbound stream established to ${peerId.toString()} streamId=${conn.id}`);
+        if (this.enableDebug) {
+            this.debug(`Outbound stream established to ${peerId.toString()} streamId=${conn.id}`);
+        }
 
         const streamObj = new ReusableStream(
             peerId,
@@ -179,12 +187,18 @@ export class ReusableStreamManager extends Logger {
     }
 
     private onOutboundClosed(key: string) {
-        this.debug(`Outbound stream closed: ${key}`);
+        if (this.enableDebug) {
+            this.debug(`Outbound stream closed: ${key}`);
+        }
+
         this.outboundMap.delete(key);
     }
 
     private onInboundClosed(key: string) {
-        this.debug(`Inbound stream closed: ${key}`);
+        if (this.enableDebug) {
+            this.debug(`Inbound stream closed: ${key}`);
+        }
+
         this.inboundMap.delete(key);
     }
 
