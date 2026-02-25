@@ -719,7 +719,16 @@ export class P2PManager extends Logger {
                 `Identified peer: ${peerInfo.peerId.toString()} with ${reachableAddrs.length} reachable addresses`,
             );
         } else {
-            this.warn(`Peer ${peerInfo.peerId.toString()} has no reachable addresses`);
+            const connections = this.node.getConnections(peerInfo.peerId);
+            if (connections.length === 0) {
+                this.warn(
+                    `Peer ${peerInfo.peerId.toString()} has no reachable addresses and no active connections`,
+                );
+            } else {
+                this.debug(
+                    `Peer ${peerInfo.peerId.toString()} has no reachable listen addresses but has ${connections.length} active connection(s)`,
+                );
+            }
         }
     }
 
