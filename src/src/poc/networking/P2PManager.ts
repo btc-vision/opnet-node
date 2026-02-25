@@ -606,6 +606,10 @@ export class P2PManager extends Logger {
             `Connection health: ${healthyConnections.length} connections, ${authenticatedPeers} authenticated peers`,
         );
 
+        if (this.streamManager) {
+            this.streamManager.logStreamStats();
+        }
+
         if (healthyConnections.length === 0) {
             this.resetExternalAddressDiscovery();
         }
@@ -837,6 +841,11 @@ export class P2PManager extends Logger {
         if (peer) {
             this.peers.delete(peerIdStr);
             await peer.onDisconnect();
+        }
+
+        // Close any lingering streams for this peer
+        if (this.streamManager) {
+            await this.streamManager.closePeerStreams(peerIdStr);
         }
 
         // Re-add addresses to peerStore so we can reconnect later

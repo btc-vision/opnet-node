@@ -1,5 +1,6 @@
 import { PeerId, Stream, StreamCloseEvent, StreamMessageEvent } from '@libp2p/interface';
 import { Uint8ArrayList } from 'uint8arraylist';
+import { Logger } from '@btc-vision/bsi-common';
 
 /**
  * Options for controlling stream behavior
@@ -9,10 +10,6 @@ interface ReusableStreamOptions {
     idleTimeoutMs: number;
     /** Maximum length of a single message we allow */
     maxMessageSize: number;
-    /** How long to wait for an ack if `waitForAck=true` */
-    ackTimeoutMs: number;
-    /** Whether the sender expects an ack for each outbound message */
-    waitForAck: boolean;
     /** True if stream originated inbound (remote dialed us) */
     isInbound: boolean;
 }
@@ -24,7 +21,9 @@ interface ReusableStreamOptions {
  * already handles message framing - each send() results in one message event.
  * No manual length-prefixing is needed.
  */
-export class ReusableStream {
+export class ReusableStream extends Logger {
+    public readonly logColor: string = '#ff9933';
+
     private isClosed = false;
 
     /** Limit how many outbound messages we queue at once */
@@ -41,18 +40,13 @@ export class ReusableStream {
 
     private idleTimer: NodeJS.Timeout | undefined;
 
-    /**
-     * For `waitForAck = true`, each outbound message has a "waiter" that gets resolved
-     * when `[0x01]` arrives. The read loop checks for `[0x01]`.
-     */
-    private ackWaiters: Array<{
-        resolve: () => void;
-        reject: (err: unknown) => void;
-        timer: NodeJS.Timeout;
-    }> = [];
-
     private readonly messageHandler: ((event: StreamMessageEvent) => void) | undefined;
     private readonly closeHandler: ((event: StreamCloseEvent) => void) | undefined;
+
+    private outboundMessageCount = 0;
+    private inboundMessageCount = 0;
+    private ackReceivedCount = 0;
+    private ackSentCount = 0;
 
     constructor(
         public readonly peerId: PeerId,
@@ -72,12 +66,22 @@ export class ReusableStream {
          */
         private readonly onInboundData?: (data: Uint8Array, rs: ReusableStream) => Promise<void>,
     ) {
+        super();
+
+        const direction = opts.isInbound ? 'INBOUND' : 'OUTBOUND';
+        this.debug(
+            `[${direction}] Stream created for ${this.peerIdStr} proto=${protocol} streamId=${libp2pStream.id}`,
+        );
+
         // Set up event listeners for the MessageStream interface
         this.messageHandler = (event: StreamMessageEvent) => {
             void this.handleMessage(event.data);
         };
 
         this.closeHandler = (_event: StreamCloseEvent) => {
+            this.debug(
+                `[${direction}] Stream close event from ${this.peerIdStr} (out=${this.outboundMessageCount} in=${this.inboundMessageCount} ackRx=${this.ackReceivedCount} ackTx=${this.ackSentCount})`,
+            );
             void this.closeStream();
         };
 
@@ -89,12 +93,24 @@ export class ReusableStream {
         return this.peerId.toString();
     }
 
+    private get direction(): string {
+        return this.opts.isInbound ? 'INBOUND' : 'OUTBOUND';
+    }
+
     /**
      * Enqueues a message to send. We do a FIFO queue to avoid concurrency issues.
      */
     public sendMessage(data: Uint8Array): Promise<void> {
         if (this.isClosed) {
             return Promise.reject(new Error(`Stream to peer ${this.peerIdStr} is closed.`));
+        }
+
+        if (data.byteLength > this.opts.maxMessageSize) {
+            return Promise.reject(
+                new Error(
+                    `Message exceeds max size: ${data.byteLength} > ${this.opts.maxMessageSize}`,
+                ),
+            );
         }
 
         if (this.messageQueue.length >= this.MAX_QUEUE_SIZE) {
@@ -115,11 +131,15 @@ export class ReusableStream {
     }
 
     /**
-     * Close the stream, cancelling any queued messages and ack waiters.
+     * Close the stream, cancelling any queued messages.
      */
     public async closeStream(): Promise<void> {
         if (this.isClosed) return;
         this.isClosed = true;
+
+        this.debug(
+            `[${this.direction}] Closing stream for ${this.peerIdStr} (out=${this.outboundMessageCount} in=${this.inboundMessageCount} ackRx=${this.ackReceivedCount} ackTx=${this.ackSentCount} queueLen=${this.messageQueue.length})`,
+        );
 
         if (this.idleTimer) {
             clearTimeout(this.idleTimer);
@@ -135,27 +155,21 @@ export class ReusableStream {
             this.libp2pStream.removeEventListener('close', this.closeHandler);
         }
 
+        // Reject any outbound messages still waiting
+        const pending = this.messageQueue;
+        this.messageQueue = [];
+
+        for (const { reject } of pending) {
+            reject(new Error('Stream closed before message was processed.'));
+        }
+
         try {
             await this.libp2pStream.close();
-        } catch (err) {
-            console.warn(`Error closing stream for ${this.peerIdStr}:`, err);
+        } catch {
+            // Ignore close errors
         } finally {
             // Inform manager
             this.onClose(this.id);
-
-            // Reject any outbound messages still waiting
-            for (const { reject } of this.messageQueue) {
-                reject(new Error('Stream closed before message was processed.'));
-            }
-
-            this.messageQueue = [];
-
-            // Reject any ack waiters
-            for (const w of this.ackWaiters) {
-                clearTimeout(w.timer);
-                w.reject(new Error('Stream closed before ack was received.'));
-            }
-            this.ackWaiters = [];
         }
     }
 
@@ -168,31 +182,44 @@ export class ReusableStream {
 
             // If data is exactly [0x01], treat as ack
             if (bytes.length === 1 && bytes[0] === 0x01) {
-                const w = this.ackWaiters.shift();
-                if (w) {
-                    clearTimeout(w.timer);
-                    w.resolve();
-                }
+                this.ackReceivedCount++;
+                this.debug(
+                    `[${this.direction}] Received ACK from ${this.peerIdStr} (total ackRx=${this.ackReceivedCount})`,
+                );
                 return;
             }
 
+            if (bytes.byteLength > this.opts.maxMessageSize) {
+                this.warn(
+                    `[${this.direction}] Oversized message from ${this.peerIdStr}: ${bytes.byteLength} bytes, closing stream`,
+                );
+                await this.closeStream();
+                return;
+            }
+
+            this.inboundMessageCount++;
+            this.debug(
+                `[${this.direction}] Received message from ${this.peerIdStr}: ${bytes.byteLength} bytes (total in=${this.inboundMessageCount})`,
+            );
+
             // Otherwise, this is a real message. We always ack it:
-            this.sendAck();
+            try {
+                this.libp2pStream.send(Uint8Array.of(0x01));
+                this.ackSentCount++;
+                this.debug(
+                    `[${this.direction}] Sent ACK to ${this.peerIdStr} (total ackTx=${this.ackSentCount})`,
+                );
+            } catch (err) {
+                this.warn(`[${this.direction}] Failed to send ACK to ${this.peerIdStr}: ${err}`);
+            }
 
             // If inbound, pass data along
             if (this.opts.isInbound && this.onInboundData) {
                 await this.onInboundData(bytes, this);
             }
         } catch (err) {
-            console.error(`Error handling message for ${this.peerIdStr}:`, err);
+            this.error(`[${this.direction}] Error handling message for ${this.peerIdStr}: ${err}`);
         }
-    }
-
-    /**
-     * Sends a single byte [0x01] as an ack to the remote.
-     */
-    private sendAck(): void {
-        this.libp2pStream.send(Uint8Array.of(0x01));
     }
 
     /**
@@ -201,15 +228,17 @@ export class ReusableStream {
     private async processQueue(): Promise<void> {
         this._isProcessingQueue = true;
 
-        while (this.messageQueue.length > 0 && !this.isClosed) {
-            const { data, resolve, reject } = this.messageQueue[0];
+        while (this.messageQueue.length > 0) {
+            if (this.isClosed) break;
+
+            const item = this.messageQueue[0];
             try {
-                await this.writeData(data);
-                resolve();
-            } catch (err) {
-                reject(err);
-            } finally {
+                await this.writeData(item.data);
                 this.messageQueue.shift();
+                item.resolve();
+            } catch (err) {
+                this.messageQueue.shift();
+                item.reject(err);
             }
         }
 
@@ -222,11 +251,17 @@ export class ReusableStream {
     private async writeData(data: Uint8Array): Promise<void> {
         this.resetIdleTimer();
 
+        this.outboundMessageCount++;
+        this.debug(
+            `[${this.direction}] Sending ${data.byteLength} bytes to ${this.peerIdStr} (total out=${this.outboundMessageCount})`,
+        );
+
         // Send the data directly - MessageStream handles framing
         this.libp2pStream.send(data);
 
         // Wait for drain if needed
         if (this.libp2pStream.writableNeedsDrain) {
+            this.debug(`[${this.direction}] Waiting for drain to ${this.peerIdStr}`);
             await this.libp2pStream.onDrain();
         }
     }
@@ -238,8 +273,12 @@ export class ReusableStream {
         if (this.idleTimer) {
             clearTimeout(this.idleTimer);
         }
+
         if (this.opts.idleTimeoutMs > 0) {
             this.idleTimer = setTimeout(() => {
+                this.debug(
+                    `[${this.direction}] Idle timeout for ${this.peerIdStr} after ${this.opts.idleTimeoutMs}ms`,
+                );
                 void this.closeStream();
             }, this.opts.idleTimeoutMs);
         }
