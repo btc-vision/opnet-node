@@ -102,6 +102,11 @@ export class P2PManager extends Logger {
     private blackListedPeerIds: FastStringMap<BlacklistedPeerInfo> = new FastStringMap();
     private blackListedPeerIps: FastStringMap<BlacklistedPeerInfo> = new FastStringMap();
 
+    private discoveredExternalAddresses: FastStringMap<number> = new FastStringMap();
+    private hasConfirmedExternalAddress: boolean = false;
+
+    private readonly EXTERNAL_ADDRESS_THRESHOLD: number = 1;
+
     private knownMempoolIdentifiers: FastStringSet = new FastStringSet();
 
     private readonly PURGE_BLACKLISTED_PEER_AFTER: number = 30_000;
@@ -191,7 +196,7 @@ export class P2PManager extends Logger {
      * @param blockNumber The block number to request witnesses for
      * @returns The number of witnesses received and success status
      */
-    public async requestWitnessesForIBD(
+    /*public async requestWitnessesForIBD(
         blockNumber: bigint,
     ): Promise<{ witnessCount: number; success: boolean }> {
         try {
@@ -217,7 +222,7 @@ export class P2PManager extends Logger {
                 success: false,
             };
         }
-    }
+    }*/
 
     public async init(): Promise<void> {
         DBManagerInstance.setup();
@@ -341,10 +346,6 @@ export class P2PManager extends Logger {
 
         shuffleArray(peers);
         return peers.slice(0, 100);
-    }
-
-    private sleep(ms: number): Promise<void> {
-        return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
     private filterPrivateNodes(addrs: Multiaddr[]): Multiaddr[] {
@@ -564,33 +565,7 @@ export class P2PManager extends Logger {
         this.node.addEventListener('peer:connect', this.onPeerConnect.bind(this));
         this.node.addEventListener('peer:identify', this.onPeerIdentify.bind(this));
         this.node.addEventListener('peer:reconnect-failure', this.onReconnectFailure.bind(this));
-
-        /*this.node.addEventListener('connection:open', (evt) => {
-            const conn = evt.detail;
-            this.warn(
-                `connection:open: ${conn.remotePeer.toString()} direction=${conn.direction} status=${conn.status}`,
-            );
-        });
-
-        this.node.addEventListener('connection:close', (evt) => {
-            const conn = evt.detail;
-            this.warn(
-                `connection:close: ${conn.remotePeer.toString()} direction=${conn.direction}`,
-            );
-        });*/
     }
-
-    /*private async onPeerIdentify(evt: CustomEvent<IdentifyResult>): Promise<void> {
-        if (!this.node) throw new Error('Node not initialized');
-
-        const peerInfo: IdentifyResult = evt.detail;
-        const peerData: PeerData = {
-            multiaddrs: peerInfo.listenAddrs,
-        };
-
-        await this.node.peerStore.merge(peerInfo.peerId, peerData);
-        this.info(`Identified peer: ${peerInfo.peerId.toString()}`);
-    }*/
 
     private onReconnectFailure(evt: CustomEvent<PeerId>): void {
         const peerId = evt.detail.toString();
@@ -713,19 +688,66 @@ export class P2PManager extends Logger {
 
         const peerInfo: IdentifyResult = evt.detail;
 
-        // Filter out unreachable addresses before storing
+        // Learn our own external address from what peers observe
+        if (peerInfo.observedAddr && !this.hasConfirmedExternalAddress) {
+            this.processObservedAddress(peerInfo.observedAddr);
+        }
+
         const reachableAddrs = this.filterReachableAddresses(peerInfo.listenAddrs);
         if (reachableAddrs.length > 0) {
-            //const peerData: PeerData = {
-            //    multiaddrs: reachableAddrs,
-            //};
-
-            //await this.node.peerStore.merge(peerInfo.peerId, peerData);
             this.info(
                 `Identified peer: ${peerInfo.peerId.toString()} with ${reachableAddrs.length} reachable addresses`,
             );
         } else {
             this.warn(`Peer ${peerInfo.peerId.toString()} has no reachable addresses`);
+        }
+    }
+
+    private processObservedAddress(observed: Multiaddr): void {
+        if (!this.node) return;
+
+        const ip = extractIPAddress(observed);
+        if (!ip) return;
+
+        // Ignore private/loopback observations
+        if (
+            ip.startsWith('127.') ||
+            ip.startsWith('10.') ||
+            ip.startsWith('192.168.') ||
+            ip.startsWith('fe80:') ||
+            ip === '::1'
+        ) {
+            return;
+        }
+
+        // Also ignore 172.16-31.x.x
+        if (ip.startsWith('172.')) {
+            const second = parseInt(ip.split('.')[1], 10);
+            if (second >= 16 && second <= 31) return;
+        }
+
+        const key = observed.toString();
+        const count = (this.discoveredExternalAddresses.get(key) ?? 0) + 1;
+        this.discoveredExternalAddresses.set(key, count);
+
+        if (count >= this.EXTERNAL_ADDRESS_THRESHOLD && !this.hasConfirmedExternalAddress) {
+            this.hasConfirmedExternalAddress = true;
+
+            // Extract IP and port, rebuild as a clean address with our listen port
+            const components = observed.getComponents();
+            const port = this.config.P2P.P2P_PORT;
+            const ipComponent = components.find((c) => c.name === 'ip4' || c.name === 'ip6');
+
+            if (ipComponent?.value && port) {
+                const protocol = ipComponent.name === 'ip4' ? 'ip4' : 'ip6';
+                const externalAddr = multiaddr(`/${protocol}/${ipComponent.value}/tcp/${port}`);
+
+                this.node.components.addressManager.addObservedAddr(externalAddr);
+
+                this.success(
+                    `Discovered external address: ${externalAddr.toString()} (confirmed by ${count} peer(s))`,
+                );
+            }
         }
     }
 
@@ -1476,7 +1498,7 @@ export class P2PManager extends Logger {
         }
 
         const datastore = await this.getDatastore();
-        return await createLibp2p({
+        return (await createLibp2p({
             datastore: datastore,
             privateKey: this.privateKey,
             transports: [tcp(this.p2pConfigurations.tcpConfiguration)],
@@ -1492,6 +1514,6 @@ export class P2PManager extends Logger {
             peerStore: this.peerStoreConfigurations(),
             transportManager: this.p2pConfigurations.transportManagerConfiguration,
             services: services as unknown as ServiceFactoryMap<P2PServices>,
-        });
+        })) as Libp2pInstance;
     }
 }
