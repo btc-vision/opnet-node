@@ -3,7 +3,7 @@ import { Multiaddr } from '@multiformats/multiaddr';
 import { LevelDatastore } from 'datastore-level';
 import { Key } from 'interface-datastore';
 import { DisconnectionCode } from './enums/DisconnectionCode.js';
-import { extractIPAddress } from './AddressExtractor.js';
+import { extractAddressHost } from './AddressExtractor.js';
 import { Logger } from '@btc-vision/bsi-common';
 
 export interface BlacklistEntry {
@@ -89,7 +89,7 @@ export class BlacklistManager extends Logger {
         // Also blacklist associated IP addresses
         if (addresses) {
             for (const addr of addresses) {
-                const ip = extractIPAddress(addr);
+                const ip = extractAddressHost(addr);
                 if (ip) {
                     await this.blacklistIP(ip, reason, permanent);
                 }
@@ -156,7 +156,7 @@ export class BlacklistManager extends Logger {
     }
 
     public isAddressBlacklisted(multiaddr: Multiaddr): boolean {
-        const ip = extractIPAddress(multiaddr);
+        const ip = extractAddressHost(multiaddr);
         return ip ? this.isIPBlacklisted(ip) : false;
     }
 
@@ -174,7 +174,7 @@ export class BlacklistManager extends Logger {
 
         // Check IP blacklist
         if (multiaddr) {
-            const ip = extractIPAddress(multiaddr);
+            const ip = extractAddressHost(multiaddr);
             if (ip && this.isIPBlacklisted(ip)) {
                 return true;
             }

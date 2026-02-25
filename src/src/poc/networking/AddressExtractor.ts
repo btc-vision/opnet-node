@@ -4,7 +4,7 @@ import { Multiaddr } from '@multiformats/multiaddr';
  * Extracts the IP address or hostname from a Multiaddr
  * Replaces the deprecated nodeAddress() method
  */
-export function extractIPAddress(addr: Multiaddr): string | null {
+export function extractAddressHost(addr: Multiaddr): string | null {
     try {
         const components = addr.getComponents();
 
@@ -29,10 +29,6 @@ export function extractIPAddress(addr: Multiaddr): string | null {
     }
 }
 
-/**
- * Extracts IP/hostname and port from a Multiaddr
- * Returns an object similar to what nodeAddress() used to return
- */
 export function extractNodeAddress(addr: Multiaddr): { address: string; port?: number } | null {
     try {
         const components = addr.getComponents();
@@ -60,4 +56,49 @@ export function extractNodeAddress(addr: Multiaddr): { address: string; port?: n
     } catch {
         return null;
     }
+}
+
+export function isLoopbackAddress(ip: string): boolean {
+    return ip.startsWith('127.') || ip === '::1' || ip === '0.0.0.0';
+}
+
+export function isPrivateOrLoopbackAddress(ip: string): boolean {
+    if (isLoopbackAddress(ip)) return true;
+
+    if (
+        ip.startsWith('10.') ||
+        ip.startsWith('192.168.') ||
+        ip.startsWith('169.254.') ||
+        ip.startsWith('fe80:') ||
+        ip.startsWith('fc00:') ||
+        ip.startsWith('fd00:')
+    ) {
+        return true;
+    }
+
+    if (ip.startsWith('172.')) {
+        const second = parseInt(ip.split('.')[1], 10);
+
+        if (second >= 16 && second <= 31) return true;
+    }
+
+    return false;
+}
+
+export function filterMultiaddrsLoopback(addrs: Multiaddr[]): Multiaddr[] {
+    return addrs.filter((addr) => {
+        const ip = extractAddressHost(addr);
+        if (!ip) return true;
+
+        return !isLoopbackAddress(ip);
+    });
+}
+
+export function filterMultiaddrsPrivate(addrs: Multiaddr[]): Multiaddr[] {
+    return addrs.filter((addr) => {
+        const ip = extractAddressHost(addr);
+        if (!ip) return false;
+
+        return !isPrivateOrLoopbackAddress(ip);
+    });
 }

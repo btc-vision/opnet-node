@@ -3,7 +3,7 @@ import type { BootstrapInit } from '@libp2p/bootstrap';
 import type { IdentifyInit } from '@libp2p/identify';
 import type { NodeInfo, PeerId, PrivateKey } from '@libp2p/interface';
 import { FaultTolerance } from '@libp2p/interface-transport';
-import { KadDHTInit, removePrivateAddressesMapper } from '@libp2p/kad-dht';
+import { KadDHTInit, PeerInfoMapper } from '@libp2p/kad-dht';
 import { MulticastDNSInit } from '@libp2p/mdns';
 import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { TCPOptions } from '@libp2p/tcp';
@@ -20,7 +20,7 @@ import { P2PMajorVersion, P2PVersion } from './P2PVersion.js';
 import { fromBase64, toBase64 } from '@btc-vision/bitcoin';
 import { generateKeyPair, privateKeyFromRaw } from '@libp2p/crypto/keys';
 import { Config } from '../../config/Config.js';
-import { Multiaddr, multiaddr } from '@multiformats/multiaddr';
+import { multiaddr } from '@multiformats/multiaddr';
 import { AutoNATv2ServiceInit } from '@libp2p/autonat-v2';
 
 interface BackedUpPeer {
@@ -185,27 +185,6 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get peerStoreConfiguration(): PersistentPeerStoreInit {
         return {
-            addressFilter: (peerId: PeerId, multiaddr: Multiaddr) => {
-                const str = multiaddr.toString();
-
-                // Always keep bootstrap peer addresses
-                if (this.isBootstrapPeer(peerId.toString())) {
-                    return true;
-                }
-
-                // Filter out obvious private/local addresses
-                if (
-                    str.includes('/127.0.0.1/') ||
-                    str.includes('/::1/') ||
-                    str.includes('/0.0.0.0/')
-                ) {
-                    return false;
-                }
-
-                // Keep all other addresses (including private network for testing)
-                return true;
-            },
-
             // Increase address TTL to prevent premature expiry
             maxAddressAge: 24 * 60 * 60 * 1000, // 24 hours
 
@@ -247,21 +226,6 @@ export class P2PConfigurations extends OPNetPathFinder {
         };
     }
 
-    public get dhtConfiguration(): KadDHTInit {
-        return {
-            kBucketSize: 30,
-            clientMode: this.config.P2P.CLIENT_MODE,
-            protocol: this.protocol,
-            peerInfoMapper: removePrivateAddressesMapper,
-            logPrefix: 'libp2p:dht-amino',
-            datastorePrefix: '/dht-amino',
-            metricsPrefix: 'libp2p_dht_amino',
-            querySelfInterval: 300000, // 5 minutes
-            initialQuerySelfInterval: 5000,
-            allowQueryWithZeroPeers: false,
-        };
-    }
-
     public get autoNATConfiguration(): AutoNATv2ServiceInit {
         return {
             protocolPrefix: P2PConfigurations.protocolName,
@@ -274,7 +238,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             // Limit concurrent streams to prevent resource exhaustion
             maxInboundStreams: 2,
             maxOutboundStreams: 2,
-            connectionThreshold: 80,
+            connectionThreshold: 20,
 
             // 8KB is reasonable for autonat messages
             maxMessageSize: 8192,
@@ -300,6 +264,21 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get protocol(): string {
         return `${P2PConfigurations.protocolName}/op/${P2PMajorVersion}`;
+    }
+
+    public getDHTConfiguration(peerInfoMapper: PeerInfoMapper): KadDHTInit {
+        return {
+            kBucketSize: 30,
+            clientMode: this.config.P2P.CLIENT_MODE,
+            protocol: this.protocol,
+            peerInfoMapper: peerInfoMapper,
+            logPrefix: 'libp2p:dht-amino',
+            datastorePrefix: '/dht-amino',
+            metricsPrefix: 'libp2p_dht_amino',
+            querySelfInterval: 300000, // 5 minutes
+            initialQuerySelfInterval: 5000,
+            allowQueryWithZeroPeers: false,
+        };
     }
 
     public isBootstrapPeer(peerId: string): boolean {
@@ -344,6 +323,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             console.log(`Failed to open data store: ${(e as Error).stack}`);
             return undefined;
         }
+
         return dataStore;
     }
 
@@ -407,12 +387,12 @@ export class P2PConfigurations extends OPNetPathFinder {
                 privKey: string;
                 pubKey: string;
             };
-            const peer: BackedUpPeer = {
+
+            return {
                 id: decoded.id,
                 privKey: fromBase64(decoded.privKey),
                 pubKey: decoded.pubKey,
             };
-            return peer;
         } catch (e) {
             const error = e as Error;
             if (error.message.includes('no such file or directory')) {

@@ -96,6 +96,8 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             CLIENT_MODE: false,
             ENABLE_IPV6: false,
 
+            EXTERNAL_ADDRESS_THRESHOLD: 3,
+
             ENABLE_IP_BANNING: false,
             PRIVATE_MODE: false,
             MDNS: false,
@@ -600,6 +602,15 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.P2P.IS_BOOTSTRAP_NODE !== 'boolean'
             ) {
                 throw new Error(`Oops the property P2P.IS_BOOTSTRAP_NODE is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.P2P.EXTERNAL_ADDRESS_THRESHOLD !== undefined &&
+                typeof parsedConfig.P2P.EXTERNAL_ADDRESS_THRESHOLD !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property P2P.EXTERNAL_ADDRESS_THRESHOLD is not a number.`,
+                );
             }
 
             if (
