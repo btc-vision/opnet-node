@@ -78,7 +78,12 @@ import {
     P2PServices,
 } from './interfaces/NodeType.js';
 import { PeerChecker } from './PeerChecker.js';
-import { extractIPAddress } from './AddressExtractor.js';
+import {
+    extractAddressHost,
+    filterMultiaddrsLoopback,
+    filterMultiaddrsPrivate,
+    isPrivateOrLoopbackAddress,
+} from './AddressExtractor.js';
 
 if (Config.P2P.ENABLE_P2P_LOGGING) {
     enable('libp2p:*');
@@ -317,7 +322,7 @@ export class P2PManager extends Logger {
                 if (addrStr.includes(thisNodeAddr)) continue;
 
                 // Filter reachable addresses
-                const filtered = this.filterReachableAddresses([addr.multiaddr]);
+                const filtered = filterMultiaddrsPrivate([addr.multiaddr]);
                 if (filtered.length === 0) continue;
 
                 const filteredPrivate = this.filterPrivateNodes(filtered);
@@ -354,6 +359,10 @@ export class P2PManager extends Logger {
 
     private createPeerInfoMapper(): PeerInfoMapper {
         return (peer: PeerInfo): PeerInfo => {
+            if (Config.P2P.PRIVATE_MODE) {
+                return { id: peer.id, multiaddrs: filterMultiaddrsLoopback(peer.multiaddrs) };
+            }
+
             const filtered = removePrivateAddressesMapper(peer);
 
             if (filtered.multiaddrs.length > 0) {
@@ -365,22 +374,10 @@ export class P2PManager extends Logger {
             }
 
             const connections = this.node.getConnections(peer.id);
-            const remoteAddrs = connections
-                .map((c) => c.remoteAddr)
-                .filter((addr) => {
-                    const str = addr.toString();
-                    return !(
-                        str.includes('/127.0.0.1/') ||
-                        str.includes('/::1/') ||
-                        str.includes('/0.0.0.0/')
-                    );
-                });
+            const remoteAddrs = filterMultiaddrsLoopback(connections.map((c) => c.remoteAddr));
 
             if (remoteAddrs.length > 0) {
-                return {
-                    id: peer.id,
-                    multiaddrs: remoteAddrs,
-                };
+                return { id: peer.id, multiaddrs: remoteAddrs };
             }
 
             return filtered;
@@ -407,28 +404,6 @@ export class P2PManager extends Logger {
         }
 
         return false;
-    }
-
-    private filterReachableAddresses(addrs: Multiaddr[]): Multiaddr[] {
-        return addrs.filter((addr) => {
-            try {
-                const str = addr.toString();
-
-                // Skip localhost, private IPs, and link-local addresses
-                return !(
-                    str.includes('/127.0.0.1/') ||
-                    str.includes('/::1/') ||
-                    str.includes('/10.') ||
-                    str.includes('/192.168.') ||
-                    (str.includes('/172.') && str.match(/\/172\.(1[6-9]|2[0-9]|3[0-1])\./)) ||
-                    str.includes('/fe80:') ||
-                    str.includes('/fc00:') ||
-                    str.includes('/fd00:')
-                );
-            } catch {
-                return false;
-            }
-        });
     }
 
     private async cleanupStalePeers(): Promise<void> {
@@ -711,9 +686,7 @@ export class P2PManager extends Logger {
 
             // Skip reachability filter for PRIVATE_NODES - they're explicitly trusted
             const isPrivateNode = privateNodes.has(address);
-            const reachableAddresses = isPrivateNode
-                ? [addr]
-                : this.filterReachableAddresses([addr]);
+            const reachableAddresses = isPrivateNode ? [addr] : filterMultiaddrsPrivate([addr]);
 
             if (reachableAddresses.length === 0) {
                 this.warn(`No reachable addresses found for peer ${peerId.toString()}`);
@@ -740,7 +713,7 @@ export class P2PManager extends Logger {
             await this.processObservedAddress(peerInfo.observedAddr);
         }
 
-        const reachableAddrs = this.filterReachableAddresses(peerInfo.listenAddrs);
+        const reachableAddrs = filterMultiaddrsPrivate(peerInfo.listenAddrs);
         if (reachableAddrs.length > 0) {
             this.info(
                 `Identified peer: ${peerInfo.peerId.toString()} with ${reachableAddrs.length} reachable addresses`,
@@ -784,22 +757,8 @@ export class P2PManager extends Logger {
             addressComponent.name === 'dnsaddr';
 
         if (!isDns) {
-            if (
-                address.startsWith('127.') ||
-                address.startsWith('10.') ||
-                address.startsWith('192.168.') ||
-                address.startsWith('fe80:') ||
-                address.startsWith('fc00:') ||
-                address.startsWith('fd00:') ||
-                address === '::1' ||
-                address === '0.0.0.0'
-            ) {
+            if (isPrivateOrLoopbackAddress(address)) {
                 return;
-            }
-
-            if (address.startsWith('172.')) {
-                const second = parseInt(address.split('.')[1], 10);
-                if (second >= 16 && second <= 31) return;
             }
         }
 
@@ -1057,14 +1016,14 @@ export class P2PManager extends Logger {
                     const addr = multiaddr(address);
 
                     // Check blacklist
-                    const ipAddress = extractIPAddress(addr);
+                    const ipAddress = extractAddressHost(addr);
                     if (ipAddress && this.blackListedPeerIps.has(ipAddress)) continue;
 
                     addresses.push(addr);
                 }
 
                 // Filter reachable addresses
-                const reachableAddresses = this.filterReachableAddresses(addresses);
+                const reachableAddresses = filterMultiaddrsPrivate(addresses);
                 if (reachableAddresses.length === 0) {
                     this.warn(`No reachable addresses found for peer ${peerIdStr}`);
                     continue;
@@ -1284,7 +1243,7 @@ export class P2PManager extends Logger {
         }
 
         for (const addr of address) {
-            const ip = extractIPAddress(addr.multiaddr);
+            const ip = extractAddressHost(addr.multiaddr);
             if (ip && !this.blackListedPeerIps.has(ip)) {
                 this.blackListedPeerIps.set(ip, {
                     reason,
@@ -1533,7 +1492,7 @@ export class P2PManager extends Logger {
     private async addressFilter(peerId: PeerId, multiaddr: Multiaddr): Promise<boolean> {
         const peerIdStr: string = peerId.toString();
 
-        const ip = extractIPAddress(multiaddr);
+        const ip = extractAddressHost(multiaddr);
         if (!ip) {
             this.warn(`Could not extract IP from multiaddr: ${multiaddr.toString()}`);
             return !this.isBlackListedPeerId(peerIdStr);

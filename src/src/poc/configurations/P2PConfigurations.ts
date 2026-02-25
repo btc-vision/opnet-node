@@ -1,9 +1,9 @@
 import type { YamuxMuxerInit } from '@chainsafe/libp2p-yamux';
 import type { BootstrapInit } from '@libp2p/bootstrap';
 import type { IdentifyInit } from '@libp2p/identify';
-import type { NodeInfo, PeerId, PeerInfo, PrivateKey } from '@libp2p/interface';
+import type { NodeInfo, PeerId, PrivateKey } from '@libp2p/interface';
 import { FaultTolerance } from '@libp2p/interface-transport';
-import { KadDHTInit, PeerInfoMapper, removePrivateAddressesMapper } from '@libp2p/kad-dht';
+import { KadDHTInit, PeerInfoMapper } from '@libp2p/kad-dht';
 import { MulticastDNSInit } from '@libp2p/mdns';
 import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { TCPOptions } from '@libp2p/tcp';
@@ -20,7 +20,7 @@ import { P2PMajorVersion, P2PVersion } from './P2PVersion.js';
 import { fromBase64, toBase64 } from '@btc-vision/bitcoin';
 import { generateKeyPair, privateKeyFromRaw } from '@libp2p/crypto/keys';
 import { Config } from '../../config/Config.js';
-import { Multiaddr, multiaddr } from '@multiformats/multiaddr';
+import { multiaddr } from '@multiformats/multiaddr';
 import { AutoNATv2ServiceInit } from '@libp2p/autonat-v2';
 
 interface BackedUpPeer {
@@ -185,27 +185,6 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get peerStoreConfiguration(): PersistentPeerStoreInit {
         return {
-            addressFilter: (peerId: PeerId, multiaddr: Multiaddr) => {
-                const str = multiaddr.toString();
-
-                // Nobody should be dialing 127.0.0.1 on a remote peer.
-                if (
-                    str.includes('/127.0.0.1/') ||
-                    str.includes('/::1/') ||
-                    str.includes('/0.0.0.0/')
-                ) {
-                    return false;
-                }
-
-                // Always keep bootstrap peer addresses
-                if (this.isBootstrapPeer(peerId.toString())) {
-                    return true;
-                }
-
-                // Keep all other addresses (including private network for testing)
-                return true;
-            },
-
             // Increase address TTL to prevent premature expiry
             maxAddressAge: 24 * 60 * 60 * 1000, // 24 hours
 
@@ -301,22 +280,6 @@ export class P2PConfigurations extends OPNetPathFinder {
             allowQueryWithZeroPeers: false,
         };
     }
-
-    public removePrivateAddressesMapper: PeerInfoMapper = (peer: PeerInfo): PeerInfo => {
-        const privateAddressRemoval = removePrivateAddressesMapper(peer);
-
-        console.log(
-            'peer original',
-            peer.multiaddrs.map((addr) => addr.toString()),
-            'peer filtered',
-            privateAddressRemoval.multiaddrs.map((addr) => addr.toString()),
-        );
-
-        console.log('peer before', peer);
-        console.log('peer after', privateAddressRemoval);
-
-        return privateAddressRemoval;
-    };
 
     public isBootstrapPeer(peerId: string): boolean {
         return this.bootstrapPeerIds.has(peerId);
@@ -423,12 +386,12 @@ export class P2PConfigurations extends OPNetPathFinder {
                 privKey: string;
                 pubKey: string;
             };
-            const peer: BackedUpPeer = {
+
+            return {
                 id: decoded.id,
                 privKey: fromBase64(decoded.privKey),
                 pubKey: decoded.pubKey,
             };
-            return peer;
         } catch (e) {
             const error = e as Error;
             if (error.message.includes('no such file or directory')) {
