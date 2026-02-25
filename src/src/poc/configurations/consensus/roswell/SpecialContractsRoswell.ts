@@ -15,7 +15,7 @@ const nativeSwapMainnet: Address = Address.fromString(
 );
 
 const nativeSwapTestnet: Address = Address.fromString(
-    '0x035884f9ac2b6ae75d7778553e7d447899e9a82e247d7ced48f22aa102681e70',
+    '0x4397befe4e067390596b3c296e77fe86589487bf3bf3f0a9a93ce794e2d78fb5',
 );
 
 const nativeSwapContractSettings: Omit<SpecialContract, 'address'> = {
