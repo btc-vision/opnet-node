@@ -609,7 +609,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.P2P.EXTERNAL_ADDRESS_THRESHOLD !== 'number'
             ) {
                 throw new Error(
-                    `Oops the property P2P.EXTERNAL_ADDRESS_THRESHOLD is not a boolean.`,
+                    `Oops the property P2P.EXTERNAL_ADDRESS_THRESHOLD is not a number.`,
                 );
             }
 

@@ -241,11 +241,6 @@ export class P2PManager extends Logger {
         await this.blockWitnessManager.setCurrentBlock();
 
         this.node = await this.createNode();
-        console.log(
-            'libp2p multiaddrs:',
-            this.node.getMultiaddrs().map((a) => a.toString()),
-        );
-
         this._peerChecker = new PeerChecker(this.node, this.onPeerUnreachable.bind(this));
         this.streamManager = new ReusableStreamManager(
             this.node,
@@ -789,15 +784,19 @@ export class P2PManager extends Logger {
         if (count >= this.EXTERNAL_ADDRESS_THRESHOLD) {
             this.confirmedExternalAddresses.add(candidateAddr);
 
-            const externalAddr = multiaddr(candidateAddr);
-            this.node.components.addressManager.confirmObservedAddr(externalAddr);
+            try {
+                const externalAddr = multiaddr(candidateAddr);
+                this.node.components.addressManager.confirmObservedAddr(externalAddr);
 
-            this.success(
-                `Discovered external address: ${candidateAddr} (confirmed by ${count} peer(s))`,
-            );
+                this.success(
+                    `Discovered external address: ${candidateAddr} (confirmed by ${count} peer(s))`,
+                );
 
-            await this.node.services.identifyPush.push();
-            await this.refreshRouting();
+                await this.node.services.identifyPush.push();
+                await this.refreshRouting();
+            } catch (e) {
+                this.error(`Failed to confirm observed address ${candidateAddr}: ${e}`);
+            }
         }
     }
 

@@ -55,13 +55,16 @@ export class ReusableStreamManager extends Logger {
 
         try {
             await streamObj.sendMessage(data);
-        } catch {
+        } catch (firstError) {
+            this.debug(
+                `Send to ${peerId.toString()} failed, retrying with fresh stream: ${firstError}`,
+            );
+
             this.outboundMap.delete(key);
             streamObj = await this.getOrCreateOutbound(peerId, key);
             await streamObj.sendMessage(data);
         }
     }
-
     /**
      * Called by Libp2p's `node.handle(...)` for inbound streams.
      */
@@ -109,6 +112,9 @@ export class ReusableStreamManager extends Logger {
      * Close all streams associated with a peer. Called on peer disconnect.
      */
     public async closePeerStreams(peerIdStr: string): Promise<void> {
+        const pendingKey = this.makeKey(peerIdStr, this.defaultProtocol);
+        this.pendingDials.delete(pendingKey);
+
         const closePromises: Promise<void>[] = [];
         const prefix = peerIdStr + '::';
 

@@ -323,6 +323,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             console.log(`Failed to open data store: ${(e as Error).stack}`);
             return undefined;
         }
+
         return dataStore;
     }
 
