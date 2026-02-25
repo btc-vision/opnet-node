@@ -247,21 +247,6 @@ export class P2PConfigurations extends OPNetPathFinder {
         };
     }
 
-    public get dhtConfiguration(): KadDHTInit {
-        return {
-            kBucketSize: 30,
-            clientMode: this.config.P2P.CLIENT_MODE,
-            protocol: this.protocol,
-            peerInfoMapper: this.removePrivateAddressesMapper,
-            logPrefix: 'libp2p:dht-amino',
-            datastorePrefix: '/dht-amino',
-            metricsPrefix: 'libp2p_dht_amino',
-            querySelfInterval: 300000, // 5 minutes
-            initialQuerySelfInterval: 5000,
-            allowQueryWithZeroPeers: false,
-        };
-    }
-
     public get autoNATConfiguration(): AutoNATv2ServiceInit {
         return {
             protocolPrefix: P2PConfigurations.protocolName,
@@ -300,6 +285,21 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get protocol(): string {
         return `${P2PConfigurations.protocolName}/op/${P2PMajorVersion}`;
+    }
+
+    public getDHTConfiguration(peerInfoMapper: PeerInfoMapper): KadDHTInit {
+        return {
+            kBucketSize: 30,
+            clientMode: this.config.P2P.CLIENT_MODE,
+            protocol: this.protocol,
+            peerInfoMapper: peerInfoMapper,
+            logPrefix: 'libp2p:dht-amino',
+            datastorePrefix: '/dht-amino',
+            metricsPrefix: 'libp2p_dht_amino',
+            querySelfInterval: 300000, // 5 minutes
+            initialQuerySelfInterval: 5000,
+            allowQueryWithZeroPeers: false,
+        };
     }
 
     public removePrivateAddressesMapper: PeerInfoMapper = (peer: PeerInfo): PeerInfo => {

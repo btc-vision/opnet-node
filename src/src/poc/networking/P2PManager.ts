@@ -15,7 +15,7 @@ import {
     PrivateKey,
     Stream,
 } from '@libp2p/interface';
-import { kadDHT } from '@libp2p/kad-dht';
+import { kadDHT, PeerInfoMapper, removePrivateAddressesMapper } from '@libp2p/kad-dht';
 import { mdns } from '@libp2p/mdns';
 import { MulticastDNSComponents } from '@libp2p/mdns/dist/src/mdns.js';
 import { peerIdFromCID, peerIdFromString } from '@libp2p/peer-id';
@@ -350,6 +350,41 @@ export class P2PManager extends Logger {
 
         shuffleArray(peers);
         return peers.slice(0, 100);
+    }
+
+    private createPeerInfoMapper(): PeerInfoMapper {
+        return (peer: PeerInfo): PeerInfo => {
+            const filtered = removePrivateAddressesMapper(peer);
+
+            if (filtered.multiaddrs.length > 0) {
+                return filtered;
+            }
+
+            if (!this.node) {
+                return filtered;
+            }
+
+            const connections = this.node.getConnections(peer.id);
+            const remoteAddrs = connections
+                .map((c) => c.remoteAddr)
+                .filter((addr) => {
+                    const str = addr.toString();
+                    return !(
+                        str.includes('/127.0.0.1/') ||
+                        str.includes('/::1/') ||
+                        str.includes('/0.0.0.0/')
+                    );
+                });
+
+            if (remoteAddrs.length > 0) {
+                return {
+                    id: peer.id,
+                    multiaddrs: remoteAddrs,
+                };
+            }
+
+            return filtered;
+        };
     }
 
     private filterPrivateNodes(addrs: Multiaddr[]): Multiaddr[] {
@@ -1528,7 +1563,9 @@ export class P2PManager extends Logger {
             identify: identify(this.p2pConfigurations.identifyConfiguration),
             identifyPush: identifyPush(this.p2pConfigurations.identifyConfiguration),
             ping: ping(),
-            aminoDHT: kadDHT(this.p2pConfigurations.dhtConfiguration),
+            aminoDHT: kadDHT(
+                this.p2pConfigurations.getDHTConfiguration(this.createPeerInfoMapper()),
+            ),
         };
 
         if (!Config.P2P.PRIVATE_MODE) {
