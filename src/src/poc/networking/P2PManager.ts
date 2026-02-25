@@ -53,6 +53,8 @@ import {
     OPNetBroadcastResponse,
 } from '../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 import { BroadcastResponse } from '../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
+import { MempoolTransactionNotificationMessage } from '../../threading/interfaces/thread-messages/messages/api/MempoolTransactionNotification.js';
+import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { shuffleArray, TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
@@ -180,6 +182,13 @@ export class P2PManager extends Logger {
         m: ThreadMessageBase<MessageType>,
     ) => Promise<ThreadData | null> = () => {
         throw new Error('sendMessageToThread not implemented.');
+    };
+
+    public sendMessageToAllThreads: (
+        threadType: ThreadTypes,
+        m: ThreadMessageBase<MessageType>,
+    ) => Promise<void> = () => {
+        throw new Error('sendMessageToAllThreads not implemented.');
     };
 
     public async generateBlockHeaderProof(
@@ -528,6 +537,13 @@ export class P2PManager extends Logger {
         m: ThreadMessageBase<MessageType>,
     ): Promise<ThreadData | null> {
         return this.sendMessageToThread(threadType, m);
+    }
+
+    private internalSendMessageToAllThreads(
+        threadType: ThreadTypes,
+        m: ThreadMessageBase<MessageType>,
+    ): Promise<void> {
+        return this.sendMessageToAllThreads(threadType, m);
     }
 
     private async broadcastBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
@@ -944,6 +960,29 @@ export class P2PManager extends Logger {
             if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                 this.info(`Transaction ${id} entered mempool.`);
             }
+
+            const txType: OPNetTransactionTypes =
+                (verifiedTransaction.transactionType as OPNetTransactionTypes) ||
+                OPNetTransactionTypes.Generic;
+
+            // Notify all API threads so WebSocket subscribers get the mempool notification
+            const notification: MempoolTransactionNotificationMessage = {
+                type: MessageType.NOTIFY_MEMPOOL_TRANSACTION,
+                data: {
+                    txId: id,
+                    transactionType: txType,
+                },
+            };
+
+            void this.internalSendMessageToAllThreads(ThreadTypes.API, notification).catch(
+                (e: unknown) => {
+                    const errorDetails = e instanceof Error ? (e.stack ?? e.message) : String(e);
+
+                    this.warn(
+                        `Failed to notify API threads of mempool transaction: ${errorDetails}`,
+                    );
+                },
+            );
 
             const modifiedTransaction: Uint8Array = verifiedTransaction.modifiedTransaction
                 ? fromBase64(verifiedTransaction.modifiedTransaction)
