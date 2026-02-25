@@ -29,7 +29,9 @@ export class APIManager extends ThreadManager<ThreadTypes.API> {
         }
     }
 
-    protected async createLinkBetweenThreads(): Promise<void> {}
+    protected async createLinkBetweenThreads(): Promise<void> {
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
+    }
 
     protected sendLinkToThreadsOfType(
         threadType: ThreadTypes,

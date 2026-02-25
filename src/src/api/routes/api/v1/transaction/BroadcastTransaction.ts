@@ -22,6 +22,7 @@ import { Config } from '../../../../../config/Config.js';
 import { fromBase64, fromHex, Transaction } from '@btc-vision/bitcoin';
 import { WSManager } from '../../../../websocket/WebSocketManager.js';
 import { OPNetTransactionTypes } from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { MempoolTransactionNotificationMessage } from '../../../../../threading/interfaces/thread-messages/messages/api/MempoolTransactionNotification.js';
 
 export class BroadcastTransaction extends Route<
     Routes.BROADCAST_TRANSACTION,
@@ -111,6 +112,26 @@ export class BroadcastTransaction extends Route<
                         OPNetTransactionTypes.Generic;
 
                     WSManager.onMempoolTransaction(mergedResult.result, txType);
+
+                    // Notify all other API threads so their WS subscribers also get the notification
+                    const notification: MempoolTransactionNotificationMessage = {
+                        type: MessageType.NOTIFY_MEMPOOL_TRANSACTION,
+                        data: {
+                            txId: mergedResult.result,
+                            transactionType: txType,
+                        },
+                    };
+
+                    void ServerThread.sendMessageToAllThreads(
+                        ThreadTypes.API,
+                        notification,
+                    ).catch((e: unknown) => {
+                        const errorDetails =
+                            e instanceof Error ? (e.stack ?? e.message) : String(e);
+                        this.error(
+                            `Failed to notify API threads of mempool transaction: ${errorDetails}`,
+                        );
+                    });
                 }
 
                 return mergedResult;
