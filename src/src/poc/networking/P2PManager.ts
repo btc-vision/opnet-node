@@ -794,8 +794,9 @@ export class P2PManager extends Logger {
 
                 await this.node.services.identifyPush.push();
                 await this.refreshRouting();
-            } catch (e) {
-                this.error(`Failed to confirm observed address ${candidateAddr}: ${e}`);
+            } catch (err) {
+                this.error(`Failed to confirm external address ${candidateAddr}: ${err}`);
+                this.confirmedExternalAddresses.delete(candidateAddr);
             }
         }
     }
