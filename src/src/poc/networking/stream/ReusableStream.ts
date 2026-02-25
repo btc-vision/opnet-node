@@ -136,6 +136,7 @@ export class ReusableStream extends Logger {
     public async closeStream(): Promise<void> {
         if (this.isClosed) return;
         this.isClosed = true;
+        this._isProcessingQueue = false;
 
         this.debug(
             `[${this.direction}] Closing stream for ${this.peerIdStr} (out=${this.outboundMessageCount} in=${this.inboundMessageCount} ackRx=${this.ackReceivedCount} ackTx=${this.ackSentCount} queueLen=${this.messageQueue.length})`,

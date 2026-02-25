@@ -47,26 +47,17 @@ export class ReusableStreamManager extends Logger {
         const key = this.makeKey(peerId.toString(), this.defaultProtocol);
         let streamObj = this.outboundMap.get(key);
 
-        // If we don't have an outbound stream for this peer+protocol, dial once
         if (!streamObj) {
-            let pending = this.pendingDials.get(key);
-            if (!pending) {
-                this.debug(`Creating new outbound stream to ${peerId.toString()}`);
-                pending = this.createOutboundStream(peerId, key);
-                this.pendingDials.set(key, pending);
-            } else {
-                this.debug(`Waiting on pending dial to ${peerId.toString()}`);
-            }
-
-            try {
-                streamObj = await pending;
-            } finally {
-                this.pendingDials.delete(key);
-            }
+            streamObj = await this.getOrCreateOutbound(peerId, key);
         }
 
-        // Reuse the same ReusableStream
-        await streamObj.sendMessage(data);
+        try {
+            await streamObj.sendMessage(data);
+        } catch {
+            this.outboundMap.delete(key);
+            streamObj = await this.getOrCreateOutbound(peerId, key);
+            await streamObj.sendMessage(data);
+        }
     }
 
     /**
@@ -75,6 +66,11 @@ export class ReusableStreamManager extends Logger {
     public handleInboundStream(stream: Stream, connection: Connection): void {
         const peerIdStr = connection.remotePeer.toString();
         const key = this.makeKey(peerIdStr, this.defaultProtocol + connection.id);
+
+        const existing = this.inboundMap.get(key);
+        if (existing) {
+            void existing.closeStream();
+        }
 
         this.debug(`Inbound stream from ${peerIdStr} connId=${connection.id}`);
 
@@ -112,22 +108,21 @@ export class ReusableStreamManager extends Logger {
         const closePromises: Promise<void>[] = [];
         const prefix = peerIdStr + '::';
 
-        for (const [key, stream] of this.outboundMap) {
-            if (key.startsWith(prefix)) {
-                this.debug(`Closing outbound stream for disconnected peer ${peerIdStr}`);
-                closePromises.push(stream.closeStream());
-            }
+        const outboundKeys = [...this.outboundMap.keys()].filter((k) => k.startsWith(prefix));
+        for (const key of outboundKeys) {
+            const stream = this.outboundMap.get(key);
+            if (stream) closePromises.push(stream.closeStream());
         }
 
-        for (const [key, stream] of this.inboundMap) {
-            if (key.startsWith(prefix)) {
-                this.debug(`Closing inbound stream for disconnected peer ${peerIdStr}`);
-                closePromises.push(stream.closeStream());
-            }
+        const inboundKeys = [...this.inboundMap.keys()].filter((k) => k.startsWith(prefix));
+        for (const key of inboundKeys) {
+            const stream = this.inboundMap.get(key);
+            if (stream) closePromises.push(stream.closeStream());
         }
 
         if (closePromises.length > 0) {
             this.debug(`Closing ${closePromises.length} streams for peer ${peerIdStr}`);
+
             await Promise.allSettled(closePromises);
         }
     }
@@ -138,10 +133,31 @@ export class ReusableStreamManager extends Logger {
         );
     }
 
+    private async getOrCreateOutbound(peerId: PeerId, key: string): Promise<ReusableStream> {
+        let pending = this.pendingDials.get(key);
+        if (!pending) {
+            pending = this.createOutboundStream(peerId, key);
+            this.pendingDials.set(key, pending);
+        }
+
+        try {
+            return await pending;
+        } finally {
+            this.pendingDials.delete(key);
+        }
+    }
+
     private async createOutboundStream(peerId: PeerId, key: string): Promise<ReusableStream> {
-        const conn = await this.node.dialProtocol(peerId, this.defaultProtocol, {
-            maxOutboundStreams: MAX_OUTBOUND_STREAMS_PER_PEER,
-        });
+        let conn: Stream;
+        try {
+            conn = await this.node.dialProtocol(peerId, this.defaultProtocol, {
+                maxOutboundStreams: MAX_OUTBOUND_STREAMS_PER_PEER,
+            });
+        } catch (err) {
+            throw new Error(`Failed to open outbound stream to ${peerId.toString()}: ${err}`, {
+                cause: err,
+            });
+        }
 
         this.debug(`Outbound stream established to ${peerId.toString()} streamId=${conn.id}`);
 

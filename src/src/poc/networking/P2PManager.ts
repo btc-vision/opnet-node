@@ -1398,7 +1398,8 @@ export class P2PManager extends Logger {
         const id: string = peerId.toString();
         const peer: OPNetPeer | undefined = this.peers.get(id);
         if (!peer) {
-            throw new Error('Peer not found.');
+            this.warn(`Received message from unknown peer ${id}, ignoring`);
+            return;
         }
 
         await peer.onMessage(data);
