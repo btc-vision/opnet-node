@@ -976,8 +976,10 @@ export class P2PManager extends Logger {
 
             void this.internalSendMessageToAllThreads(ThreadTypes.API, notification).catch(
                 (e: unknown) => {
+                    const errorDetails = e instanceof Error ? (e.stack ?? e.message) : String(e);
+
                     this.warn(
-                        `Failed to notify API threads of mempool transaction: ${(e as Error).message}`,
+                        `Failed to notify API threads of mempool transaction: ${errorDetails}`,
                     );
                 },
             );
