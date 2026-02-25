@@ -16,6 +16,9 @@ import {
     IPluginWsExecuteRequest,
 } from '../plugins/interfaces/IPluginMessages.js';
 import { WSManager } from './websocket/WebSocketManager.js';
+import {
+    MempoolTransactionNotificationData
+} from '../threading/interfaces/thread-messages/messages/api/MempoolTransactionNotification.js';
 
 Globals.register();
 
@@ -59,6 +62,15 @@ class ServerThreadBase extends Thread<ThreadTypes.API> {
     ): ThreadData | undefined {
         if (type === ThreadTypes.PLUGIN) {
             return this.handlePluginMessage(msg);
+        }
+
+        switch (msg.type) {
+            case MessageType.NOTIFY_MEMPOOL_TRANSACTION: {
+                const data = msg.data as MempoolTransactionNotificationData;
+                WSManager.onMempoolTransaction(data.txId, data.transactionType);
+
+                return {};
+            }
         }
 
         this.warn(`Unhandled link message from thread type: ${type}`);

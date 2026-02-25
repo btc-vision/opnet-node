@@ -20,6 +20,7 @@ export class PoC extends Logger {
 
         this.p2p = new P2PManager(this.config);
         this.p2p.sendMessageToThread = this.internalSendMessageToThread.bind(this);
+        this.p2p.sendMessageToAllThreads = this.internalSendMessageToAllThreads.bind(this);
     }
 
     public async init(): Promise<void> {
@@ -33,6 +34,13 @@ export class PoC extends Logger {
         m: ThreadMessageBase<MessageType>,
     ) => Promise<ThreadData | null> = () => {
         throw new Error('sendMessageToThread not implemented.');
+    };
+
+    public sendMessageToAllThreads: (
+        threadType: ThreadTypes,
+        m: ThreadMessageBase<MessageType>,
+    ) => Promise<void> = () => {
+        throw new Error('sendMessageToAllThreads not implemented.');
     };
 
     public async handleBitcoinIndexerMessage(
@@ -77,6 +85,13 @@ export class PoC extends Logger {
         m: ThreadMessageBase<MessageType>,
     ): Promise<ThreadData | null> {
         return this.sendMessageToThread(threadType, m);
+    }
+
+    private internalSendMessageToAllThreads(
+        threadType: ThreadTypes,
+        m: ThreadMessageBase<MessageType>,
+    ): Promise<void> {
+        return this.sendMessageToAllThreads(threadType, m);
     }
 
     private async onBlockProcessed(m: BlockProcessedMessage): Promise<ThreadData> {
