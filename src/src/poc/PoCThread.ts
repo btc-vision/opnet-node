@@ -21,6 +21,7 @@ export class PoCThread extends Thread<ThreadTypes.P2P> {
 
     protected init(): void {
         this.poc.sendMessageToThread = this.sendMessageToThread.bind(this);
+        this.poc.sendMessageToAllThreads = this.sendMessageToAllThreads.bind(this);
 
         /**
          * Make sure that other threads are setup before starting PoC.

@@ -2,11 +2,11 @@ name: CI for OPNet Node
 
 on:
   push:
-    branches: [main]
+    branches: [ '**' ]
     tags:
       - 'v*'
   pull_request:
-    branches: [main]
+    branches: [ main ]
 
 env:
   REGISTRY: ghcr.io
@@ -21,7 +21,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [24.x, 25.x]
+        node-version: [ 24.x, 25.x ]
 
     steps:
       - name: Checkout code
@@ -93,6 +93,32 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Resolve version strings
+        id: version
+        run: |
+          GIT_TAG="${{ github.ref_name }}"
+
+          # Map git tag to semver display version:
+          # Git tags use '-' as separator (git rejects '+'), but semver uses '+' for build metadata.
+          # Convention: the LAST '-' separated segment that is a known network name gets promoted to build metadata.
+          # e.g. v1.0.0-rc.0-testnet -> v1.0.0-rc.0+testnet
+          DISPLAY_VERSION="$GIT_TAG"
+          for NETWORK in testnet mainnet regtest; do
+            if [[ "$GIT_TAG" == *"-${NETWORK}" ]]; then
+              BASE="${GIT_TAG%-${NETWORK}}"
+              DISPLAY_VERSION="${BASE}+${NETWORK}"
+              break
+            fi
+          done
+
+          # Bare semver without the 'v' prefix (for Docker tags, tarballs, etc.)
+          SEMVER="${DISPLAY_VERSION#v}"
+
+          echo "git_tag=${GIT_TAG}" >> $GITHUB_OUTPUT
+          echo "display_version=${DISPLAY_VERSION}" >> $GITHUB_OUTPUT
+          echo "semver=${SEMVER}" >> $GITHUB_OUTPUT
+          echo "Resolved: git_tag=${GIT_TAG} -> display_version=${DISPLAY_VERSION} (semver=${SEMVER})"
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -112,7 +138,7 @@ jobs:
 
       - name: Create release tarball
         run: |
-          VERSION="${{ github.ref_name }}"
+          VERSION="${{ steps.version.outputs.git_tag }}"
           RELEASE_DIR="opnet-node-${VERSION}"
           mkdir -p "${RELEASE_DIR}"
 
@@ -138,8 +164,8 @@ jobs:
         uses: actions/attest-build-provenance@v3
         with:
           subject-path: |
-            opnet-node-${{ github.ref_name }}.tar.gz
-            opnet-node-${{ github.ref_name }}.zip
+            opnet-node-${{ steps.version.outputs.git_tag }}.tar.gz
+            opnet-node-${{ steps.version.outputs.git_tag }}.zip
 
       - name: Generate changelog
         id: changelog
@@ -206,7 +232,8 @@ jobs:
         env:
           CHANGELOG_CONTENT: ${{ steps.changelog.outputs.changelog }}
         run: |
-          TAG="${{ github.ref_name }}"
+          # Use display version (with +) in the changelog, not the git tag
+          TAG="${{ steps.version.outputs.display_version }}"
           DATE=$(date +%Y-%m-%d)
           NEW_HEADER="## [$TAG] - $DATE"
 
@@ -246,13 +273,13 @@ jobs:
           git fetch origin main
           git checkout main
           git add CHANGELOG.md
-          git diff --staged --quiet || git commit -m "docs: update CHANGELOG.md for ${{ github.ref_name }}"
+          git diff --staged --quiet || git commit -m "docs: update CHANGELOG.md for ${{ steps.version.outputs.display_version }}"
           git push origin main || echo "No changes to push or push failed"
 
       - name: Determine if prerelease
         id: prerelease
         run: |
-          VERSION="${{ github.ref_name }}"
+          VERSION="${{ steps.version.outputs.git_tag }}"
           if [[ "$VERSION" == *"-alpha"* ]] || [[ "$VERSION" == *"-beta"* ]] || [[ "$VERSION" == *"-rc"* ]]; then
             echo "is_prerelease=true" >> $GITHUB_OUTPUT
           else
@@ -262,8 +289,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
+          tag_name: ${{ steps.version.outputs.git_tag }}
+          name: Release ${{ steps.version.outputs.display_version }}
           body: |
             ${{ steps.changelog.outputs.changelog }}
 
@@ -271,15 +298,15 @@ jobs:
 
             ### From source tarball
             ```bash
-            tar -xzf opnet-node-${{ github.ref_name }}.tar.gz
-            cd opnet-node-${{ github.ref_name }}
+            tar -xzf opnet-node-${{ steps.version.outputs.git_tag }}.tar.gz
+            cd opnet-node-${{ steps.version.outputs.git_tag }}
             npm install --production
             npm start
             ```
 
             ### From Docker
             ```bash
-            docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            docker pull ghcr.io/${{ github.repository }}:${{ steps.version.outputs.git_tag }}
 
             # Copy and configure
             cp docker/config/btc.conf.example docker/config/btc.conf
@@ -289,7 +316,7 @@ jobs:
             cd docker && docker compose up -d
 
             # Or run standalone
-            docker run -p 9000:9000 -p 9805:9805 -v $(pwd)/docker/config/btc.conf:/app/config/btc.conf ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            docker run -p 9000:9000 -p 9805:9805 -v $(pwd)/docker/config/btc.conf:/app/config/btc.conf ghcr.io/${{ github.repository }}:${{ steps.version.outputs.git_tag }}
             ```
 
             ## Checksums
@@ -297,10 +324,10 @@ jobs:
           prerelease: ${{ steps.prerelease.outputs.is_prerelease == 'true' }}
           generate_release_notes: false
           files: |
-            opnet-node-${{ github.ref_name }}.tar.gz
-            opnet-node-${{ github.ref_name }}.tar.gz.sha256
-            opnet-node-${{ github.ref_name }}.zip
-            opnet-node-${{ github.ref_name }}.zip.sha256
+            opnet-node-${{ steps.version.outputs.git_tag }}.tar.gz
+            opnet-node-${{ steps.version.outputs.git_tag }}.tar.gz.sha256
+            opnet-node-${{ steps.version.outputs.git_tag }}.zip
+            opnet-node-${{ steps.version.outputs.git_tag }}.zip.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -317,10 +344,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+            type=raw,value=${{ steps.version.outputs.git_tag }}
+            type=raw,value=${{ steps.version.outputs.semver }}
+            type=raw,value=latest,enable=${{ !contains(steps.version.outputs.git_tag, '-') }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3

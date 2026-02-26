@@ -15,6 +15,9 @@ export enum MessageType {
 
     GET_PEERS,
 
+    // Mempool notifications
+    NOTIFY_MEMPOOL_TRANSACTION,
+
     // Plugin messages
     PLUGIN_READY, // Sent by PluginThread when initialization is complete
     ALL_THREADS_READY, // Sent by Core to plugin thread after all threads are started

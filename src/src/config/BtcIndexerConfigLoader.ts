@@ -57,13 +57,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ENABLED: true,
             BLOCK_UPDATE_METHOD: BlockUpdateMethods.RPC,
             STORAGE_TYPE: IndexerStorageType.MONGODB,
-            ALLOW_PURGE: false,
             BLOCK_QUERY_INTERVAL: 5000,
             READONLY_MODE: false,
             SOLVE_UNKNOWN_UTXOS: false,
 
             /** UTXOs */
-            PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: 1000,
+            ALLOW_PURGE: false,
+            PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: 10_000_000,
             UTXO_SAVE_INTERVAL: 120_000,
             START_INDEXING_UTXO_AT_BLOCK_HEIGHT: 800_000,
         },
@@ -95,6 +95,8 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             IS_BOOTSTRAP_NODE: false,
             CLIENT_MODE: false,
             ENABLE_IPV6: false,
+
+            EXTERNAL_ADDRESS_THRESHOLD: 3,
 
             ENABLE_IP_BANNING: false,
             PRIVATE_MODE: false,
@@ -600,6 +602,15 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.P2P.IS_BOOTSTRAP_NODE !== 'boolean'
             ) {
                 throw new Error(`Oops the property P2P.IS_BOOTSTRAP_NODE is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.P2P.EXTERNAL_ADDRESS_THRESHOLD !== undefined &&
+                typeof parsedConfig.P2P.EXTERNAL_ADDRESS_THRESHOLD !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property P2P.EXTERNAL_ADDRESS_THRESHOLD is not a number.`,
+                );
             }
 
             if (

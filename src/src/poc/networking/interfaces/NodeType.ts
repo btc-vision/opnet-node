@@ -6,6 +6,7 @@ import { Ping } from '@libp2p/ping';
 import { BootstrapComponents } from '@libp2p/bootstrap';
 import { PeerDiscovery, PeerId } from '@libp2p/interface';
 import { DisconnectionCode } from '../enums/DisconnectionCode.js';
+import { Components } from 'libp2p/components.js';
 
 export type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -30,4 +31,6 @@ export type P2PServices = {
     ping: Ping;
 };
 
-export type Libp2pInstance = Libp2p<P2PServices>;
+export type Libp2pInstance = Libp2p<P2PServices> & {
+    components: Components & P2PServices;
+};

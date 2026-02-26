@@ -1,8 +1,8 @@
 {
     "compilerOptions": {
-        "module": "esnext",
+        "module": "ESNext",
         "declaration": true,
-        "target": "esnext",
+        "target": "ESNext",
         "noImplicitAny": true,
         "removeComments": true,
         "suppressImplicitAnyIndexErrors": false,
@@ -13,17 +13,18 @@
         "moduleDetection": "force",
         "allowImportingTsExtensions": true,
         "experimentalDecorators": true,
-        "lib": ["es6", "es2020", "es2021", "es2022", "esnext", "webworker", "dom", "scripthost"],
+        "lib": ["ESNext"],
         "strict": true,
         "strictNullChecks": true,
         "strictFunctionTypes": true,
         "strictBindCallApply": true,
         "strictPropertyInitialization": true,
         "alwaysStrict": true,
-        "moduleResolution": "node",
+        "moduleResolution": "nodenext",
         "allowJs": true,
         "incremental": true,
         "allowSyntheticDefaultImports": true
     },
-    "include": ["src/**/*.ts", "src/*", "src/**/*.js", "src/*.ts", "src/*.js", "src/*.cjs"]
+    "include": ["**/*.ts"],
+    "exclude": ["node_modules"]
 }

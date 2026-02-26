@@ -1,7 +1,7 @@
 import { NetworkAuthorityConfiguration } from '../../../types/TrustedPublicKeys.js';
 import { TrustedEntities } from '../../../TrustedEntities.js';
 
-export const TestNetTrustedKeys001: NetworkAuthorityConfiguration = {
+export const Testnet4TrustedKeys001: NetworkAuthorityConfiguration = {
     /** Minimum different trusted validators */
     minimum: 2,
 

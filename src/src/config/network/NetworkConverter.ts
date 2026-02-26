@@ -69,6 +69,8 @@ export class NetworkConverter {
             case BitcoinNetwork.mainnet:
                 return bitcoin.networks.bitcoin;
             case BitcoinNetwork.testnet:
+                return bitcoin.networks.opnetTestnet;
+            case BitcoinNetwork.testnet4:
                 return bitcoin.networks.testnet;
             case BitcoinNetwork.regtest:
                 return bitcoin.networks.regtest;
@@ -122,6 +124,8 @@ export class NetworkConverter {
                 return BitcoinNetworkRequest.Mainnet;
             case networks.testnet:
                 return BitcoinNetworkRequest.Testnet;
+            case networks.opnetTestnet:
+                return BitcoinNetworkRequest.OPNetTestnet;
             case networks.regtest:
                 return BitcoinNetworkRequest.Regtest;
             // Dogecoin

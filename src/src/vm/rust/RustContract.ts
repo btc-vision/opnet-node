@@ -210,7 +210,7 @@ export class RustContract {
         } catch (e) {
             if (this.enableDebug) console.log('Error in execute', e);
 
-            const error = e as Error;
+            const error = e instanceof Error ? e : new Error(String(e));
             throw this.getError(error);
         }
     }
@@ -252,7 +252,7 @@ export class RustContract {
         } catch (e) {
             if (this.enableDebug) console.log('Error in setEnvironment', e);
 
-            const error = e as Error;
+            const error = e instanceof Error ? e : new Error(String(e));
             throw this.getError(error);
         }
     }
@@ -270,7 +270,7 @@ export class RustContract {
         } catch (e) {
             if (this.enableDebug) console.log('Error in onUpdate', e);
 
-            const error = e as Error;
+            const error = e instanceof Error ? e : new Error(String(e));
             throw this.getError(error);
         }
     }
@@ -288,7 +288,7 @@ export class RustContract {
         } catch (e) {
             if (this.enableDebug) console.log('Error in onDeployment', e);
 
-            const error = e as Error;
+            const error = e instanceof Error ? e : new Error(String(e));
             throw this.getError(error);
         }
     }
@@ -316,7 +316,8 @@ export class RustContract {
 
             return BigInt(this.contractManager.getUsedGas(this.id).toString());
         } catch (e) {
-            const error = e as Error;
+            const error = e instanceof Error ? e : new Error(String(e));
+
             throw this.getError(error);
         }
     }

@@ -59,6 +59,8 @@ export interface P2P {
     readonly IS_BOOTSTRAP_NODE: boolean;
     readonly CLIENT_MODE: boolean;
 
+    readonly EXTERNAL_ADDRESS_THRESHOLD: number;
+
     readonly PRIVATE_MODE: boolean;
     readonly MDNS: boolean;
     readonly ENABLE_IP_BANNING: boolean;

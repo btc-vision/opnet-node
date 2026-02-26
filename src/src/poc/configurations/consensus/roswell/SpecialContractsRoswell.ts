@@ -14,7 +14,9 @@ const nativeSwapMainnet: Address = Address.fromString(
     '0x035884f9ac2b6ae75d7778553e7d447899e9a82e247d7ced48f22aa102681e70',
 );
 
-// const nativeSwapMainnet: Address = Address.dead();
+const nativeSwapTestnet: Address = Address.fromString(
+    '0x4397befe4e067390596b3c296e77fe86589487bf3bf3f0a9a93ce794e2d78fb5',
+);
 
 const nativeSwapContractSettings: Omit<SpecialContract, 'address'> = {
     freeGas: true,
@@ -39,12 +41,14 @@ export const SPECIAL_CONTRACTS_ROSWELL_REGTEST: SpecialContracts = {
 };
 
 export const SPECIAL_CONTRACTS_ROSWELL_TESTNET: SpecialContracts = {
-    /*[nativeSwapTestnet.toHex()]: {
+    [nativeSwapTestnet.toHex()]: {
         ...nativeSwapContractSettings,
 
         address: nativeSwapTestnet,
-    }*/
+    },
 };
+
+export const SPECIAL_CONTRACTS_ROSWELL_TESTNET4: SpecialContracts = {};
 
 export const SPECIAL_CONTRACTS_ROSWELL_MAINNET: SpecialContracts = {
     [nativeSwapMainnet.toHex()]: {

@@ -5,6 +5,7 @@ import {
     SPECIAL_CONTRACTS_ROSWELL_MAINNET,
     SPECIAL_CONTRACTS_ROSWELL_REGTEST,
     SPECIAL_CONTRACTS_ROSWELL_TESTNET,
+    SPECIAL_CONTRACTS_ROSWELL_TESTNET4,
 } from './roswell/SpecialContractsRoswell.js';
 import { fromHex } from '@btc-vision/bitcoin';
 import { ChainIds } from '../../../config/enums/ChainIds.js';
@@ -28,7 +29,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
             },
             [BitcoinNetwork.testnet]: {
                 ENABLED: true,
-                BLOCK: 10_100_000n,
+                BLOCK: 0n,
             },
             [BitcoinNetwork.regtest]: {
                 ENABLED: true,
@@ -91,6 +92,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
             [ChainIds.Bitcoin]: {
                 [BitcoinNetwork.mainnet]: SPECIAL_CONTRACTS_ROSWELL_MAINNET,
                 [BitcoinNetwork.testnet]: SPECIAL_CONTRACTS_ROSWELL_TESTNET,
+                [BitcoinNetwork.testnet4]: SPECIAL_CONTRACTS_ROSWELL_TESTNET4,
                 [BitcoinNetwork.regtest]: SPECIAL_CONTRACTS_ROSWELL_REGTEST,
             },
         },
