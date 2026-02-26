@@ -291,7 +291,7 @@ export class ChainSynchronisation extends Logger {
         }
 
         if (block.height === 0n) {
-            return; // Don't index the coinbase transaction of the genesis blocK.
+            return; // Don't index the coinbase transaction of the genesis block.
         }
 
         block.setRawTransactionData(txs);
