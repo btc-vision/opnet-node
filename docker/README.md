@@ -1,4 +1,4 @@
-# OPNet Node Docker Setup
+# OP_NET Node Docker Setup
 
 ## Quick Start
 
@@ -19,6 +19,7 @@ docker compose --profile with-mongodb up -d
 Edit `config/btc.conf` before starting. Required settings:
 
 ### Bitcoin RPC
+
 ```toml
 [BLOCKCHAIN]
 BITCOIND_HOST = "host.docker.internal"  # or your Bitcoin node IP
@@ -28,6 +29,7 @@ BITCOIND_PASSWORD = "your_password"
 ```
 
 ### MongoDB
+
 ```toml
 [DATABASE]
 HOST = "mongodb"        # Use "mongodb" if using docker-compose with-mongodb profile
@@ -41,19 +43,19 @@ PASSWORD = "opnet"
 
 ## Ports
 
-| Port | Service | Description |
-|------|---------|-------------|
-| 9000 | API | REST API and WebSocket |
-| 9805 | P2P | Peer-to-peer network |
-| 7000 | Docs | Documentation server (if enabled) |
-| 4800 | SSH | SSH access (if enabled) |
+| Port | Service | Description                       |
+|------|---------|-----------------------------------|
+| 9000 | API     | REST API and WebSocket            |
+| 9805 | P2P     | Peer-to-peer network              |
+| 7000 | Docs    | Documentation server (if enabled) |
+| 4800 | SSH     | SSH access (if enabled)           |
 
 ## Docker Compose Profiles
 
-| Profile | Description |
-|---------|-------------|
-| (default) | OPNet node only, requires external MongoDB |
-| `with-mongodb` | Includes MongoDB container |
+| Profile        | Description                                 |
+|----------------|---------------------------------------------|
+| (default)      | OP_NET node only, requires external MongoDB |
+| `with-mongodb` | Includes MongoDB container                  |
 
 ```bash
 # Default (external MongoDB)
@@ -71,23 +73,23 @@ Override ports via environment variables:
 API_PORT=9000 P2P_PORT=9805 docker compose up -d
 ```
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `API_PORT` | 9000 | API/WebSocket port |
-| `P2P_PORT` | 9805 | P2P network port |
-| `DOCS_PORT` | 7000 | Documentation server port |
-| `SSH_PORT` | 4800 | SSH port |
-| `MONGO_PORT` | 27017 | MongoDB port (with-mongodb profile) |
-| `MONGO_USERNAME` | opnet | MongoDB username (with-mongodb profile) |
-| `MONGO_PASSWORD` | opnet | MongoDB password (with-mongodb profile) |
+| Variable         | Default | Description                             |
+|------------------|---------|-----------------------------------------|
+| `API_PORT`       | 9000    | API/WebSocket port                      |
+| `P2P_PORT`       | 9805    | P2P network port                        |
+| `DOCS_PORT`      | 7000    | Documentation server port               |
+| `SSH_PORT`       | 4800    | SSH port                                |
+| `MONGO_PORT`     | 27017   | MongoDB port (with-mongodb profile)     |
+| `MONGO_USERNAME` | opnet   | MongoDB username (with-mongodb profile) |
+| `MONGO_PASSWORD` | opnet   | MongoDB password (with-mongodb profile) |
 
 ## Volumes
 
-| Volume | Path | Description |
-|--------|------|-------------|
-| `opnet-data` | `/app/data` | Node data |
-| `opnet-plugins` | `/app/plugins` | Plugin storage |
-| `mongodb-data` | `/data/db` | MongoDB data (with-mongodb profile) |
+| Volume          | Path           | Description                         |
+|-----------------|----------------|-------------------------------------|
+| `opnet-data`    | `/app/data`    | Node data                           |
+| `opnet-plugins` | `/app/plugins` | Plugin storage                      |
+| `mongodb-data`  | `/data/db`     | MongoDB data (with-mongodb profile) |
 
 ## Building Locally
 
