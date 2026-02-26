@@ -18,7 +18,7 @@ SAVE_TIMEOUTS_TO_FILE = true # Save timeouts to file
 SIMULATE_HIGH_GAS_USAGE = false # Simulate high gas usage
 
 [RPC]
-CHILD_PROCESS = 8 # Number of child processes to spawn
+CHILD_PROCESSES = 8 # Number of child processes to spawn
 THREADS = 6 # Number of threads to process calls such as rpc calls, smart contract calls, etc.
 VM_CONCURRENCY = 30 # Number of concurrent VMs to run in parallel
 
