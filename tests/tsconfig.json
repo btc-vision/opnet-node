@@ -20,7 +20,7 @@
         "strictBindCallApply": true,
         "strictPropertyInitialization": true,
         "alwaysStrict": true,
-        "moduleResolution": "node",
+        "moduleResolution": "nodenext",
         "allowJs": true,
         "incremental": true,
         "allowSyntheticDefaultImports": true
