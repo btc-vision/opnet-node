@@ -1,19 +1,46 @@
 import gulpESLintNew from 'gulp-eslint-new';
 import gulp from 'gulp';
 import gulpcache from 'gulp-cached';
-
 import gulpClean from 'gulp-clean';
-import logger from 'gulp-logger-new';
+import { Logger } from '@btc-vision/logger';
 import ts from 'gulp-typescript';
+import { Transform } from 'stream';
 
 process.on('uncaughtException', function (err) {
     console.log('Caught exception: ', err);
 });
 
+class GulpLogger extends Logger {
+    moduleName = 'Compiler';
+    logColor = '#4f77f9';
+}
+
+const logger = new GulpLogger();
 const tsProject = ts.createProject('tsconfig.json');
 
 function onError(e) {
-    console.log('Errored', e);
+    logger.error(String(e));
+}
+
+function logPipe(before, after, extname) {
+    let started = false;
+    return new Transform({
+        objectMode: true,
+        transform(file, _enc, cb) {
+            if (!started) {
+                logger.log(before);
+                started = true;
+            }
+            if (file.relative) {
+                logger.log(`${file.relative}${extname ? ` -> ${extname}` : ''}`);
+            }
+            cb(null, file);
+        },
+        flush(cb) {
+            logger.success(after);
+            cb();
+        },
+    });
 }
 
 function buildESM() {
@@ -21,14 +48,7 @@ function buildESM() {
         .src()
         .on('error', onError)
         .pipe(gulpcache())
-        .pipe(
-            logger({
-                before: 'Starting...',
-                after: 'Project compiled!',
-                extname: '.js',
-                showChange: true,
-            }),
-        )
+        .pipe(logPipe('Starting...', 'Project compiled!', '.js'))
         .pipe(gulpESLintNew())
         .pipe(gulpESLintNew.format())
         .pipe(tsProject())
@@ -44,14 +64,7 @@ export function clean() {
 function buildYaml() {
     return gulp
         .src('./src/**/*.yaml')
-        .pipe(
-            logger({
-                before: 'Starting...',
-                after: 'Compiled yaml.',
-                extname: '.yaml',
-                showChange: true,
-            }),
-        )
+        .pipe(logPipe('Starting...', 'Compiled yaml.', '.yaml'))
         .pipe(gulpcache('yaml'))
         .pipe(gulp.dest('./build/'));
 }
@@ -59,14 +72,7 @@ function buildYaml() {
 function buildProto() {
     return gulp
         .src('./src/**/*.proto')
-        .pipe(
-            logger({
-                before: 'Starting...',
-                after: 'Compiled protobuf.',
-                extname: '.proto',
-                showChange: true,
-            }),
-        )
+        .pipe(logPipe('Starting...', 'Compiled protobuf.', '.proto'))
         .pipe(gulpcache('protobuf'))
         .pipe(gulp.dest('./build/'));
 }
@@ -74,14 +80,7 @@ function buildProto() {
 function buildConfig() {
     return gulp
         .src('./src/config/*.conf')
-        .pipe(
-            logger({
-                before: 'Starting...',
-                after: 'Compiled conf.',
-                extname: '.conf',
-                showChange: true,
-            }),
-        )
+        .pipe(logPipe('Starting...', 'Compiled conf.', '.conf'))
         .pipe(gulpcache('config'))
         .pipe(gulp.dest('./build/config'));
 }
