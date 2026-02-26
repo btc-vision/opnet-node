@@ -1,69 +1,74 @@
 import { Multiaddr } from '@multiformats/multiaddr';
 
-/**
- * Extracts the IP address or hostname from a Multiaddr
- * Replaces the deprecated nodeAddress() method
- */
-export function extractAddressHost(addr: Multiaddr): string | null {
+const IP_HOST_PROTOCOLS = new Set(['ip4', 'ip6']);
+const DNS_HOST_PROTOCOLS = new Set(['dns', 'dns4', 'dns6', 'dnsaddr']);
+const TRANSPORT_PROTOCOLS = new Set(['tcp', 'udp']);
+
+interface ComponentLike {
+    readonly name: string;
+    readonly value?: string;
+}
+
+function getComponentsSafe(addr: Multiaddr): ComponentLike[] {
     try {
-        const components = addr.getComponents();
+        if (typeof addr.getComponents === 'function') {
+            return addr.getComponents();
+        }
+    } catch {
+        // fall through to string parsing
+    }
 
-        for (const component of components) {
-            if (component.name === 'ip4' || component.name === 'ip6') {
-                return component.value || null;
-            }
-
+    try {
+        const parts = addr.toString().split('/').filter(Boolean);
+        const result: ComponentLike[] = [];
+        let i = 0;
+        while (i < parts.length) {
+            const name = parts[i];
+            const next = parts[i + 1];
             if (
-                component.name === 'dns' ||
-                component.name === 'dns4' ||
-                component.name === 'dns6' ||
-                component.name === 'dnsaddr'
+                IP_HOST_PROTOCOLS.has(name) ||
+                DNS_HOST_PROTOCOLS.has(name) ||
+                TRANSPORT_PROTOCOLS.has(name)
             ) {
-                return component.value || null;
+                result.push({ name, value: next ?? '' });
+                i += 2;
+            } else {
+                result.push({ name, value: next ?? '' });
+                i += 2;
             }
         }
-
-        return null;
+        return result;
     } catch {
-        return null;
+        return [];
     }
 }
 
-export function extractNodeAddress(addr: Multiaddr): { address: string; port?: number } | null {
-    try {
-        const components = addr.getComponents();
-        let address: string | null = null;
-        let port: number | undefined;
+/**
+ * Extracts the IP address or hostname from a Multiaddr.
+ */
+export function extractAddressHost(addr: Multiaddr): string | null {
+    const components = getComponentsSafe(addr);
 
-        for (const component of components) {
-            if (component.name === 'ip4' || component.name === 'ip6') {
-                address = component.value || null;
-            } else if (
-                component.name === 'dns' ||
-                component.name === 'dns4' ||
-                component.name === 'dns6' ||
-                component.name === 'dnsaddr'
-            ) {
-                address = component.value || null;
-            } else if (component.name === 'tcp' || component.name === 'udp') {
-                port = component.value ? parseInt(component.value, 10) : undefined;
-            }
+    for (const component of components) {
+        if (IP_HOST_PROTOCOLS.has(component.name) || DNS_HOST_PROTOCOLS.has(component.name)) {
+            return component.value || null;
         }
-
-        if (!address) return null;
-
-        return { address, port };
-    } catch {
-        return null;
     }
+
+    return null;
+}
+
+export function isUnspecifiedAddress(ip: string): boolean {
+    return ip === '0.0.0.0' || ip === '::';
 }
 
 export function isLoopbackAddress(ip: string): boolean {
-    return ip.startsWith('127.') || ip === '::1' || ip === '0.0.0.0';
+    return ip.startsWith('127.') || ip === '::1';
 }
 
 export function isPrivateOrLoopbackAddress(ip: string): boolean {
     if (isLoopbackAddress(ip)) return true;
+    if (isUnspecifiedAddress(ip)) return true;
 
     if (
         ip.startsWith('10.') ||
@@ -77,9 +82,19 @@ export function isPrivateOrLoopbackAddress(ip: string): boolean {
     }
 
     if (ip.startsWith('172.')) {
-        const second = parseInt(ip.split('.')[1], 10);
+        const octets = ip.split('.');
+        if (octets.length >= 2) {
+            const second = parseInt(octets[1], 10);
+            if (!Number.isNaN(second) && second >= 16 && second <= 31) return true;
+        }
+    }
 
-        if (second >= 16 && second <= 31) return true;
+    if (ip.startsWith('100.')) {
+        const octets = ip.split('.');
+        if (octets.length >= 2) {
+            const second = parseInt(octets[1], 10);
+            if (!Number.isNaN(second) && second >= 64 && second <= 127) return true;
+        }
     }
 
     return false;
@@ -88,9 +103,9 @@ export function isPrivateOrLoopbackAddress(ip: string): boolean {
 export function filterMultiaddrsLoopback(addrs: Multiaddr[]): Multiaddr[] {
     return addrs.filter((addr) => {
         const ip = extractAddressHost(addr);
-        if (!ip) return true;
+        if (!ip) return false;
 
-        return !isLoopbackAddress(ip);
+        return !isLoopbackAddress(ip) && !isUnspecifiedAddress(ip);
     });
 }
 
