@@ -77,7 +77,6 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
         let tx: KnownTransaction | InvalidTransaction;
         try {
             const solutions = await this.allowedChallenges;
-            console.log('solutions', solutions);
 
             const decoded = !txData ? this.toRawTransactionData(data) : txData;
             const opnetDecodedTransaction = this.transactionFactory.parseTransaction(
