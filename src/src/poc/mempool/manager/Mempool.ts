@@ -171,7 +171,7 @@ export class Mempool extends Logger {
     }
 
     private async verifyBlockHeight(): Promise<void> {
-        try {
+        /*try {
             const currentBlockHeight = await this.bitcoinRPC.getBlockHeight();
             if (!currentBlockHeight) {
                 return;
@@ -198,7 +198,7 @@ export class Mempool extends Logger {
             if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
                 this.warn(`Error verifying block height: ${(e as Error).message}`);
             }
-        }
+        }*/
     }
 
     private async watchBlockchain(): Promise<void> {
