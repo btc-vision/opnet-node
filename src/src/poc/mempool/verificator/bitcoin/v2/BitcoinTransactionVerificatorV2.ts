@@ -2,11 +2,12 @@ import { TransactionVerifier } from '../../TransactionVerifier.js';
 import { TransactionTypes } from '../../../transaction/TransactionTypes.js';
 import { Network, networks, toHex, Transaction } from '@btc-vision/bitcoin';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
-import { InvalidTransaction, KnownTransaction, } from '../../../transaction/TransactionVerifierManager.js';
-import { Config } from '../../../../../config/Config.js';
 import {
-    TransactionFactory
-} from '../../../../../blockchain-indexer/processor/transaction/transaction-factory/TransactionFactory.js';
+    InvalidTransaction,
+    KnownTransaction,
+} from '../../../transaction/TransactionVerifierManager.js';
+import { Config } from '../../../../../config/Config.js';
+import { TransactionFactory } from '../../../../../blockchain-indexer/processor/transaction/transaction-factory/TransactionFactory.js';
 import { IMempoolTransactionObj } from '../../../../../db/interfaces/IMempoolTransaction.js';
 import { TransactionData, VOut } from '@btc-vision/bitcoin-rpc/src/rpc/types/BlockData.js';
 import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
@@ -16,18 +17,10 @@ import { OPNetConsensus } from '../../../../configurations/OPNetConsensus.js';
 import { ChallengeSolution } from '../../../../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
 import { AddressMap } from '@btc-vision/transaction';
 import { EpochRepository } from '../../../../../db/repositories/EpochRepository.js';
-import {
-    OPNetTransactionTypes
-} from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import {
-    Transaction as OPNetDecodedTransaction
-} from '../../../../../blockchain-indexer/processor/transaction/Transaction.js';
-import {
-    InteractionTransaction
-} from '../../../../../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
-import {
-    DeploymentTransaction
-} from '../../../../../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
+import { OPNetTransactionTypes } from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { Transaction as OPNetDecodedTransaction } from '../../../../../blockchain-indexer/processor/transaction/Transaction.js';
+import { InteractionTransaction } from '../../../../../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
+import { DeploymentTransaction } from '../../../../../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
 
 const EMPTY_BLOCK_HASH = toHex(new Uint8Array(32));
 
@@ -84,6 +77,7 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
         let tx: KnownTransaction | InvalidTransaction;
         try {
             const solutions = await this.allowedChallenges;
+            console.log('solutions', solutions);
 
             const decoded = !txData ? this.toRawTransactionData(data) : txData;
             const opnetDecodedTransaction = this.transactionFactory.parseTransaction(

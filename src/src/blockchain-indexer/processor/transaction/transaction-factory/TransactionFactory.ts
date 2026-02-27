@@ -1,5 +1,5 @@
 import { TransactionData } from '@btc-vision/bitcoin-rpc';
-import { equals, networks } from '@btc-vision/bitcoin';
+import { equals, networks, toHex } from '@btc-vision/bitcoin';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { PossibleOPNetTransactions, TransactionInformation } from '../PossibleOPNetTransactions.js';
 import { Transaction } from '../Transaction.js';
@@ -40,7 +40,7 @@ export class TransactionFactory {
             //    return;
             //}
 
-            //console.log('allowedChallenges', allowedChallenges, 'miner', miner, toHex(miner));
+            console.log('allowedChallenges', allowedChallenges, 'miner', miner, toHex(miner));
 
             const hasMiner = allowedChallenges.solutions.get(miner);
             if (!hasMiner) {
