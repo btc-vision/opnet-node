@@ -40,6 +40,8 @@ export class TransactionFactory {
             //    return;
             //}
 
+            console.log('allowedChallenges', allowedChallenges, 'miner', miner, toHex(miner));
+
             const hasMiner = allowedChallenges.solutions.get(miner);
             if (!hasMiner) {
                 throw new Error(EXPIRED_TRANSACTION_ERROR);
