@@ -67,7 +67,7 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
 
     public onBlockChange(blockHeight: bigint): Promise<void> {
         this.blockChangeQueue = this.blockChangeQueue.then(async () => {
-            if (blockHeight <= this.currentSolutionsHeight) {
+            if (blockHeight === this.currentSolutionsHeight) {
                 return;
             }
 
