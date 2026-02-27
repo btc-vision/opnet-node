@@ -207,7 +207,7 @@ export class Mempool extends Logger {
                 `Detected block height change: ${OPNetConsensus.getBlockHeight()} < ${blockHeight} = ${OPNetConsensus.getBlockHeight() < blockHeight}`,
             );
 
-            if (OPNetConsensus.getBlockHeight() < blockHeight) {
+            if (OPNetConsensus.getBlockHeight() <= blockHeight) {
                 await this.onBlockChange(blockHeight);
             }
 
