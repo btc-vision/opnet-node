@@ -222,6 +222,8 @@ export class Mempool extends Logger {
         try {
             OPNetConsensus.setBlockHeight(blockHeight);
 
+            this.log(`[MEM] Block changed to height ${blockHeight}`);
+
             await this.transactionVerifier.onBlockChange(blockHeight);
 
             /*if (Config.MEMPOOL.ENABLE_BLOCK_PURGE) {
