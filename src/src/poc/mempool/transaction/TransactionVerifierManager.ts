@@ -1,14 +1,18 @@
 import { TransactionTypes } from './TransactionTypes.js';
-import { Network, networks, Psbt, toBase64, Transaction as BitcoinTransaction, } from '@btc-vision/bitcoin';
+import {
+    Network,
+    networks,
+    Psbt,
+    toBase64,
+    Transaction as BitcoinTransaction,
+} from '@btc-vision/bitcoin';
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { TransactionVerifier } from '../verificator/TransactionVerifier.js';
 import { Consensus } from '../../configurations/consensus/Consensus.js';
 import { BitcoinTransactionVerificatorV2 } from '../verificator/bitcoin/v2/BitcoinTransactionVerificatorV2.js';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
 import { BitcoinRPC, TransactionData } from '@btc-vision/bitcoin-rpc';
-import {
-    OPNetTransactionTypes
-} from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { Transaction } from '../../../blockchain-indexer/processor/transaction/Transaction.js';
 import { BitcoinTransactionVerificatorV3 } from '../verificator/bitcoin/v2/BitcoinTransactionVerificatorV3.js';
 
