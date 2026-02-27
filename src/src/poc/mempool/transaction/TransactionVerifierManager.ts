@@ -1,18 +1,14 @@
 import { TransactionTypes } from './TransactionTypes.js';
-import {
-    Network,
-    networks,
-    Psbt,
-    toBase64,
-    Transaction as BitcoinTransaction,
-} from '@btc-vision/bitcoin';
+import { Network, networks, Psbt, toBase64, Transaction as BitcoinTransaction, } from '@btc-vision/bitcoin';
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { TransactionVerifier } from '../verificator/TransactionVerifier.js';
 import { Consensus } from '../../configurations/consensus/Consensus.js';
 import { BitcoinTransactionVerificatorV2 } from '../verificator/bitcoin/v2/BitcoinTransactionVerificatorV2.js';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
 import { BitcoinRPC, TransactionData } from '@btc-vision/bitcoin-rpc';
-import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import {
+    OPNetTransactionTypes
+} from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { Transaction } from '../../../blockchain-indexer/processor/transaction/Transaction.js';
 import { BitcoinTransactionVerificatorV3 } from '../verificator/bitcoin/v2/BitcoinTransactionVerificatorV3.js';
 
@@ -21,9 +17,17 @@ export interface PSBTDecodedData {
     readonly estimatedFees: bigint;
 }
 
-export interface IKnownTransaction {
+export interface MempoolTransaction {
+    readonly success: boolean;
+}
+
+export interface IKnownTransaction extends MempoolTransaction {
     readonly type: TransactionTypes;
     readonly version: Consensus;
+}
+
+export interface InvalidTransaction extends MempoolTransaction {
+    readonly error: string;
 }
 
 export interface KnownPSBTObject extends IKnownTransaction {
@@ -66,7 +70,7 @@ export class TransactionVerifierManager extends Logger {
     public async verify(
         tx: IMempoolTransactionObj,
         txData?: TransactionData,
-    ): Promise<IKnownTransaction | false> {
+    ): Promise<IKnownTransaction | InvalidTransaction> {
         const psbtType: TransactionTypes = tx.data[0];
 
         const verificator = this.verificator.find((v) =>
@@ -82,7 +86,10 @@ export class TransactionVerifierManager extends Logger {
             }
 
             if (!psbtOrTransaction) {
-                return false;
+                return {
+                    success: false,
+                    error: 'PSBTs are not allowed.',
+                };
             }
 
             return await verificator.verify(tx, psbtOrTransaction, txData);

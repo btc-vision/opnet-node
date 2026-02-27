@@ -2,7 +2,10 @@ import { TransactionVerifier } from '../../TransactionVerifier.js';
 import { TransactionTypes } from '../../../transaction/TransactionTypes.js';
 import { Network, networks, toHex, Transaction } from '@btc-vision/bitcoin';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
-import { KnownTransaction } from '../../../transaction/TransactionVerifierManager.js';
+import {
+    InvalidTransaction,
+    KnownTransaction,
+} from '../../../transaction/TransactionVerifierManager.js';
 import { Config } from '../../../../../config/Config.js';
 import { TransactionFactory } from '../../../../../blockchain-indexer/processor/transaction/transaction-factory/TransactionFactory.js';
 import { IMempoolTransactionObj } from '../../../../../db/interfaces/IMempoolTransaction.js';
@@ -70,8 +73,8 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
         transaction: IMempoolTransactionObj,
         data: Transaction,
         txData?: TransactionData,
-    ): Promise<KnownTransaction | false> {
-        let tx: KnownTransaction | false = false;
+    ): Promise<KnownTransaction | InvalidTransaction> {
+        let tx: KnownTransaction | InvalidTransaction;
         try {
             const solutions = await this.allowedChallenges;
             const decoded = !txData ? this.toRawTransactionData(data) : txData;
@@ -84,6 +87,7 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
             );
 
             tx = {
+                success: true,
                 type: this.getTxVersion(data.version),
                 version: OPNetConsensus.consensus.CONSENSUS,
                 transaction: opnetDecodedTransaction,
@@ -105,9 +109,15 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
                 );
             }
         } catch (e) {
+            const error = (e as Error).message;
             if (Config.DEV_MODE) {
-                this.error(`Error verifying Bitcoin Transaction V2: ${(e as Error).message}`);
+                this.error(`Error verifying Bitcoin Transaction V2: ${error}`);
             }
+
+            tx = {
+                success: false,
+                error: error,
+            };
         }
 
         return tx;
