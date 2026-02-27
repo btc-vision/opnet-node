@@ -203,10 +203,6 @@ export class Mempool extends Logger {
 
     private async watchBlockchain(): Promise<void> {
         this.blockchainInformationRepository.watchBlockChanges(async (blockHeight: bigint) => {
-            console.log(
-                `Detected block height change: ${OPNetConsensus.getBlockHeight()} <= ${blockHeight} = ${OPNetConsensus.getBlockHeight() <= blockHeight}`,
-            );
-
             if (OPNetConsensus.getBlockHeight() <= blockHeight) {
                 await this.onBlockChange(blockHeight);
             }
