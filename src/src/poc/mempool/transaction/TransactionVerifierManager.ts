@@ -21,9 +21,17 @@ export interface PSBTDecodedData {
     readonly estimatedFees: bigint;
 }
 
-export interface IKnownTransaction {
+export interface MempoolTransaction {
+    readonly success: boolean;
+}
+
+export interface IKnownTransaction extends MempoolTransaction {
     readonly type: TransactionTypes;
     readonly version: Consensus;
+}
+
+export interface InvalidTransaction extends MempoolTransaction {
+    readonly error: string;
 }
 
 export interface KnownPSBTObject extends IKnownTransaction {
@@ -66,7 +74,7 @@ export class TransactionVerifierManager extends Logger {
     public async verify(
         tx: IMempoolTransactionObj,
         txData?: TransactionData,
-    ): Promise<IKnownTransaction | false> {
+    ): Promise<IKnownTransaction | InvalidTransaction> {
         const psbtType: TransactionTypes = tx.data[0];
 
         const verificator = this.verificator.find((v) =>
@@ -82,7 +90,10 @@ export class TransactionVerifierManager extends Logger {
             }
 
             if (!psbtOrTransaction) {
-                return false;
+                return {
+                    success: false,
+                    error: 'PSBTs are not allowed.',
+                };
             }
 
             return await verificator.verify(tx, psbtOrTransaction, txData);

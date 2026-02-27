@@ -11,6 +11,9 @@ import { OPNetConsensus } from '../../../../poc/configurations/OPNetConsensus.js
 const EXPIRED_TRANSACTION_ERROR: string =
     'Transaction was pending in the mempool for too long. It is no longer valid.';
 
+const MINER_SOLUTION_INVALID: string =
+    'The provided solution does not match any of the allowed challenges for the miner. The transaction is no longer valid.';
+
 const INVALID_MINER_CHALLENGE_ERROR: string =
     'The provided miner address does not have a valid challenge solution.';
 
@@ -37,17 +40,19 @@ export class TransactionFactory {
             //    return;
             //}
 
+            //console.log('allowedChallenges', allowedChallenges, 'miner', miner, toHex(miner));
+
             const hasMiner = allowedChallenges.solutions.get(miner);
             if (!hasMiner) {
                 throw new Error(EXPIRED_TRANSACTION_ERROR);
             }
 
-            const hasSolution = hasMiner.some((challenge) => {
+            const hasSolution = hasMiner.some((challenge: Uint8Array) => {
                 return equals(challenge, preimage);
             });
 
             if (!hasSolution) {
-                throw new Error(EXPIRED_TRANSACTION_ERROR);
+                throw new Error(MINER_SOLUTION_INVALID);
             }
 
             if (OPNetConsensus.allowUnsafeSignatures) {

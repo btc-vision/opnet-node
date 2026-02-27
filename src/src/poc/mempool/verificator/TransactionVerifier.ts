@@ -1,7 +1,10 @@
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { TransactionTypes } from '../transaction/TransactionTypes.js';
 import { Network, networks, Psbt, Transaction } from '@btc-vision/bitcoin';
-import { IKnownTransaction } from '../transaction/TransactionVerifierManager.js';
+import {
+    IKnownTransaction,
+    InvalidTransaction,
+} from '../transaction/TransactionVerifierManager.js';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
 import { BitcoinRPC, TransactionData } from '@btc-vision/bitcoin-rpc';
 
@@ -35,7 +38,7 @@ export abstract class TransactionVerifier<
         tx: IMempoolTransactionObj,
         data: Psbt | Transaction,
         txData?: TransactionData,
-    ): Promise<IKnownTransaction | false>;
+    ): Promise<IKnownTransaction | InvalidTransaction>;
 
     protected abstract onBlockChange(blockHeight: bigint): void | Promise<void>;
 

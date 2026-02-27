@@ -13,7 +13,10 @@ import {
 } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { OPNetBroadcastData } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
-import { TransactionVerifierManager } from '../transaction/TransactionVerifierManager.js';
+import {
+    InvalidTransaction,
+    TransactionVerifierManager,
+} from '../transaction/TransactionVerifierManager.js';
 import { BitcoinRPC, FeeEstimation, SmartFeeEstimation } from '@btc-vision/bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
@@ -200,7 +203,7 @@ export class Mempool extends Logger {
 
     private async watchBlockchain(): Promise<void> {
         this.blockchainInformationRepository.watchBlockChanges(async (blockHeight: bigint) => {
-            if (OPNetConsensus.getBlockHeight() < blockHeight) {
+            if (OPNetConsensus.getBlockHeight() <= blockHeight) {
                 await this.onBlockChange(blockHeight);
             }
 
@@ -218,6 +221,8 @@ export class Mempool extends Logger {
     private async onBlockChange(blockHeight: bigint): Promise<void> {
         try {
             OPNetConsensus.setBlockHeight(blockHeight);
+
+            this.log(`[MEM] Block changed to height ${blockHeight}`);
 
             await this.transactionVerifier.onBlockChange(blockHeight);
 
@@ -382,10 +387,10 @@ export class Mempool extends Logger {
         }
 
         const decodedTransaction = await this.transactionVerifier.verify(transaction);
-        if (!decodedTransaction) {
+        if (!decodedTransaction || !decodedTransaction.success) {
             return {
                 success: false,
-                result: 'Could not decode transaction.',
+                result: `Could not decode transaction (${(decodedTransaction as InvalidTransaction).error})`,
             };
         }
 
