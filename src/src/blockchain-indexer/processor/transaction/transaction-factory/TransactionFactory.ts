@@ -50,6 +50,8 @@ export class TransactionFactory {
             });
 
             if (!hasSolution) {
+                console.log(`hasMiner`, hasMiner);
+
                 throw new Error(MINER_SOLUTION_INVALID);
             }
 
