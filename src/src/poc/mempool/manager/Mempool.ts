@@ -7,23 +7,23 @@ import {
     BroadcastRequest,
     BroadcastResponse,
 } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
-import { RPCMessage, RPCMessageData, } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import {
-    BitcoinRPCThreadMessageType
-} from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
+    RPCMessage,
+    RPCMessageData,
+} from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
+import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
+import { OPNetBroadcastData } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 import {
-    OPNetBroadcastData
-} from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
-import { InvalidTransaction, TransactionVerifierManager, } from '../transaction/TransactionVerifierManager.js';
+    InvalidTransaction,
+    TransactionVerifierManager,
+} from '../transaction/TransactionVerifierManager.js';
 import { BitcoinRPC, FeeEstimation, SmartFeeEstimation } from '@btc-vision/bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
 import { Network, toHex } from '@btc-vision/bitcoin';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
-import {
-    OPNetTransactionTypes
-} from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
 import { TransactionSizeValidator } from '../data-validator/TransactionSizeValidator.js';

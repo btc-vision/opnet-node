@@ -63,10 +63,8 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
     }
 
     public async onBlockChange(blockHeight: bigint): Promise<void> {
-        this.log(`Block changed! ${blockHeight}`);
         await this.allowedChallenges; // Don't flood the database on quick block changes
 
-        this.log(`Loading allowed challenges for block height ${blockHeight}...`);
         this.allowedChallenges = this.epochRepository.getChallengeSolutionsAtHeight(blockHeight);
     }
 
@@ -86,7 +84,6 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
         let tx: KnownTransaction | InvalidTransaction;
         try {
             const solutions = await this.allowedChallenges;
-            console.log('solutions', solutions);
 
             const decoded = !txData ? this.toRawTransactionData(data) : txData;
             const opnetDecodedTransaction = this.transactionFactory.parseTransaction(
