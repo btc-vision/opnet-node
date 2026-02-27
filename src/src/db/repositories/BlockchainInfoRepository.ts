@@ -108,6 +108,8 @@ export class BlockchainInfoRepository extends BaseRepository<IBlockchainInformat
         }
 
         const blockHeight = BigInt(currentBlockNumber);
+        this.log(`Current block height for network ${network} is ${blockHeight}`);
+
         this.lastPolledBlockHeight = blockHeight;
         this.triggerBlockUpdateListeners(blockHeight);
     }
