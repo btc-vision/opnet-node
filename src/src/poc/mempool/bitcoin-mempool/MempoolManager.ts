@@ -123,10 +123,6 @@ export class MempoolManager extends Logger {
             try {
                 OPNetConsensus.setBlockHeight(blockHeight);
 
-                this.log(
-                    `Block height changed: ${blockHeight}. Triggering mempool transaction revalidation...`,
-                );
-
                 await this.transactionVerifier.onBlockChange(blockHeight);
             } catch {}
         });
