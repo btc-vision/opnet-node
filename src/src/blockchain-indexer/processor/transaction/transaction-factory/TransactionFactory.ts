@@ -46,6 +46,15 @@ export class TransactionFactory {
             }
 
             const hasSolution = hasMiner.some((challenge: Uint8Array) => {
+                console.log(
+                    'Received',
+                    preimage,
+                    toHex(preimage),
+                    'Comparing to',
+                    challenge,
+                    toHex(challenge),
+                );
+
                 return equals(challenge, preimage);
             });
 
