@@ -1,12 +1,4 @@
-import {
-    AnyBulkWriteOperation,
-    Binary,
-    ClientSession,
-    Collection,
-    Db,
-    Document,
-    Filter,
-} from 'mongodb';
+import { AnyBulkWriteOperation, Binary, ClientSession, Collection, Db, Document, Filter, } from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
@@ -61,7 +53,12 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 this.network,
             );
 
-            promises.push(this.getKeyInfo(addressOrPublicKeys[i], isPublicKey));
+            const isContract = AddressVerificator.isValidP2OPAddress(
+                addressOrPublicKeys[i],
+                this.network,
+            );
+
+            promises.push(this.getKeyInfo(addressOrPublicKeys[i], isPublicKey, isContract));
         }
 
         const results = await Promise.safeAll(promises);
@@ -372,6 +369,12 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             p2wpkh: publicKey.p2wpkh,
         };
 
+        if (publicKey.mldsaHashedPublicKey) {
+            base.mldsaHashedPublicKey = toHex(
+                new Uint8Array(publicKey.mldsaHashedPublicKey.buffer),
+            );
+        }
+
         if (publicKey.mldsa) {
             base.mldsaHashedPublicKey = toHex(
                 new Uint8Array(publicKey.mldsa.hashedPublicKey.buffer),
@@ -387,11 +390,14 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
     private async getKeyInfoFromContracts(
         key: string,
+        isPublicKey: boolean,
     ): Promise<PublicKeyWithMLDSA | IPubKeyNotFoundError> {
         try {
-            const filter: Filter<IContractDocument> = {
-                $or: [{ contractAddress: key }, { contractPublicKey: new Binary(fromHex(key)) }],
-            };
+            const filter: Filter<IContractDocument> = isPublicKey
+                ? {
+                      contractPublicKey: new Binary(fromHex(key)),
+                  }
+                : { contractAddress: key };
 
             const resp = await this.getContractCollection().findOne(filter, {
                 projection: {
@@ -405,7 +411,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             }
 
             return await this.convertContractObjectToPublicKeyDocument(resp);
-        } catch {
+        } catch (e) {
             return {
                 error: 'Public key not found',
             };
@@ -422,6 +428,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         const p2tr = this.tweakedPubKeyToAddress(contractPublicKeyBytes, this.network);
         const baseDocument: PublicKeyWithMLDSA = {
             tweakedPublicKey: contract.contractPublicKey as Binary,
+            mldsaHashedPublicKey: contract.contractPublicKey as Binary,
             p2tr,
             p2op: contract.contractAddress,
         };
@@ -461,6 +468,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     private async getKeyInfo(
         key: string,
         isPublicKey: boolean,
+        isContract: boolean,
     ): Promise<PublicKeyWithMLDSA | IPubKeyNotFoundError> {
         try {
             const filter: Filter<PublicKeyDocument> = {
@@ -475,13 +483,13 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
             return await this.getOneWithMLDSA(filter);
         } catch (e) {
-            if (!isPublicKey) {
+            if (!isContract) {
                 return {
                     error: 'Public key not found (invalid key format, for contract address)',
                 };
             }
 
-            return await this.getKeyInfoFromContracts(key);
+            return await this.getKeyInfoFromContracts(key, isPublicKey);
         }
     }
 
