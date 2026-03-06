@@ -8,7 +8,7 @@ export class UTXOsAggregation extends Aggregation {
         limit: boolean = true,
         optimize: boolean = false,
     ): Document[] {
-        const minValue: number = optimize ? 6000 : 330;
+        const minValue: number = optimize ? 1000 : 330;
 
         const aggregation: Document[] = [
             {
