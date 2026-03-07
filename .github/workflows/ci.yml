@@ -161,7 +161,7 @@ jobs:
           sha256sum "opnet-node-${VERSION}.zip" > "opnet-node-${VERSION}.zip.sha256"
 
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             opnet-node-${{ steps.version.outputs.git_tag }}.tar.gz
