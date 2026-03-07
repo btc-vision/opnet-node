@@ -1,7 +1,7 @@
 {
     "type": "module",
     "name": "@btc-vision/opnet-node",
-    "version": "1.0.0+testnet.1",
+    "version": "1.0.0+testnet.2",
     "description": "Bitcoin Smart Contracts Node",
     "main": "build/index.js",
     "scripts": {
@@ -12,7 +12,7 @@
         "setup": "npm i && npm run build"
     },
     "engines": {
-        "node": ">=22.0.0 <26.0.0"
+        "node": ">=24.0.0 <26.0.0"
     },
     "homepage": "https://opnet.org",
     "keywords": [
@@ -60,7 +60,7 @@
         "@btc-vision/op-vm": "^1.0.0-rc.1",
         "@btc-vision/plugin-sdk": "^1.0.1",
         "@btc-vision/post-quantum": "^0.5.3",
-        "@btc-vision/rust-merkle-tree": "^0.0.5",
+        "@btc-vision/rust-merkle-tree": "^1.0.2",
         "@btc-vision/transaction": "^1.8.0",
         "@btc-vision/uwebsockets.js": "^20.57.0",
         "@chainsafe/libp2p-noise": "^17.0.0",
