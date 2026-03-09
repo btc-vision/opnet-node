@@ -534,17 +534,14 @@ export class Mempool extends Logger {
             rawHexes.push(toHex(transaction.data));
         }
 
-        // Pre-validate all transactions with testMempoolAccept regardless of path.
-        // submitpackage is NOT atomic — parents accepted individually stay in the
-        // mempool even if a child fails. Pre-validation catches issues early so the
-        // caller knows the state before anything is broadcast.
+        // Pre-validate with testMempoolAccept (sends all txs in one call as a package).
         const testResults = await this.testMempoolAcceptBitcoinCore(rawHexes);
         if (!testResults) {
             return { success: false, error: 'testMempoolAccept failed', txResults: [] };
         }
 
         for (const result of testResults) {
-            if (!result.allowed) {
+            if (result.allowed === false) {
                 return {
                     success: false,
                     error: `Transaction ${result.txid} rejected: ${result['reject-reason'] ?? 'unknown'}`,
@@ -564,7 +561,7 @@ export class Mempool extends Logger {
                     return { success: true, packageResult, testResults, txResults };
                 }
 
-                // Package rejected, return error, let route decide to fallback
+                // Package rejected
                 return {
                     success: false,
                     error: packageResult?.package_msg ?? 'submitPackage failed',
@@ -574,7 +571,7 @@ export class Mempool extends Logger {
                 };
             } catch {
                 // submitPackage threw, fall back to sequential broadcast.
-                // testMempoolAccept already passed, so broadcast each tx directly.
+                // testMempoolAccept already passed, broadcast each tx directly.
                 const result = await this.broadcastTransactionsAfterTest(
                     transactions,
                     rawHexes,
@@ -584,11 +581,11 @@ export class Mempool extends Logger {
             }
         }
 
-        // Sequential path — testMempoolAccept already done, just broadcast.
+        // Sequential path — testMempoolAccept already passed, broadcast each tx.
         return await this.broadcastTransactionsAfterTest(transactions, rawHexes, testResults);
     }
 
-    /** Broadcast transactions one by one after testMempoolAccept has already passed. */
+    /** Broadcast transactions one by one. testMempoolAccept must have already passed. */
     private async broadcastTransactionsAfterTest(
         transactions: IMempoolTransactionObj[],
         rawHexes: string[],
