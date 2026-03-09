@@ -6,10 +6,9 @@ import {
     equals,
     fromHex,
     fromUtf8,
-    Bytes32,
     Network,
-    Script,
     Satoshi,
+    Script,
     script,
     Transaction as BitcoinTransaction,
 } from '@btc-vision/bitcoin';
@@ -272,6 +271,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         typeChecksum: Uint8Array,
     ): boolean {
         const checksum = this.getDataChecksum(scriptData);
+
         return equals(checksum, typeChecksum);
     }
 
@@ -279,6 +279,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         if (!buffer) {
             throw new Error('Buffer is undefined. Cannot decompress.');
         }
+
         const zlibHeader = buffer.subarray(0, 2);
         if (equals(zlibHeader, GZIP_HEADER)) {
             try {
@@ -286,6 +287,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
                     finishFlush: zlib.constants.Z_SYNC_FLUSH,
                     maxOutputLength: OPNetConsensus.consensus.COMPRESSION.MAX_DECOMPRESSED_SIZE,
                 });
+
                 return {
                     out: new Uint8Array(
                         decompressed.buffer,

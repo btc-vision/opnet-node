@@ -6,7 +6,16 @@ import {
     MLDSALinkRequest,
 } from '../features/Features.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
-import { alloc, concat, equals, fromHex, opcodes, payments, Script } from '@btc-vision/bitcoin';
+import {
+    alloc,
+    concat,
+    equals,
+    fromHex,
+    opcodes,
+    payments,
+    Script,
+    toHex,
+} from '@btc-vision/bitcoin';
 import { OPNetConsensus } from '../../../../poc/configurations/OPNetConsensus.js';
 import {
     Address,
@@ -456,7 +465,7 @@ export abstract class SharedInteractionParameters<
 
         if (data.length > 32 + 32 + OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {
             throw new Error(
-                `OP_NET: Invalid epoch submission feature data length. (${data.length} bytes)`,
+                `OP_NET: Invalid epoch submission feature data length. (${data.length} bytes [${data.length < 200 ? toHex(data) : ''}])`,
             );
         }
 
