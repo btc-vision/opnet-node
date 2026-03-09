@@ -31,6 +31,8 @@ export enum APIPacketType {
     TransactionReceiptResponse = 'TransactionReceiptResponse',
     BroadcastTransactionRequest = 'BroadcastTransactionRequest',
     BroadcastTransactionResponse = 'BroadcastTransactionResponse',
+    BroadcastTransactionPackageRequest = 'BroadcastTransactionPackageRequest',
+    BroadcastTransactionPackageResponse = 'BroadcastTransactionPackageResponse',
     GetPreimageRequest = 'GetPreimageRequest',
     PreimageResponse = 'PreimageResponse',
 

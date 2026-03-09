@@ -19,6 +19,7 @@ export enum WebSocketRequestOpcode {
     GET_TRANSACTION_BY_HASH = 0x20,
     GET_TRANSACTION_RECEIPT = 0x21,
     BROADCAST_TRANSACTION = 0x22,
+    BROADCAST_TRANSACTION_PACKAGE = 0x27,
     GET_PREIMAGE = 0x23,
 
     // Mempool Methods (0x24 - 0x2F)
@@ -80,6 +81,7 @@ export enum WebSocketResponseOpcode {
     TRANSACTION = 0xa0,
     TRANSACTION_RECEIPT = 0xa1,
     BROADCAST_RESULT = 0xa2,
+    BROADCAST_PACKAGE_RESULT = 0xa7,
     PREIMAGE = 0xa3,
     /** Response containing aggregate mempool statistics. */
     MEMPOOL_INFO = 0xa4,
@@ -142,6 +144,8 @@ export const RequestToResponseOpcode: Readonly<
     [WebSocketRequestOpcode.GET_TRANSACTION_BY_HASH]: WebSocketResponseOpcode.TRANSACTION,
     [WebSocketRequestOpcode.GET_TRANSACTION_RECEIPT]: WebSocketResponseOpcode.TRANSACTION_RECEIPT,
     [WebSocketRequestOpcode.BROADCAST_TRANSACTION]: WebSocketResponseOpcode.BROADCAST_RESULT,
+    [WebSocketRequestOpcode.BROADCAST_TRANSACTION_PACKAGE]:
+        WebSocketResponseOpcode.BROADCAST_PACKAGE_RESULT,
     [WebSocketRequestOpcode.GET_PREIMAGE]: WebSocketResponseOpcode.PREIMAGE,
 
     [WebSocketRequestOpcode.GET_MEMPOOL_INFO]: WebSocketResponseOpcode.MEMPOOL_INFO,
@@ -188,6 +192,7 @@ export const OpcodeNames: Readonly<Record<WebSocketOpcode, string>> = {
     [WebSocketRequestOpcode.GET_TRANSACTION_BY_HASH]: 'GET_TRANSACTION_BY_HASH',
     [WebSocketRequestOpcode.GET_TRANSACTION_RECEIPT]: 'GET_TRANSACTION_RECEIPT',
     [WebSocketRequestOpcode.BROADCAST_TRANSACTION]: 'BROADCAST_TRANSACTION',
+    [WebSocketRequestOpcode.BROADCAST_TRANSACTION_PACKAGE]: 'BROADCAST_TRANSACTION_PACKAGE',
     [WebSocketRequestOpcode.GET_PREIMAGE]: 'GET_PREIMAGE',
     [WebSocketRequestOpcode.GET_MEMPOOL_INFO]: 'GET_MEMPOOL_INFO',
     [WebSocketRequestOpcode.GET_PENDING_TRANSACTION]: 'GET_PENDING_TRANSACTION',
@@ -221,6 +226,7 @@ export const OpcodeNames: Readonly<Record<WebSocketOpcode, string>> = {
     [WebSocketResponseOpcode.TRANSACTION]: 'TRANSACTION',
     [WebSocketResponseOpcode.TRANSACTION_RECEIPT]: 'TRANSACTION_RECEIPT',
     [WebSocketResponseOpcode.BROADCAST_RESULT]: 'BROADCAST_RESULT',
+    [WebSocketResponseOpcode.BROADCAST_PACKAGE_RESULT]: 'BROADCAST_PACKAGE_RESULT',
     [WebSocketResponseOpcode.PREIMAGE]: 'PREIMAGE',
     [WebSocketResponseOpcode.MEMPOOL_INFO]: 'MEMPOOL_INFO',
     [WebSocketResponseOpcode.PENDING_TRANSACTION]: 'PENDING_TRANSACTION',

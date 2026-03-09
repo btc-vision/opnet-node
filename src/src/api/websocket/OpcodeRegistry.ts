@@ -2,11 +2,7 @@ import { Type } from 'protobufjs';
 import { APIProtobufLoader } from './proto/APIProtobufLoader.js';
 import { APIPacket, PackedMessage } from './packets/APIPacket.js';
 import { APIPacketType } from './packets/types/APIPacketTypes.js';
-import {
-    OpcodeNames,
-    WebSocketRequestOpcode,
-    WebSocketResponseOpcode,
-} from './types/opcodes/WebSocketOpcodes.js';
+import { OpcodeNames, WebSocketRequestOpcode, WebSocketResponseOpcode, } from './types/opcodes/WebSocketOpcodes.js';
 
 /**
  * Handler function type for processing incoming requests.
@@ -147,10 +143,17 @@ export class OpcodeRegistry extends APIProtobufLoader {
      * Validate that all opcodes have handlers registered
      */
     public validateHandlers(): void {
+        // PING and HANDSHAKE are handled directly by ProtocolHandler,
+        // not through the handler registry, exclude from validation.
+        const protocolOpcodes: Set<WebSocketRequestOpcode> = new Set([
+            WebSocketRequestOpcode.PING,
+            WebSocketRequestOpcode.HANDSHAKE,
+        ]);
+
         const missingHandlers: string[] = [];
 
         for (const [opcode, registration] of this.requestHandlers) {
-            if (registration.handler === null) {
+            if (registration.handler === null && !protocolOpcodes.has(opcode)) {
                 missingHandlers.push(OpcodeNames[opcode] ?? `0x${opcode.toString(16)}`);
             }
         }
@@ -265,6 +268,14 @@ export class OpcodeRegistry extends APIProtobufLoader {
         this.packetBuilders[APIPacketType.BroadcastTransactionResponse] = this.createPacket(
             APIPacketType.BroadcastTransactionResponse,
             WebSocketResponseOpcode.BROADCAST_RESULT,
+        );
+        this.packetBuilders[APIPacketType.BroadcastTransactionPackageRequest] = this.createPacket(
+            APIPacketType.BroadcastTransactionPackageRequest,
+            WebSocketRequestOpcode.BROADCAST_TRANSACTION_PACKAGE,
+        );
+        this.packetBuilders[APIPacketType.BroadcastTransactionPackageResponse] = this.createPacket(
+            APIPacketType.BroadcastTransactionPackageResponse,
+            WebSocketResponseOpcode.BROADCAST_PACKAGE_RESULT,
         );
         this.packetBuilders[APIPacketType.GetPreimageRequest] = this.createPacket(
             APIPacketType.GetPreimageRequest,
@@ -580,6 +591,12 @@ export class OpcodeRegistry extends APIProtobufLoader {
             APIPacketType.BroadcastTransactionRequest,
             APIPacketType.BroadcastTransactionResponse,
             WebSocketResponseOpcode.BROADCAST_RESULT,
+        );
+        register(
+            WebSocketRequestOpcode.BROADCAST_TRANSACTION_PACKAGE,
+            APIPacketType.BroadcastTransactionPackageRequest,
+            APIPacketType.BroadcastTransactionPackageResponse,
+            WebSocketResponseOpcode.BROADCAST_PACKAGE_RESULT,
         );
         register(
             WebSocketRequestOpcode.GET_PREIMAGE,

@@ -236,6 +236,31 @@ message BroadcastTransactionResponse {
 }
 
 // ============================================================================
+// Broadcast Transaction Package
+// ============================================================================
+
+message BroadcastTransactionPackageRequest {
+    uint32 requestId = 1;
+    repeated bytes transactions = 2;
+    bool isPackage = 3;
+}
+
+message SequentialTxResult {
+    string txid = 1;
+    bool success = 2;
+    optional string error = 3;
+}
+
+message BroadcastTransactionPackageResponse {
+    bool success = 1;
+    optional string error = 2;
+    repeated SequentialTxResult sequentialResults = 3;
+    optional bool fellBackToSequential = 4;
+    optional string testResultsJson = 5;
+    optional string packageResultJson = 6;
+}
+
+// ============================================================================
 // Preimage (matches PreimageResult)
 // ============================================================================
 

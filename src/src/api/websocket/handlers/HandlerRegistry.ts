@@ -14,6 +14,7 @@ import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/tra
 
 // Import typed request interfaces
 import {
+    BroadcastTransactionPackageRequest,
     BroadcastTransactionRequest,
     CallRequest,
     GetBalanceRequest,
@@ -56,6 +57,7 @@ import { GasRoute } from '../../routes/api/v1/block/GasRoute.js';
 import { TransactionByHash } from '../../routes/api/v1/transaction/TransactionByHash.js';
 import { TransactionReceipt } from '../../routes/api/v1/transaction/TransactionReceipt.js';
 import { BroadcastTransaction } from '../../routes/api/v1/transaction/BroadcastTransaction.js';
+import { BroadcastTransactionPackage } from '../../routes/api/v1/transaction/BroadcastTransactionPackage.js';
 import { GetPreimage } from '../../routes/api/v1/transaction/GetPreimage.js';
 import { GetBalanceRoute } from '../../routes/api/v1/address/GetBalanceRoute.js';
 import { UTXOsRoute } from '../../routes/api/v1/address/UTXOsRoute.js';
@@ -441,6 +443,46 @@ export class HandlerRegistry extends Logger {
                 }
 
                 return result;
+            },
+        );
+
+        // BROADCAST_TRANSACTION_PACKAGE
+        APIRegistry.registerHandler(
+            WebSocketRequestOpcode.BROADCAST_TRANSACTION_PACKAGE,
+            async (request: PackedMessage<BroadcastTransactionPackageRequest>) => {
+                const route = DefinedRoutes[
+                    Routes.BROADCAST_TRANSACTION_PACKAGE
+                ] as BroadcastTransactionPackage;
+
+                const txHexes: string[] = request.transactions.map((tx) =>
+                    tx instanceof Uint8Array
+                        ? toHex(tx)
+                        : toHex(new Uint8Array(tx)),
+                );
+
+                const result = await route.getData({
+                    txs: txHexes,
+                    isPackage: request.isPackage,
+                });
+
+                if (!result) {
+                    throw new WebSocketAPIError(InternalError.INTERNAL_ERROR);
+                }
+
+                // Serialize complex Bitcoin Core response objects as JSON strings
+                // for proto transport (hyphenated keys don't map to proto camelCase).
+                return {
+                    success: result.success,
+                    error: result.error,
+                    sequentialResults: result.sequentialResults,
+                    fellBackToSequential: result.fellBackToSequential,
+                    testResultsJson: result.testResults
+                        ? JSON.stringify(result.testResults)
+                        : undefined,
+                    packageResultJson: result.packageResult
+                        ? JSON.stringify(result.packageResult)
+                        : undefined,
+                };
             },
         );
 
