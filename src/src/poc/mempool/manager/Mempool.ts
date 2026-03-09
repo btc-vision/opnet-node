@@ -534,37 +534,10 @@ export class Mempool extends Logger {
             rawHexes.push(toHex(transaction.data));
         }
 
-        // Bitcoin Core broadcast
-        if (data.isPackage) {
-            try {
-                const packageResult = await this.submitPackageToBitcoinCore(rawHexes);
-                if (packageResult && packageResult.package_msg === 'success') {
-                    const txResults = await this.storeVerifiedTransactions(transactions);
-
-                    return { success: true, packageResult, txResults };
-                }
-
-                // Package rejected, return error, let route decide to fallback
-                return {
-                    success: false,
-                    error: packageResult?.package_msg ?? 'submitPackage failed',
-                    packageResult: packageResult ?? undefined,
-                    txResults: [],
-                };
-            } catch {
-                // submitPackage threw, fall back to sequential within MEMPOOL
-                const result = await this.broadcastTransactionsSequentially(transactions, rawHexes);
-                return { ...result, fellBackToSequential: true };
-            }
-        }
-
-        return await this.broadcastTransactionsSequentially(transactions, rawHexes);
-    }
-
-    private async broadcastTransactionsSequentially(
-        transactions: IMempoolTransactionObj[],
-        rawHexes: string[],
-    ): Promise<MempoolPackageBroadcastResponse> {
+        // Pre-validate all transactions with testMempoolAccept regardless of path.
+        // submitpackage is NOT atomic — parents accepted individually stay in the
+        // mempool even if a child fails. Pre-validation catches issues early so the
+        // caller knows the state before anything is broadcast.
         const testResults = await this.testMempoolAcceptBitcoinCore(rawHexes);
         if (!testResults) {
             return { success: false, error: 'testMempoolAccept failed', txResults: [] };
@@ -581,6 +554,46 @@ export class Mempool extends Logger {
             }
         }
 
+        // Bitcoin Core broadcast
+        if (data.isPackage) {
+            try {
+                const packageResult = await this.submitPackageToBitcoinCore(rawHexes);
+                if (packageResult && packageResult.package_msg === 'success') {
+                    const txResults = await this.storeVerifiedTransactions(transactions);
+
+                    return { success: true, packageResult, testResults, txResults };
+                }
+
+                // Package rejected, return error, let route decide to fallback
+                return {
+                    success: false,
+                    error: packageResult?.package_msg ?? 'submitPackage failed',
+                    packageResult: packageResult ?? undefined,
+                    testResults,
+                    txResults: [],
+                };
+            } catch {
+                // submitPackage threw, fall back to sequential broadcast.
+                // testMempoolAccept already passed, so broadcast each tx directly.
+                const result = await this.broadcastTransactionsAfterTest(
+                    transactions,
+                    rawHexes,
+                    testResults,
+                );
+                return { ...result, fellBackToSequential: true };
+            }
+        }
+
+        // Sequential path — testMempoolAccept already done, just broadcast.
+        return await this.broadcastTransactionsAfterTest(transactions, rawHexes, testResults);
+    }
+
+    /** Broadcast transactions one by one after testMempoolAccept has already passed. */
+    private async broadcastTransactionsAfterTest(
+        transactions: IMempoolTransactionObj[],
+        rawHexes: string[],
+        testResults: TestMempoolAcceptResult[],
+    ): Promise<MempoolPackageBroadcastResponse> {
         const txResults: PackageBroadcastTxResult[] = [];
 
         for (let i = 0; i < transactions.length; i++) {
