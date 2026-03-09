@@ -2,6 +2,10 @@ import { Request } from '@btc-vision/hyper-express/types/components/http/Request
 import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareNext.js';
 import { fromHex, Transaction } from '@btc-vision/bitcoin';
+import {
+    PackageResult,
+    TestMempoolAcceptResult,
+} from '@btc-vision/bitcoin-rpc';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
 import { Route } from '../../../Route.js';
@@ -10,6 +14,11 @@ import {
     BroadcastTransactionPackageParamsAsObject,
 } from '../../../../json-rpc/types/interfaces/params/transactions/BroadcastTransactionPackageParams.js';
 import {
+    ApiPackageResult,
+    ApiPackageTxFees,
+    ApiPackageTxResult,
+    ApiTestMempoolAcceptFees,
+    ApiTestMempoolAcceptResult,
     BroadcastTransactionPackageResult,
     SequentialBroadcastTxResult,
 } from '../../../../json-rpc/types/interfaces/results/transactions/BroadcastTransactionPackageResult.js';
@@ -22,6 +31,7 @@ import {
     BroadcastOPNetRequest,
     BroadcastPackageOPNetRequest,
     OPNetBroadcastData,
+    OPNetBroadcastResponse,
 } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 import { MempoolPackageBroadcastResponse } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionPackageOPNet.js';
 import { Config } from '../../../../../config/Config.js';
@@ -78,12 +88,21 @@ export class BroadcastTransactionPackage extends Route<
             // P2P propagation + WS notifications for each individually successful tx,
             // regardless of overall success (partial sequential failures still have
             // earlier txs that succeeded and need propagation).
+            // Collect per-tx peer counts from P2P broadcast.
+            const peersByTxid = new Map<string, number>();
+
             for (const txResult of mempoolResult.txResults) {
                 if (!txResult.success) continue;
 
                 const parsed = parsedTxs.find((t) => t.id === txResult.txid);
                 if (parsed) {
-                    await this.broadcastOPNetTransaction(parsed.raw, txResult.txid);
+                    const peers = await this.broadcastOPNetTransaction(
+                        parsed.raw,
+                        txResult.txid,
+                    );
+                    if (peers !== undefined) {
+                        peersByTxid.set(txResult.txid, peers);
+                    }
                 }
 
                 this.notifyMempoolTransaction(txResult.txid, txResult.transactionType);
@@ -95,14 +114,19 @@ export class BroadcastTransactionPackage extends Route<
                     txid: r.txid,
                     success: r.success,
                     error: r.error,
+                    peers: peersByTxid.get(r.txid),
                 }),
             );
 
             return {
                 success: mempoolResult.success,
                 error: mempoolResult.error,
-                packageResult: mempoolResult.packageResult,
-                testResults: mempoolResult.testResults,
+                packageResult: mempoolResult.packageResult
+                    ? convertPackageResult(mempoolResult.packageResult)
+                    : undefined,
+                testResults: mempoolResult.testResults
+                    ? convertTestResults(mempoolResult.testResults)
+                    : undefined,
                 sequentialResults: sequentialResults.length > 0 ? sequentialResults : undefined,
                 fellBackToSequential: mempoolResult.fellBackToSequential,
             };
@@ -250,8 +274,11 @@ export class BroadcastTransactionPackage extends Route<
             | undefined;
     }
 
-    /** Send to P2P thread for OPNet network propagation. */
-    private async broadcastOPNetTransaction(data: Uint8Array, id: string): Promise<void> {
+    /** Send to P2P thread for OPNet network propagation. Returns peer count on success. */
+    private async broadcastOPNetTransaction(
+        data: Uint8Array,
+        id: string,
+    ): Promise<number | undefined> {
         const msg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> = {
             type: MessageType.RPC_METHOD,
             data: {
@@ -265,10 +292,16 @@ export class BroadcastTransactionPackage extends Route<
         };
 
         try {
-            await ServerThread.sendMessageToThread(ThreadTypes.P2P, msg);
+            const result = (await ServerThread.sendMessageToThread(
+                ThreadTypes.P2P,
+                msg,
+            )) as OPNetBroadcastResponse | undefined;
+
+            return result?.peers;
         } catch (e) {
             const errorDetails = e instanceof Error ? (e.stack ?? e.message) : String(e);
             this.error(`Failed to propagate transaction ${id} to P2P: ${errorDetails}`);
+            return undefined;
         }
     }
 
@@ -301,4 +334,59 @@ export class BroadcastTransactionPackage extends Route<
             return [params.txs, params.isPackage !== false];
         }
     }
+}
+
+/** Convert Bitcoin Core TestMempoolAcceptResult[] from hyphenated to camelCase keys. */
+function convertTestResults(
+    results: TestMempoolAcceptResult[],
+): ApiTestMempoolAcceptResult[] {
+    return results.map((r) => {
+        const fees: ApiTestMempoolAcceptFees | undefined = r.fees
+            ? {
+                  base: r.fees.base,
+                  effectiveFeerate: r.fees['effective-feerate'],
+                  effectiveIncludes: r.fees['effective-includes'],
+              }
+            : undefined;
+
+        return {
+            txid: r.txid,
+            wtxid: r.wtxid,
+            packageError: r['package-error'],
+            allowed: r.allowed,
+            vsize: r.vsize,
+            fees,
+            rejectReason: r['reject-reason'],
+            rejectDetails: r['reject-details'],
+        };
+    });
+}
+
+/** Convert Bitcoin Core PackageResult from hyphenated to camelCase keys. */
+function convertPackageResult(pkg: PackageResult): ApiPackageResult {
+    const txResults: { [wtxid: string]: ApiPackageTxResult } = {};
+
+    for (const [wtxid, txResult] of Object.entries(pkg['tx-results'])) {
+        const fees: ApiPackageTxFees | undefined = txResult.fees
+            ? {
+                  base: txResult.fees.base,
+                  effectiveFeerate: txResult.fees['effective-feerate'],
+                  effectiveIncludes: txResult.fees['effective-includes'],
+              }
+            : undefined;
+
+        txResults[wtxid] = {
+            txid: txResult.txid,
+            otherWtxid: txResult['other-wtxid'],
+            vsize: txResult.vsize,
+            fees,
+            error: txResult.error,
+        };
+    }
+
+    return {
+        packageMsg: pkg.package_msg,
+        txResults,
+        replacedTransactions: pkg['replaced-transactions'],
+    };
 }

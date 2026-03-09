@@ -469,19 +469,13 @@ export class HandlerRegistry extends Logger {
                     throw new WebSocketAPIError(InternalError.INTERNAL_ERROR);
                 }
 
-                // Serialize complex Bitcoin Core response objects as JSON strings
-                // for proto transport (hyphenated keys don't map to proto camelCase).
                 return {
                     success: result.success,
                     error: result.error,
                     sequentialResults: result.sequentialResults,
                     fellBackToSequential: result.fellBackToSequential,
-                    testResultsJson: result.testResults
-                        ? JSON.stringify(result.testResults)
-                        : undefined,
-                    packageResultJson: result.packageResult
-                        ? JSON.stringify(result.packageResult)
-                        : undefined,
+                    testResults: result.testResults,
+                    packageResult: result.packageResult,
                 };
             },
         );
