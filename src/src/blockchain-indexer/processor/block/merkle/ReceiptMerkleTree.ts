@@ -83,6 +83,8 @@ export class ReceiptMerkleTree extends MerkleTree<string, Uint8Array> {
             return;
         }
 
+        console.trace('wot');
+
         console.log(
             'updateValue!',
             transactionId,
