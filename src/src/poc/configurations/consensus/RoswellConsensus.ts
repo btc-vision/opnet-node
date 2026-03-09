@@ -99,12 +99,12 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     },
 
     COMPRESSION: {
-        MAX_DECOMPRESSED_SIZE: Math.ceil(1024 * 1024 * 2), // max is 2MB decompressed.
+        MAX_DECOMPRESSED_SIZE: Math.ceil(1024 * 1024 * 2), // Max is 2MB decompressed.
     },
 
     NETWORK: {
         /** Networking */
-        MAXIMUM_TRANSACTION_BROADCAST_SIZE: 400_000, // Cap to 400KO.
+        MAXIMUM_TRANSACTION_BROADCAST_SIZE: 400_000, // Cap to 400Kb.
 
         PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE: 0, // Disabled.
     },

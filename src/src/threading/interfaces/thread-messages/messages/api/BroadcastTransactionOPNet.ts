@@ -16,3 +16,13 @@ export interface BroadcastOPNetRequest extends RPCMessageData<BitcoinRPCThreadMe
     readonly rpcMethod: BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET;
     readonly data: OPNetBroadcastData;
 }
+
+export interface OPNetPackageBroadcastData {
+    readonly txs: ReadonlyArray<{ readonly raw: Uint8Array; readonly id: string }>;
+    readonly isPackage: boolean;
+}
+
+export interface BroadcastPackageOPNetRequest extends RPCMessageData<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_PACKAGE_OPNET> {
+    readonly rpcMethod: BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_PACKAGE_OPNET;
+    readonly data: OPNetPackageBroadcastData;
+}

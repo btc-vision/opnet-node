@@ -19,10 +19,10 @@ import { MessageType } from '../../../../../threading/enum/MessageType.js';
 import { ServerThread } from '../../../../ServerThread.js';
 import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.js';
 import {
+    BroadcastOPNetRequest,
     BroadcastPackageOPNetRequest,
     OPNetBroadcastData,
 } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
-import { BroadcastOPNetRequest } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 import { MempoolPackageBroadcastResponse } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionPackageOPNet.js';
 import { Config } from '../../../../../config/Config.js';
 import { WSManager } from '../../../../websocket/WebSocketManager.js';
@@ -64,7 +64,7 @@ export class BroadcastTransactionPackage extends Route<
                 parsedTxs.push({ raw: parsedData, id: tx.getId(), rawHex });
             }
 
-            // Send to MEMPOOL thread — handles OPNet verify/decode, Bitcoin Core
+            // Send to MEMPOOL thread, handles OPNet verify/decode, Bitcoin Core
             // broadcast (submitPackage or testMempoolAccept+sendRawTransaction),
             // and MongoDB storage. All in one shot.
             const mempoolResult = await this.sendToMempool(parsedTxs, isPackage);
@@ -251,10 +251,7 @@ export class BroadcastTransactionPackage extends Route<
     }
 
     /** Send to P2P thread for OPNet network propagation. */
-    private async broadcastOPNetTransaction(
-        data: Uint8Array,
-        id: string,
-    ): Promise<void> {
+    private async broadcastOPNetTransaction(data: Uint8Array, id: string): Promise<void> {
         const msg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> = {
             type: MessageType.RPC_METHOD,
             data: {
@@ -276,10 +273,7 @@ export class BroadcastTransactionPackage extends Route<
     }
 
     /** Notify WS subscribers and other API threads of a new mempool transaction. */
-    private notifyMempoolTransaction(
-        txId: string,
-        transactionType?: OPNetTransactionTypes,
-    ): void {
+    private notifyMempoolTransaction(txId: string, transactionType?: OPNetTransactionTypes): void {
         const txType = transactionType ?? OPNetTransactionTypes.Generic;
 
         WSManager.onMempoolTransaction(txId, txType);
@@ -292,20 +286,15 @@ export class BroadcastTransactionPackage extends Route<
             },
         };
 
-        void ServerThread.sendMessageToAllThreads(
-            ThreadTypes.API,
-            notification,
-        ).catch((e: unknown) => {
-            const errorDetails = e instanceof Error ? (e.stack ?? e.message) : String(e);
-            this.error(
-                `Failed to notify API threads of mempool transaction: ${errorDetails}`,
-            );
-        });
+        void ServerThread.sendMessageToAllThreads(ThreadTypes.API, notification).catch(
+            (e: unknown) => {
+                const errorDetails = e instanceof Error ? (e.stack ?? e.message) : String(e);
+                this.error(`Failed to notify API threads of mempool transaction: ${errorDetails}`);
+            },
+        );
     }
 
-    private getDecodedParams(
-        params: BroadcastTransactionPackageParams,
-    ): [string[], boolean] {
+    private getDecodedParams(params: BroadcastTransactionPackageParams): [string[], boolean] {
         if (Array.isArray(params)) {
             return [params[0], params[1] !== false];
         } else {

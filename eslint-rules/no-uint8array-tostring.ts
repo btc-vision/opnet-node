@@ -10,7 +10,7 @@ function hasOwnToString(type: ts.Type): boolean {
 
     for (const decl of declarations) {
         const sourceFile = decl.getSourceFile();
-        // Skip Uint8Array's own toString — we only care about user-defined overrides
+        // Skip Uint8Array's own toString, we only care about user-defined overrides
         if (sourceFile.fileName.includes('lib.es') || sourceFile.fileName.includes('lib.dom')) {
             continue;
         }
@@ -49,7 +49,10 @@ function isUint8ArrayType(type: ts.Type, checker: ts.TypeChecker): boolean {
     }
 
     if (type.isUnion()) {
-        return type.types.length > 0 && type.types.every((subType) => isUint8ArrayType(subType, checker));
+        return (
+            type.types.length > 0 &&
+            type.types.every((subType) => isUint8ArrayType(subType, checker))
+        );
     }
 
     const constraint = type.getConstraint?.();
@@ -60,7 +63,9 @@ function isUint8ArrayType(type: ts.Type, checker: ts.TypeChecker): boolean {
     return false;
 }
 
-const createRule = ESLintUtils.RuleCreator((name) => `https://github.com/btc-vision/eslint-rules#${name}`);
+const createRule = ESLintUtils.RuleCreator(
+    (name) => `https://github.com/btc-vision/eslint-rules#${name}`,
+);
 
 const rule = createRule({
     name: 'no-uint8array-tostring',
@@ -68,14 +73,14 @@ const rule = createRule({
         type: 'problem',
         docs: {
             description:
-                'Disallow .toString() on Uint8Array and branded types (Script, Bytes32, etc.) which produces comma-separated decimals instead of hex'
+                'Disallow .toString() on Uint8Array and branded types (Script, Bytes32, etc.) which produces comma-separated decimals instead of hex',
         },
         messages: {
             noUint8ArrayToString:
                 '{{typeName}}.toString() returns comma-separated decimals (e.g. "0,32,70,107"), not a hex string. ' +
-                'Use Buffer.from(arr).toString("hex") or toHex() instead.'
+                'Use Buffer.from(arr).toString("hex") or toHex() instead.',
         },
-        schema: []
+        schema: [],
     },
     defaultOptions: [],
     create(context) {
@@ -102,22 +107,22 @@ const rule = createRule({
                     context.report({
                         node,
                         messageId: 'noUint8ArrayToString',
-                        data: { typeName }
+                        data: { typeName },
                     });
                 }
-            }
+            },
         };
-    }
+    },
 });
 
 const plugin = {
     meta: {
         name: 'eslint-plugin-no-uint8array-tostring',
-        version: '1.0.0'
+        version: '1.0.0',
     },
     rules: {
-        'no-uint8array-tostring': rule
-    }
+        'no-uint8array-tostring': rule,
+    },
 };
 
 export default plugin;

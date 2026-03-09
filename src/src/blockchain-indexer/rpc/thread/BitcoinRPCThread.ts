@@ -26,6 +26,11 @@ import {
     BroadcastRequest,
     BroadcastResponse,
 } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
+import {
+    SubmitPackageRequest,
+    TestMempoolAcceptRequest,
+} from '../../../threading/interfaces/thread-messages/messages/api/PackageRequest.js';
+import { PackageResult, TestMempoolAcceptResult } from '@btc-vision/bitcoin-rpc';
 import { RPCSubWorkerManager } from './RPCSubWorkerManager.js';
 import { PointerStorageMap } from '../../../vm/evaluated/EvaluatedResult.js';
 import { NetEvent } from '@btc-vision/transaction';
@@ -249,6 +254,18 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
         return response;
     }
 
+    private async testMempoolAccept(
+        data: TestMempoolAcceptRequest,
+    ): Promise<TestMempoolAcceptResult[]> {
+        return await this.bitcoinRPC.testMempoolAccept(data.data.rawtxs);
+    }
+
+    private async submitPackage(
+        data: SubmitPackageRequest,
+    ): Promise<PackageResult | null> {
+        return await this.bitcoinRPC.submitPackage(data.data.packageTxs);
+    }
+
     private getChecksumProofs(rawProofs: ChecksumProof[]): BlockHeaderChecksumProof {
         const proofs: BlockHeaderChecksumProof = [];
 
@@ -299,6 +316,24 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
                         error: 'Error broadcasting transaction',
                         identifier: 0n,
                     };
+                }
+            }
+
+            case BitcoinRPCThreadMessageType.TEST_MEMPOOL_ACCEPT: {
+                try {
+                    return await this.testMempoolAccept(message.data as TestMempoolAcceptRequest);
+                } catch (e) {
+                    this.error(`Error in testMempoolAccept: ${e}`);
+                    return undefined;
+                }
+            }
+
+            case BitcoinRPCThreadMessageType.SUBMIT_PACKAGE: {
+                try {
+                    return await this.submitPackage(message.data as SubmitPackageRequest);
+                } catch (e) {
+                    this.error(`Error in submitPackage: ${e}`);
+                    return undefined;
                 }
             }
 
