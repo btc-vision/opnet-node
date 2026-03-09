@@ -7,23 +7,38 @@ import {
     BroadcastRequest,
     BroadcastResponse,
 } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
+import { RPCMessage, RPCMessageData, } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import {
-    RPCMessage,
-    RPCMessageData,
-} from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
-import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
-import { OPNetBroadcastData } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
+    BitcoinRPCThreadMessageType
+} from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import {
-    InvalidTransaction,
-    TransactionVerifierManager,
-} from '../transaction/TransactionVerifierManager.js';
-import { BitcoinRPC, FeeEstimation, SmartFeeEstimation } from '@btc-vision/bitcoin-rpc';
+    OPNetBroadcastData,
+    OPNetPackageBroadcastData,
+} from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
+import {
+    MempoolPackageBroadcastResponse,
+    PackageBroadcastTxResult,
+} from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionPackageOPNet.js';
+import {
+    SubmitPackageRequest,
+    TestMempoolAcceptRequest,
+} from '../../../threading/interfaces/thread-messages/messages/api/PackageRequest.js';
+import {
+    BitcoinRPC,
+    FeeEstimation,
+    PackageResult,
+    SmartFeeEstimation,
+    TestMempoolAcceptResult,
+} from '@btc-vision/bitcoin-rpc';
+import { InvalidTransaction, TransactionVerifierManager, } from '../transaction/TransactionVerifierManager.js';
 import { Config } from '../../../config/Config.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
 import { Network, toHex } from '@btc-vision/bitcoin';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
-import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import {
+    OPNetTransactionTypes
+} from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
 import { TransactionSizeValidator } from '../data-validator/TransactionSizeValidator.js';
@@ -288,6 +303,10 @@ export class Mempool extends Logger {
                 return await this.onTransactionReceived(m.data as OPNetBroadcastData);
             }
 
+            case BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_PACKAGE_OPNET: {
+                return await this.onTransactionPackageReceived(m.data as OPNetPackageBroadcastData);
+            }
+
             case BitcoinRPCThreadMessageType.GET_MEMPOOL_FEES: {
                 return this.onMempoolFeesRequest();
             }
@@ -458,6 +477,223 @@ export class Mempool extends Logger {
         }
 
         return all;
+    }
+
+    private async onTransactionPackageReceived(
+        data: OPNetPackageBroadcastData,
+    ): Promise<ThreadData> {
+        if (!OPNetConsensus.hasConsensus()) {
+            return { success: false, error: 'Consensus not reached', txResults: [] };
+        }
+
+        if (Config.MEMPOOL.PREVENT_TX_BROADCAST_IF_NOT_SYNCED) {
+            if (!this.fullSync) {
+                return { success: false, error: 'Node not synchronized', txResults: [] };
+            }
+        }
+
+        const transactions: IMempoolTransactionObj[] = [];
+        const rawHexes: string[] = [];
+
+        // Verify/decode every tx before any Bitcoin Core interaction
+        for (const txData of data.txs) {
+            if (this.transactionSizeValidator.verifyTransactionSize(txData.raw.byteLength, false)) {
+                return { success: false, error: 'Transaction too large', txResults: [] };
+            }
+
+            const transaction: IMempoolTransactionObj = {
+                id: txData.id,
+                psbt: false,
+                transactionType: OPNetTransactionTypes.Generic,
+                data: txData.raw,
+                firstSeen: new Date(),
+                blockHeight: OPNetConsensus.getBlockHeight(),
+                inputs: [],
+                outputs: [],
+            };
+
+            const exist = await this.mempoolRepository.hasTransactionById(transaction.id);
+            if (exist) {
+                return {
+                    success: false,
+                    error: `Transaction ${txData.id} already in mempool`,
+                    txResults: [],
+                };
+            }
+
+            const decoded = await this.transactionVerifier.verify(transaction);
+            if (!decoded || !decoded.success) {
+                return {
+                    success: false,
+                    error: `Could not decode transaction ${txData.id} (${(decoded as InvalidTransaction).error})`,
+                    txResults: [],
+                };
+            }
+
+            transactions.push(transaction);
+            rawHexes.push(toHex(transaction.data));
+        }
+
+        // Pre-validate with testMempoolAccept (sends all txs in one call as a package).
+        const testResults = await this.testMempoolAcceptBitcoinCore(rawHexes);
+        if (!testResults) {
+            return { success: false, error: 'testMempoolAccept failed', txResults: [] };
+        }
+
+        for (const result of testResults) {
+            if (result.allowed === false) {
+                return {
+                    success: false,
+                    error: `Transaction ${result.txid} rejected: ${result['reject-reason'] ?? 'unknown'}`,
+                    testResults,
+                    txResults: [],
+                };
+            }
+        }
+
+        // Bitcoin Core broadcast
+        if (data.isPackage) {
+            try {
+                const packageResult = await this.submitPackageToBitcoinCore(rawHexes);
+                if (packageResult && packageResult.package_msg === 'success') {
+                    const txResults = await this.storeVerifiedTransactions(transactions);
+
+                    return { success: true, packageResult, testResults, txResults };
+                }
+
+                // Package rejected
+                return {
+                    success: false,
+                    error: packageResult?.package_msg ?? 'submitPackage failed',
+                    packageResult: packageResult ?? undefined,
+                    testResults,
+                    txResults: [],
+                };
+            } catch {
+                // submitPackage threw, fall back to sequential broadcast.
+                // testMempoolAccept already passed, broadcast each tx directly.
+                const result = await this.broadcastTransactionsAfterTest(
+                    transactions,
+                    rawHexes,
+                    testResults,
+                );
+                return { ...result, fellBackToSequential: true };
+            }
+        }
+
+        // Sequential path — testMempoolAccept already passed, broadcast each tx.
+        return await this.broadcastTransactionsAfterTest(transactions, rawHexes, testResults);
+    }
+
+    /** Broadcast transactions one by one. testMempoolAccept must have already passed. */
+    private async broadcastTransactionsAfterTest(
+        transactions: IMempoolTransactionObj[],
+        rawHexes: string[],
+        testResults: TestMempoolAcceptResult[],
+    ): Promise<MempoolPackageBroadcastResponse> {
+        const txResults: PackageBroadcastTxResult[] = [];
+
+        for (let i = 0; i < transactions.length; i++) {
+            const broadcast = await this.broadcastBitcoinTransaction(rawHexes[i]);
+
+            if (!broadcast || !broadcast.result) {
+                txResults.push({
+                    txid: transactions[i].id,
+                    success: false,
+                    error: broadcast?.error ?? 'Broadcast failed',
+                    transactionType: transactions[i].transactionType,
+                });
+
+                return {
+                    success: false,
+                    error: 'Sequential broadcast halted on failure',
+                    testResults,
+                    txResults,
+                };
+            }
+
+            transactions[i].id = broadcast.result;
+            parseAndStoreInputOutputs(transactions[i].data, transactions[i]);
+
+            const stored = await this.mempoolRepository.storeTransaction(transactions[i]);
+            if (stored) {
+                await this.cleanupEvictedTransactions(transactions[i]);
+            }
+
+            // Tx is in Bitcoin Core regardless of storage outcome, mark as success.
+            txResults.push({
+                txid: broadcast.result,
+                success: true,
+                transactionType: transactions[i].transactionType,
+            });
+        }
+
+        return { success: true, testResults, txResults };
+    }
+
+    private async storeVerifiedTransactions(
+        transactions: IMempoolTransactionObj[],
+    ): Promise<PackageBroadcastTxResult[]> {
+        const results: PackageBroadcastTxResult[] = [];
+
+        for (const tx of transactions) {
+            parseAndStoreInputOutputs(tx.data, tx);
+
+            const stored = await this.mempoolRepository.storeTransaction(tx);
+            if (stored) {
+                await this.cleanupEvictedTransactions(tx);
+            }
+
+            results.push({
+                txid: tx.id,
+                success: stored,
+                error: stored ? undefined : 'Could not store in mempool',
+                transactionType: tx.transactionType,
+            });
+        }
+
+        return results;
+    }
+
+    private async submitPackageToBitcoinCore(rawHexes: string[]): Promise<PackageResult | null> {
+        const msg: RPCMessage<BitcoinRPCThreadMessageType.SUBMIT_PACKAGE> = {
+            type: MessageType.RPC_METHOD,
+            data: {
+                rpcMethod: BitcoinRPCThreadMessageType.SUBMIT_PACKAGE,
+                data: {
+                    packageTxs: rawHexes,
+                },
+            } as SubmitPackageRequest,
+        };
+
+        const result = (await this.sendMessageToThread(
+            ThreadTypes.RPC,
+            msg,
+        )) as PackageResult | null;
+
+        if (!result) {
+            throw new Error('submitPackage RPC returned no result');
+        }
+
+        return result;
+    }
+
+    private async testMempoolAcceptBitcoinCore(
+        rawHexes: string[],
+    ): Promise<TestMempoolAcceptResult[] | null> {
+        const msg: RPCMessage<BitcoinRPCThreadMessageType.TEST_MEMPOOL_ACCEPT> = {
+            type: MessageType.RPC_METHOD,
+            data: {
+                rpcMethod: BitcoinRPCThreadMessageType.TEST_MEMPOOL_ACCEPT,
+                data: {
+                    rawtxs: rawHexes,
+                },
+            } as TestMempoolAcceptRequest,
+        };
+
+        return (await this.sendMessageToThread(ThreadTypes.RPC, msg)) as
+            | TestMempoolAcceptResult[]
+            | null;
     }
 
     private async broadcastBitcoinTransaction(

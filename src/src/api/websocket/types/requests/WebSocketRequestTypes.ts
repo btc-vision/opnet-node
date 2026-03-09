@@ -64,6 +64,11 @@ export interface BroadcastTransactionRequest extends BaseRequest {
     readonly psbt: boolean;
 }
 
+export interface BroadcastTransactionPackageRequest extends BaseRequest {
+    readonly transactions: Uint8Array[];
+    readonly isPackage: boolean;
+}
+
 export interface GetPreimageRequest extends BaseRequest {}
 
 // ============================================================================

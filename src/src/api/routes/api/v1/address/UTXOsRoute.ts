@@ -136,7 +136,7 @@ export class UTXOsRoute extends Route<
         let olderThan;
         if (isArray) {
             const param = params.shift();
-            if (typeof param === 'string') {
+            if (typeof param === 'string' || typeof param === 'number') {
                 olderThan = BigInt(param);
             }
         } else {

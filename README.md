@@ -250,7 +250,7 @@ To understand how this works, you need to grasp the distinction between consensu
   indexing, you just have two different opinions and no way to determine which is correct.
 
 Bitcoin itself achieves consensus on transactions through proof-of-work. OP_NET implements consensus by embedding
-everything directly in Bitcoin's blockchain—the actual contract bytecode, function parameters, and execution data—all
+everything directly in Bitcoin's blockchain, the actual contract bytecode, function parameters, and execution data, all
 embedded in Bitcoin transactions that get confirmed by Bitcoin miners.
 
 ### The OP_NET Consensus Model: PoC + PoW

@@ -236,6 +236,69 @@ message BroadcastTransactionResponse {
 }
 
 // ============================================================================
+// Broadcast Transaction Package
+// ============================================================================
+
+message BroadcastTransactionPackageRequest {
+    uint32 requestId = 1;
+    repeated bytes transactions = 2;
+    bool isPackage = 3;
+}
+
+message SequentialTxResult {
+    string txid = 1;
+    bool success = 2;
+    optional string error = 3;
+    optional uint32 peers = 4;
+}
+
+message TestMempoolAcceptFees {
+    double base = 1;
+    double effectiveFeerate = 2;
+    repeated string effectiveIncludes = 3;
+}
+
+message TestMempoolAcceptResultMsg {
+    string txid = 1;
+    string wtxid = 2;
+    optional string packageError = 3;
+    optional bool allowed = 4;
+    optional uint32 vsize = 5;
+    optional TestMempoolAcceptFees fees = 6;
+    optional string rejectReason = 7;
+    optional string rejectDetails = 8;
+}
+
+message PackageTxFees {
+    double base = 1;
+    optional double effectiveFeerate = 2;
+    repeated string effectiveIncludes = 3;
+}
+
+message PackageTxResultMsg {
+    string txid = 1;
+    optional string otherWtxid = 2;
+    optional uint32 vsize = 3;
+    optional PackageTxFees fees = 4;
+    optional string error = 5;
+}
+
+message PackageResultMsg {
+    string packageMsg = 1;
+    map<string, PackageTxResultMsg> txResults = 2;
+    repeated string replacedTransactions = 3;
+}
+
+message BroadcastTransactionPackageResponse {
+    bool success = 1;
+    optional string error = 2;
+    repeated SequentialTxResult sequentialResults = 3;
+    optional bool fellBackToSequential = 4;
+    repeated TestMempoolAcceptResultMsg testResults = 5;
+    optional PackageResultMsg packageResult = 6;
+}
+
+// ============================================================================
 // Preimage (matches PreimageResult)
 // ============================================================================
 

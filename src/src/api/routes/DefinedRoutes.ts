@@ -19,6 +19,7 @@ import { TransactionByHash } from './api/v1/transaction/TransactionByHash.js';
 import { TransactionReceipt } from './api/v1/transaction/TransactionReceipt.js';
 import { Route } from './Route.js';
 import { BroadcastTransaction } from './api/v1/transaction/BroadcastTransaction.js';
+import { BroadcastTransactionPackage } from './api/v1/transaction/BroadcastTransactionPackage.js';
 import { GasRoute } from './api/v1/block/GasRoute.js';
 import { PublicKeyInfoRoute } from './api/v1/address/PublicKeyInfoRoute.js';
 import { GetPreimage } from './api/v1/transaction/GetPreimage.js';
@@ -68,6 +69,7 @@ export const DefinedRoutes: {
     [Routes.TRANSACTION_BY_HASH]: new TransactionByHash(),
     [Routes.TRANSACTION_RECEIPT]: new TransactionReceipt(),
     [Routes.BROADCAST_TRANSACTION]: new BroadcastTransaction(),
+    [Routes.BROADCAST_TRANSACTION_PACKAGE]: new BroadcastTransactionPackage(),
     [Routes.TRANSACTION_PREIMAGE]: new GetPreimage(),
 
     /** Mempool */
