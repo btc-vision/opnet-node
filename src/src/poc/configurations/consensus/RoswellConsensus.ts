@@ -82,7 +82,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
     CONTRACTS: {
         /** The maximum size of a calldata in bytes. */
-        MAXIMUM_CONTRACT_SIZE_COMPRESSED: 512 * 1024, // max is 128Ko compressed.
+        MAXIMUM_CONTRACT_SIZE_COMPRESSED: 1536 * 1024, // max is 1.5MB compressed.
 
         /** The maximum size of calldata in bytes. */
         MAXIMUM_CALLDATA_SIZE_COMPRESSED: 380 * 1024, // max is 380Ko compressed.
@@ -99,7 +99,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     },
 
     COMPRESSION: {
-        MAX_DECOMPRESSED_SIZE: Math.ceil(1024 * 1024 * 1.5), // max is 1.5MB decompressed.
+        MAX_DECOMPRESSED_SIZE: Math.ceil(1024 * 1024 * 2), // max is 2MB decompressed.
     },
 
     NETWORK: {
