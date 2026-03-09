@@ -83,6 +83,14 @@ export class ReceiptMerkleTree extends MerkleTree<string, Uint8Array> {
             return;
         }
 
+        console.log(
+            'updateValue!',
+            transactionId,
+            result,
+            Buffer.from(result),
+            new Uint8Array(result),
+        );
+
         map.set(transactionId, new Uint8Array(result));
         this.valueChanged = true;
     }
@@ -185,6 +193,8 @@ export class ReceiptMerkleTree extends MerkleTree<string, Uint8Array> {
 
         // Add dummy values for the contract
         dummyValues.set(BTC_FAKE_ADDRESS, dummyMap);
+
+        console.log('dummyValues', dummyValues);
 
         return dummyValues;
     }
