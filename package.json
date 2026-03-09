@@ -110,7 +110,7 @@
         "multiformats": "^13.4.2",
         "openapi-comment-parser": "^1.0.0",
         "protobufjs": "^8.0.0",
-        "sodium-native": "^5.1.0",
+        "sodium-native": "^5.0.10",
         "ssh2": "^1.17.0",
         "swagger-ui-express": "^5.0.1",
         "tiny-secp256k1": "^2.2.4",
