@@ -64,7 +64,7 @@
         "@btc-vision/transaction": "^1.8.0",
         "@btc-vision/uwebsockets.js": "^20.57.0",
         "@chainsafe/libp2p-noise": "^17.0.0",
-        "@chainsafe/libp2p-quic": "^1.1.8",
+        "@chainsafe/libp2p-quic": "^2.0.0",
         "@chainsafe/libp2p-yamux": "^8.0.1",
         "@datastructures-js/priority-queue": "^6.3.5",
         "@eslint/js": "^10.0.1",
