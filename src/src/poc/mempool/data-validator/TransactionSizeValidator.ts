@@ -1,4 +1,5 @@
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
+import { Config } from '../../../config/Config.js';
 
 export class TransactionSizeValidator {
     public verifyTransactionSize(byteLength: number, psbt: boolean): boolean {
@@ -10,7 +11,8 @@ export class TransactionSizeValidator {
             return true;
         } else if (
             !psbt &&
-            byteLength > OPNetConsensus.consensus.NETWORK.MAXIMUM_TRANSACTION_BROADCAST_SIZE
+            byteLength > OPNetConsensus.consensus.NETWORK.MAXIMUM_TRANSACTION_BROADCAST_SIZE &&
+            !Config.DEV.ALLOW_LARGE_TRANSACTIONS
         ) {
             return true;
         }

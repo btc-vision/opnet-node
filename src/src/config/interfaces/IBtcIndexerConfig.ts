@@ -167,6 +167,7 @@ export interface APIExtendedConfigurations extends APIConfig {
 export interface DevConfig {
     readonly PROCESS_ONLY_X_BLOCK: number;
     readonly DEBUG_TRANSACTION_FAILURE: boolean;
+    readonly ALLOW_LARGE_TRANSACTIONS: boolean;
     readonly DEBUG_TRANSACTION_PARSE_FAILURE: boolean;
     readonly CAUSE_FETCHING_FAILURE: boolean;
     readonly DISPLAY_VALID_BLOCK_WITNESS: boolean;

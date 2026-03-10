@@ -81,6 +81,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             SAVE_TIMEOUTS_TO_FILE: false,
             SIMULATE_HIGH_GAS_USAGE: false,
             DEBUG_VALID_TRANSACTIONS: true,
+            ALLOW_LARGE_TRANSACTIONS: false,
 
             DEBUG_API_ERRORS: false,
             ENABLE_CONTRACT_DEBUG: false,
@@ -945,6 +946,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(
                     `Oops the property DEV.DEBUG_TRANSACTION_FAILURE is not a boolean.`,
                 );
+            }
+
+            if (
+                parsedConfig.DEV.ALLOW_LARGE_TRANSACTIONS !== undefined &&
+                typeof parsedConfig.DEV.ALLOW_LARGE_TRANSACTIONS !== 'boolean'
+            ) {
+                throw new Error(`Oops the property DEV.ALLOW_LARGE_TRANSACTIONS is not a boolean.`);
             }
 
             if (
