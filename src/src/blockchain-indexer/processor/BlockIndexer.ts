@@ -171,16 +171,40 @@ export class BlockIndexer extends Logger {
             await this.handleEpochReindex();
         }
 
+        // Validate resync range does not extend into OPNet-enabled blocks.
+        // Resyncing OPNet blocks would produce invalid block headers.
+        if (Config.DEV.RESYNC_BLOCK_HEIGHTS) {
+            const opnetEnabled = OPNetConsensus.opnetEnabled;
+            if (
+                opnetEnabled.ENABLED &&
+                opnetEnabled.BLOCK > 0n &&
+                BigInt(Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL) >= opnetEnabled.BLOCK
+            ) {
+                throw new Error(
+                    `RESYNC_BLOCK_HEIGHTS_UNTIL (${Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL}) must be less than ` +
+                        `OPNet activation block (${opnetEnabled.BLOCK}). ` +
+                        `Resyncing OPNet-enabled blocks would produce invalid block headers.`,
+                );
+            }
+        }
+
         // Always purge, in case of bad indexing of the last block.
         const purgeFromBlock = Config.OP_NET.REINDEX
             ? BigInt(Config.OP_NET.REINDEX_FROM_BLOCK)
             : this.chainObserver.pendingBlockHeight;
 
-        this.warn(`Safely purging data from block ${purgeFromBlock}`);
-
         // Purge.
         const originalHeight = this.chainObserver.pendingBlockHeight;
-        await this.vmStorage.revertDataUntilBlock(purgeFromBlock);
+
+        if (Config.DEV.RESYNC_BLOCK_HEIGHTS) {
+            this.warn(
+                `RESYNC MODE: Purging only block headers from block ${purgeFromBlock}`,
+            );
+            await this.vmStorage.revertBlockHeadersOnly(purgeFromBlock);
+        } else {
+            this.warn(`Safely purging data from block ${purgeFromBlock}`);
+            await this.vmStorage.revertDataUntilBlock(purgeFromBlock);
+        }
         this.log(`Setting new height... ${purgeFromBlock}`);
 
         await this.chainObserver.setNewHeight(purgeFromBlock);

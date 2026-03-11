@@ -1230,6 +1230,10 @@ export class VMManager extends Logger {
             throw new Error('Block state not found');
         }
 
+        if (this.config.DEV.RESYNC_BLOCK_HEIGHTS) {
+            return; // Skip MLDSA keys and state storage in resync mode
+        }
+
         if (this.mldsaToStore.size) {
             const mldsaToStoreCopy = Array.from(this.mldsaToStore.values());
 

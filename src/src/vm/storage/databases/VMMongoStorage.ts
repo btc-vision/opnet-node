@@ -308,6 +308,25 @@ export class VMMongoStorage extends VMStorage {
         this.info(`Data purged until block ${blockId}`);
     }
 
+    public async revertBlockHeadersOnly(blockId: bigint): Promise<void> {
+        this.warn(`RESYNC: Purging only block headers and witnesses from block ${blockId}`);
+
+        if (!this.blockRepository) {
+            throw new Error('Block header repository not initialized');
+        }
+
+        if (!this.blockWitnessRepository) {
+            throw new Error('Block witness repository not initialized');
+        }
+
+        await Promise.safeAll([
+            this.blockRepository.deleteBlockHeadersFromBlockHeight(blockId),
+            this.blockWitnessRepository.deleteBlockWitnessesFromHeight(blockId),
+        ]);
+
+        this.info(`Block headers and witnesses purged from block ${blockId}`);
+    }
+
     public async saveTransactions(
         transactions: ITransactionDocument<OPNetTransactionTypes>[],
     ): Promise<void> {

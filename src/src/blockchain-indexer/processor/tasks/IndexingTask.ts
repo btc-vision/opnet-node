@@ -170,11 +170,15 @@ export class IndexingTask extends Logger {
             const deletedTxIds = new Set<string>(blockTxHashes);
 
             // Execute operations in the correct sequence
-            await this.vmStorage.deleteTransactionsById(blockTxHashes);
+            if (!Config.DEV.RESYNC_BLOCK_HEIGHTS) {
+                await this.vmStorage.deleteTransactionsById(blockTxHashes);
+            }
 
             const [finalizationResult] = await Promise.all([
                 this.block.finalizeBlock(this.vmManager),
-                this.detectAndRemoveConflictingTransactions(blockTxs, deletedTxIds),
+                Config.DEV.RESYNC_BLOCK_HEIGHTS
+                    ? Promise.resolve()
+                    : this.detectAndRemoveConflictingTransactions(blockTxs, deletedTxIds),
             ]);
 
             this.finalizeEnd = Date.now();

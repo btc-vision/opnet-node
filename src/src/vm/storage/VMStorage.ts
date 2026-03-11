@@ -65,6 +65,8 @@ export abstract class VMStorage extends Logger {
 
     public abstract revertDataUntilBlock(height: bigint): Promise<void>;
 
+    public abstract revertBlockHeadersOnly(height: bigint): Promise<void>;
+
     public abstract getAddressOrPublicKeysInformation(
         publicKeys: string[],
     ): Promise<IPublicKeyInfoResult>;

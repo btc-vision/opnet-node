@@ -165,7 +165,7 @@ export interface APIExtendedConfigurations extends APIConfig {
 }
 
 export interface DevConfig {
-    readonly PROCESS_ONLY_X_BLOCK: number;
+    PROCESS_ONLY_X_BLOCK: number;
     readonly DEBUG_TRANSACTION_FAILURE: boolean;
     readonly ALLOW_LARGE_TRANSACTIONS: boolean;
     readonly DEBUG_TRANSACTION_PARSE_FAILURE: boolean;
@@ -181,6 +181,9 @@ export interface DevConfig {
     readonly ENABLE_CONTRACT_DEBUG: boolean;
     readonly ALWAYS_ENABLE_REORG_VERIFICATION: boolean;
     readonly ENABLE_REORG_NIGHTMARE: boolean;
+
+    RESYNC_BLOCK_HEIGHTS: boolean;
+    readonly RESYNC_BLOCK_HEIGHTS_UNTIL: number;
 }
 
 export interface BitcoinConfig {
