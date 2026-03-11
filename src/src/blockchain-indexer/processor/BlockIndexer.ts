@@ -175,16 +175,22 @@ export class BlockIndexer extends Logger {
         // Resyncing OPNet blocks would produce invalid block headers.
         if (Config.DEV.RESYNC_BLOCK_HEIGHTS) {
             const opnetEnabled = OPNetConsensus.opnetEnabled;
-            if (
-                opnetEnabled.ENABLED &&
-                opnetEnabled.BLOCK > 0n &&
-                BigInt(Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL) >= opnetEnabled.BLOCK
-            ) {
-                throw new Error(
-                    `RESYNC_BLOCK_HEIGHTS_UNTIL (${Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL}) must be less than ` +
-                        `OPNet activation block (${opnetEnabled.BLOCK}). ` +
-                        `Resyncing OPNet-enabled blocks would produce invalid block headers.`,
-                );
+            if (opnetEnabled.ENABLED) {
+                if (opnetEnabled.BLOCK === 0n) {
+                    // OPNet active from genesis — resync not allowed at all
+                    throw new Error(
+                        `RESYNC_BLOCK_HEIGHTS cannot be used on this network. ` +
+                            `OPNet is enabled from block 0 — all blocks are OPNet blocks.`,
+                    );
+                }
+
+                if (BigInt(Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL) >= opnetEnabled.BLOCK) {
+                    throw new Error(
+                        `RESYNC_BLOCK_HEIGHTS_UNTIL (${Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL}) must be less than ` +
+                            `OPNet activation block (${opnetEnabled.BLOCK}). ` +
+                            `Resyncing OPNet-enabled blocks would produce invalid block headers.`,
+                    );
+                }
             }
         }
 
