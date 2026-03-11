@@ -257,22 +257,16 @@ export class VMMongoStorage extends VMStorage {
             blockHeaderHeight > chainInfoHeight ? blockHeaderHeight : chainInfoHeight;
 
         const purgeUtxos = Config.OP_NET.REINDEX_PURGE_UTXOS;
-        const purgePublicKeys = Config.OP_NET.REINDEX_PURGE_PUBLIC_KEYS;
 
         this.info(`Purging data from block ${blockId} to ${upperBound}...`);
 
-        if (!purgeUtxos || !purgePublicKeys) {
+        if (!purgeUtxos) {
             this.important(
                 `\n` +
                     `--------------------------------------------\n` +
                     `  REINDEX PURGE NOTICE\n` +
-                    (!purgeUtxos
-                        ? `  UTXOs will NOT be purged (REINDEX_PURGE_UTXOS = false)\n`
-                        : '') +
-                    (!purgePublicKeys
-                        ? `  MLDSA public keys will NOT be purged (REINDEX_PURGE_PUBLIC_KEYS = false)\n`
-                        : '') +
-                    `  Set these to true in [OP_NET] config if you need a full purge.\n` +
+                    `  UTXOs will NOT be purged (REINDEX_PURGE_UTXOS = false)\n` +
+                    `  Set REINDEX_PURGE_UTXOS = true in [OP_NET] config if you need a full purge.\n` +
                     `--------------------------------------------`,
             );
         }
@@ -320,10 +314,8 @@ export class VMMongoStorage extends VMStorage {
                 this.log(`Purging epoch submissions...`);
                 await this.epochSubmissionRepository.deleteSubmissionsInRange(from, batchEnd);
 
-                if (purgePublicKeys) {
-                    this.log(`Purging MLDSA public keys...`);
-                    await this.mldsaPublicKeysRepository.deleteInRange(from, batchEnd);
-                }
+                this.log(`Purging MLDSA public keys...`);
+                await this.mldsaPublicKeysRepository.deleteInRange(from, batchEnd);
             } else {
                 const promises: Promise<void>[] = [
                     this.transactionRepository.deleteTransactionsInRange(from, batchEnd),
@@ -342,9 +334,7 @@ export class VMMongoStorage extends VMStorage {
                     );
                 }
 
-                if (purgePublicKeys) {
-                    promises.push(this.mldsaPublicKeysRepository.deleteInRange(from, batchEnd));
-                }
+                promises.push(this.mldsaPublicKeysRepository.deleteInRange(from, batchEnd));
 
                 await Promise.safeAll(promises);
             }
