@@ -28,7 +28,7 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         super(selfIdentity, peerId);
     }
 
-    public onBlockWitness: (blockWitness: IBlockHeaderWitness) => Promise<void> = () => {
+    public onBlockWitness: (blockWitness: IBlockHeaderWitness) => void = () => {
         throw new Error('onBlockWitness not implemented.');
     };
 
@@ -72,7 +72,7 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
 
         super.destroy();
 
-        this.onBlockWitness = async () => {};
+        this.onBlockWitness = () => {};
         this.onClientAuthenticationCompleted = () => {};
 
         delete this._peerManager;

@@ -59,9 +59,11 @@ export class BlockWitnessManager extends Logger {
     /** Witness validation concurrency control */
     private witnessQueue: Array<{ blockNumber: bigint; witness: IBlockHeaderWitness }> = [];
     private activeValidations: number = 0;
+
     private readonly MAX_CONCURRENT_WITNESS_VALIDATIONS: number = 3;
     private readonly MAX_VALIDATIONS_PER_BLOCK: number = 5;
     private readonly MAX_WITNESS_QUEUE_SIZE: number = 128;
+
     private blockValidationCount: Map<bigint, number> = new Map();
 
     constructor(
@@ -211,7 +213,7 @@ export class BlockWitnessManager extends Logger {
         await this.processBlockWitnesses(data.blockNumber, blockWitness);
     }
 
-    public async onBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
+    public onBlockWitness(blockWitness: IBlockHeaderWitness): void {
         if (this.currentBlock === -1n) {
             return;
         }
@@ -274,10 +276,7 @@ export class BlockWitnessManager extends Logger {
         }
     }
 
-    private enqueueWitnessValidation(
-        blockNumber: bigint,
-        witness: IBlockHeaderWitness,
-    ): void {
+    private enqueueWitnessValidation(blockNumber: bigint, witness: IBlockHeaderWitness): void {
         // Per-block limit
         const count = this.blockValidationCount.get(blockNumber) || 0;
         if (count >= this.MAX_VALIDATIONS_PER_BLOCK) return;
@@ -296,7 +295,8 @@ export class BlockWitnessManager extends Logger {
             this.witnessQueue.length > 0 &&
             this.activeValidations < this.MAX_CONCURRENT_WITNESS_VALIDATIONS
         ) {
-            const item = this.witnessQueue.shift()!;
+            const item = this.witnessQueue.shift();
+            if (!item) continue;
 
             // Re-check per-block limit (might have changed while queued)
             const count = this.blockValidationCount.get(item.blockNumber) || 0;
@@ -306,7 +306,7 @@ export class BlockWitnessManager extends Logger {
             this.blockValidationCount.set(item.blockNumber, count + 1);
 
             void this.processBlockWitnesses(item.blockNumber, item.witness)
-                .catch((e) => {
+                .catch((e: unknown) => {
                     if (this.config.DEBUG_LEVEL >= DebugLevel.ERROR) {
                         this.error(`Witness validation error: ${(e as Error).stack}`);
                     }

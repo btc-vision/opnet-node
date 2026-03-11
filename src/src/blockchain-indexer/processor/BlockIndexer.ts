@@ -5,7 +5,9 @@ import { MessageType } from '../../threading/enum/MessageType.js';
 import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { Config } from '../../config/Config.js';
 import { RPCBlockFetcher } from '../fetcher/RPCBlockFetcher.js';
-import { CurrentIndexerBlockResponseData } from '../../threading/interfaces/thread-messages/messages/indexer/CurrentIndexerBlock.js';
+import {
+    CurrentIndexerBlockResponseData
+} from '../../threading/interfaces/thread-messages/messages/indexer/CurrentIndexerBlock.js';
 import { ChainObserver } from './observer/ChainObserver.js';
 import { IndexingTask } from './tasks/IndexingTask.js';
 import { BlockFetcher } from '../fetcher/abstract/BlockFetcher.js';
@@ -197,9 +199,7 @@ export class BlockIndexer extends Logger {
         const originalHeight = this.chainObserver.pendingBlockHeight;
 
         if (Config.DEV.RESYNC_BLOCK_HEIGHTS) {
-            this.warn(
-                `RESYNC MODE: Purging only block headers from block ${purgeFromBlock}`,
-            );
+            this.warn(`RESYNC MODE: Purging only block headers from block ${purgeFromBlock}`);
             await this.vmStorage.revertBlockHeadersOnly(purgeFromBlock);
         } else {
             this.warn(`Safely purging data from block ${purgeFromBlock}`);
@@ -752,6 +752,13 @@ export class BlockIndexer extends Logger {
 
         if (Config.DEV.PROCESS_ONLY_X_BLOCK) {
             if (this.processedBlocks >= Config.DEV.PROCESS_ONLY_X_BLOCK) {
+                if (Config.DEV.RESYNC_BLOCK_HEIGHTS) {
+                    this.success(
+                        `RESYNC COMPLETE: Re-processed ${this.processedBlocks} blocks up to height ${Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL}. ` +
+                            `Set RESYNC_BLOCK_HEIGHTS = false and restart for normal operation.`,
+                    );
+                }
+
                 return;
             }
         }
