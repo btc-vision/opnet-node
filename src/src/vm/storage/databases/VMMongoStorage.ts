@@ -2,9 +2,7 @@ import { Address, AddressMap } from '@btc-vision/transaction';
 import { ConfigurableDBManager, DebugLevel } from '@btc-vision/bsi-common';
 import { SafeBigInt } from '../../../api/routes/safe/BlockParamsConverter.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
-import {
-    OPNetTransactionTypes
-} from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.js';
 import { BlockWithTransactions } from '../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import {
@@ -46,7 +44,10 @@ import {
     UTXOsOutputTransactions,
 } from '../../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { IMLDSAPublicKey, MLDSAUpdateData } from '../../../db/interfaces/IMLDSAPublicKey.js';
-import { MLDSAPublicKeyExists, MLDSAPublicKeyRepository, } from '../../../db/repositories/MLDSAPublicKeysRepository.js';
+import {
+    MLDSAPublicKeyExists,
+    MLDSAPublicKeyRepository,
+} from '../../../db/repositories/MLDSAPublicKeysRepository.js';
 import { getMongodbMajorVersion } from './MongoUtils.js';
 
 export class VMMongoStorage extends VMStorage {

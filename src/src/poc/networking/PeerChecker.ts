@@ -9,13 +9,11 @@ interface DialFailureEntry {
 }
 
 export class PeerChecker extends Logger {
-    public readonly logColor: string = '#ff69b4';
-
     /** Maximum number of dial failures before a peer is considered unreachable */
     private static readonly MAX_DIAL_FAILURES: number = 20;
     /** Time in ms after which dial failure count resets (1 hour) */
     private static readonly DIAL_FAILURE_RESET_TIME: number = 60 * 60 * 1000;
-
+    public readonly logColor: string = '#ff69b4';
     private isTryingPeers: boolean = false;
 
     private peersToTry: PeerInfo[] = [];
@@ -40,6 +38,51 @@ export class PeerChecker extends Logger {
         if (this.peersToTry.length) {
             void this.tryPeers();
         }
+    }
+
+    /**
+     * Check if a peer has exceeded the maximum dial failure threshold
+     */
+    public isPeerUnreachable(peerIdStr: string): boolean {
+        const entry = this.dialFailures.get(peerIdStr);
+        if (!entry) return false;
+
+        // Reset failure count if enough time has passed
+        if (Date.now() - entry.lastAttempt > PeerChecker.DIAL_FAILURE_RESET_TIME) {
+            this.dialFailures.delete(peerIdStr);
+            return false;
+        }
+
+        return entry.failures >= PeerChecker.MAX_DIAL_FAILURES;
+    }
+
+    /**
+     * Reset dial failure count for a peer (called on successful connection)
+     */
+    public resetDialFailures(peerIdStr: string): void {
+        this.dialFailures.delete(peerIdStr);
+    }
+
+    /**
+     * Record a dial failure from external code (e.g., monitorConnectionHealth).
+     * This allows failure tracking to be centralized even for dials not made by PeerChecker.
+     * @returns true if the peer has now exceeded the failure threshold
+     */
+    public async recordExternalDialFailure(peerId: PeerId): Promise<boolean> {
+        const peerIdStr = peerId.toString();
+        const exceededThreshold = this.recordDialFailure(peerIdStr);
+
+        if (exceededThreshold) {
+            this.warn(
+                `Peer ${peerIdStr} exceeded dial failure threshold (${PeerChecker.MAX_DIAL_FAILURES} attempts), marking as unreachable`,
+            );
+
+            if (this.onPeerUnreachable) {
+                await this.onPeerUnreachable(peerId);
+            }
+        }
+
+        return exceededThreshold;
     }
 
     private async tryNextPeer(): Promise<void> {
@@ -114,22 +157,6 @@ export class PeerChecker extends Logger {
     }
 
     /**
-     * Check if a peer has exceeded the maximum dial failure threshold
-     */
-    public isPeerUnreachable(peerIdStr: string): boolean {
-        const entry = this.dialFailures.get(peerIdStr);
-        if (!entry) return false;
-
-        // Reset failure count if enough time has passed
-        if (Date.now() - entry.lastAttempt > PeerChecker.DIAL_FAILURE_RESET_TIME) {
-            this.dialFailures.delete(peerIdStr);
-            return false;
-        }
-
-        return entry.failures >= PeerChecker.MAX_DIAL_FAILURES;
-    }
-
-    /**
      * Record a dial failure for a peer
      * @returns true if the peer has now exceeded the failure threshold
      */
@@ -148,35 +175,6 @@ export class PeerChecker extends Logger {
         this.dialFailures.set(peerIdStr, entry);
 
         return entry.failures >= PeerChecker.MAX_DIAL_FAILURES;
-    }
-
-    /**
-     * Reset dial failure count for a peer (called on successful connection)
-     */
-    public resetDialFailures(peerIdStr: string): void {
-        this.dialFailures.delete(peerIdStr);
-    }
-
-    /**
-     * Record a dial failure from external code (e.g., monitorConnectionHealth).
-     * This allows failure tracking to be centralized even for dials not made by PeerChecker.
-     * @returns true if the peer has now exceeded the failure threshold
-     */
-    public async recordExternalDialFailure(peerId: PeerId): Promise<boolean> {
-        const peerIdStr = peerId.toString();
-        const exceededThreshold = this.recordDialFailure(peerIdStr);
-
-        if (exceededThreshold) {
-            this.warn(
-                `Peer ${peerIdStr} exceeded dial failure threshold (${PeerChecker.MAX_DIAL_FAILURES} attempts), marking as unreachable`,
-            );
-
-            if (this.onPeerUnreachable) {
-                await this.onPeerUnreachable(peerId);
-            }
-        }
-
-        return exceededThreshold;
     }
 
     private async tryPeerData(peerData: PeerInfo): Promise<void> {

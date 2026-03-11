@@ -3,8 +3,12 @@ import { Response } from '@btc-vision/hyper-express/types/components/http/Respon
 import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareNext.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
-import { GetPendingTransactionParams } from '../../../../json-rpc/types/interfaces/params/mempool/GetPendingTransactionParams.js';
-import { GetPendingTransactionResult } from '../../../../json-rpc/types/interfaces/results/mempool/GetPendingTransactionResult.js';
+import {
+    GetPendingTransactionParams
+} from '../../../../json-rpc/types/interfaces/params/mempool/GetPendingTransactionParams.js';
+import {
+    GetPendingTransactionResult
+} from '../../../../json-rpc/types/interfaces/results/mempool/GetPendingTransactionResult.js';
 import { Route } from '../../../Route.js';
 import { MempoolTransactionConverter } from './MempoolTransactionConverter.js';
 
