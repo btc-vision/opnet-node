@@ -1,4 +1,3 @@
-
 export interface ApiTestMempoolAcceptFees {
     readonly base: number;
     readonly effectiveFeerate: number;

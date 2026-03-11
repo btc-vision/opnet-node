@@ -5,9 +5,7 @@ import { MessageType } from '../../threading/enum/MessageType.js';
 import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { Config } from '../../config/Config.js';
 import { RPCBlockFetcher } from '../fetcher/RPCBlockFetcher.js';
-import {
-    CurrentIndexerBlockResponseData
-} from '../../threading/interfaces/thread-messages/messages/indexer/CurrentIndexerBlock.js';
+import { CurrentIndexerBlockResponseData } from '../../threading/interfaces/thread-messages/messages/indexer/CurrentIndexerBlock.js';
 import { ChainObserver } from './observer/ChainObserver.js';
 import { IndexingTask } from './tasks/IndexingTask.js';
 import { BlockFetcher } from '../fetcher/abstract/BlockFetcher.js';

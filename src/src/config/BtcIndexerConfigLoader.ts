@@ -1068,7 +1068,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 parsedConfig.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL !== undefined &&
                 typeof parsedConfig.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL !== 'number'
             ) {
-                throw new Error(`Oops the property DEV.RESYNC_BLOCK_HEIGHTS_UNTIL is not a number.`);
+                throw new Error(
+                    `Oops the property DEV.RESYNC_BLOCK_HEIGHTS_UNTIL is not a number.`,
+                );
             }
         }
 
@@ -1304,13 +1306,11 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
             // +1 because PROCESS_ONLY_X_BLOCK is a counter, not a height.
             // Counter reaches N after processing block N-1, so to include the target block we add 1.
-            this.config.DEV.PROCESS_ONLY_X_BLOCK =
-                this.config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL + 1;
+            this.config.DEV.PROCESS_ONLY_X_BLOCK = this.config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL + 1;
 
             this.config.INDEXER = {
                 ...this.config.INDEXER,
-                START_INDEXING_UTXO_AT_BLOCK_HEIGHT:
-                    this.config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL,
+                START_INDEXING_UTXO_AT_BLOCK_HEIGHT: this.config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL,
             };
 
             // Force reindex from block 0 so the node re-processes all blocks.

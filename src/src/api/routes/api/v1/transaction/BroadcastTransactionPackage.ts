@@ -2,10 +2,7 @@ import { Request } from '@btc-vision/hyper-express/types/components/http/Request
 import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareNext.js';
 import { fromHex, Transaction } from '@btc-vision/bitcoin';
-import {
-    PackageResult,
-    TestMempoolAcceptResult,
-} from '@btc-vision/bitcoin-rpc';
+import { PackageResult, TestMempoolAcceptResult } from '@btc-vision/bitcoin-rpc';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
 import { Route } from '../../../Route.js';
@@ -96,10 +93,7 @@ export class BroadcastTransactionPackage extends Route<
 
                 const parsed = parsedTxs.find((t) => t.id === txResult.txid);
                 if (parsed) {
-                    const peers = await this.broadcastOPNetTransaction(
-                        parsed.raw,
-                        txResult.txid,
-                    );
+                    const peers = await this.broadcastOPNetTransaction(parsed.raw, txResult.txid);
                     if (peers !== undefined) {
                         peersByTxid.set(txResult.txid, peers);
                     }
@@ -292,10 +286,9 @@ export class BroadcastTransactionPackage extends Route<
         };
 
         try {
-            const result = (await ServerThread.sendMessageToThread(
-                ThreadTypes.P2P,
-                msg,
-            )) as OPNetBroadcastResponse | undefined;
+            const result = (await ServerThread.sendMessageToThread(ThreadTypes.P2P, msg)) as
+                | OPNetBroadcastResponse
+                | undefined;
 
             return result?.peers;
         } catch (e) {
@@ -337,9 +330,7 @@ export class BroadcastTransactionPackage extends Route<
 }
 
 /** Convert Bitcoin Core TestMempoolAcceptResult[] from hyphenated to camelCase keys. */
-function convertTestResults(
-    results: TestMempoolAcceptResult[],
-): ApiTestMempoolAcceptResult[] {
+function convertTestResults(results: TestMempoolAcceptResult[]): ApiTestMempoolAcceptResult[] {
     return results.map((r) => {
         const fees: ApiTestMempoolAcceptFees | undefined = r.fees
             ? {
