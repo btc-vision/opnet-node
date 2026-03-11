@@ -778,11 +778,11 @@ export class BlockIndexer extends Logger {
                 if (Config.DEV.RESYNC_BLOCK_HEIGHTS) {
                     this.important(
                         `\n` +
-                            `========================================\n` +
+                            `--------------------------------------------\n` +
                             `  RESYNC COMPLETE\n` +
                             `  Re-processed ${this.processedBlocks} blocks (up to height ${Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL})\n` +
                             `  Set RESYNC_BLOCK_HEIGHTS = false and restart.\n` +
-                            `========================================`,
+                            `--------------------------------------------`,
                     );
                 }
 

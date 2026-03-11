@@ -33,7 +33,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
             },
             [BitcoinNetwork.regtest]: {
                 ENABLED: true,
-                BLOCK: 0n,
+                BLOCK: 100n,
             },
         },
     },

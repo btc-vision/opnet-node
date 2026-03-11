@@ -471,14 +471,21 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 parsedConfig.OP_NET.REINDEX_PURGE_PUBLIC_KEYS !== undefined &&
                 typeof parsedConfig.OP_NET.REINDEX_PURGE_PUBLIC_KEYS !== 'boolean'
             ) {
-                throw new Error(`Oops the property OP_NET.REINDEX_PURGE_PUBLIC_KEYS is not a boolean.`);
+                throw new Error(
+                    `Oops the property OP_NET.REINDEX_PURGE_PUBLIC_KEYS is not a boolean.`,
+                );
             }
 
-            if (
-                parsedConfig.OP_NET.REINDEX_BATCH_SIZE !== undefined &&
-                typeof parsedConfig.OP_NET.REINDEX_BATCH_SIZE !== 'number'
-            ) {
-                throw new Error(`Oops the property OP_NET.REINDEX_BATCH_SIZE is not a number.`);
+            if (parsedConfig.OP_NET.REINDEX_BATCH_SIZE !== undefined) {
+                if (typeof parsedConfig.OP_NET.REINDEX_BATCH_SIZE !== 'number') {
+                    throw new Error(`Oops the property OP_NET.REINDEX_BATCH_SIZE is not a number.`);
+                }
+
+                if (parsedConfig.OP_NET.REINDEX_BATCH_SIZE <= 0) {
+                    throw new Error(
+                        `OP_NET.REINDEX_BATCH_SIZE must be greater than 0, got ${parsedConfig.OP_NET.REINDEX_BATCH_SIZE}.`,
+                    );
+                }
             }
 
             if (

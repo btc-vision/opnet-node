@@ -2,7 +2,9 @@ import { Address, AddressMap } from '@btc-vision/transaction';
 import { ConfigurableDBManager, DebugLevel } from '@btc-vision/bsi-common';
 import { SafeBigInt } from '../../../api/routes/safe/BlockParamsConverter.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
-import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import {
+    OPNetTransactionTypes
+} from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.js';
 import { BlockWithTransactions } from '../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import {
@@ -44,10 +46,7 @@ import {
     UTXOsOutputTransactions,
 } from '../../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { IMLDSAPublicKey, MLDSAUpdateData } from '../../../db/interfaces/IMLDSAPublicKey.js';
-import {
-    MLDSAPublicKeyExists,
-    MLDSAPublicKeyRepository,
-} from '../../../db/repositories/MLDSAPublicKeysRepository.js';
+import { MLDSAPublicKeyExists, MLDSAPublicKeyRepository, } from '../../../db/repositories/MLDSAPublicKeysRepository.js';
 import { getMongodbMajorVersion } from './MongoUtils.js';
 
 export class VMMongoStorage extends VMStorage {
@@ -248,23 +247,34 @@ export class VMMongoStorage extends VMStorage {
         const BATCH_SIZE = BigInt(Config.OP_NET.REINDEX_BATCH_SIZE || 1_000);
 
         const latestBlock = await this.blockRepository.getLatestBlock();
-        const blockHeaderHeight = latestBlock
-            ? BigInt(latestBlock.height.toString())
-            : blockId;
+        const blockHeaderHeight = latestBlock ? BigInt(latestBlock.height.toString()) : blockId;
 
         const chainInfo = await this.blockchainRepository.getByNetwork(Config.BITCOIN.NETWORK);
         const chainInfoHeight = BigInt(chainInfo.inProgressBlock || 0);
 
-        const upperBound = blockHeaderHeight > chainInfoHeight
-            ? blockHeaderHeight
-            : chainInfoHeight;
+        const upperBound =
+            blockHeaderHeight > chainInfoHeight ? blockHeaderHeight : chainInfoHeight;
 
         const purgeUtxos = Config.OP_NET.REINDEX_PURGE_UTXOS;
         const purgePublicKeys = Config.OP_NET.REINDEX_PURGE_PUBLIC_KEYS;
 
         this.info(`Purging data from block ${blockId} to ${upperBound}...`);
-        if (!purgeUtxos) this.warn(`Skipping UTXO purge (REINDEX_PURGE_UTXOS = false)`);
-        if (!purgePublicKeys) this.warn(`Skipping public key purge (REINDEX_PURGE_PUBLIC_KEYS = false)`);
+
+        if (!purgeUtxos || !purgePublicKeys) {
+            this.important(
+                `\n` +
+                    `--------------------------------------------\n` +
+                    `  REINDEX PURGE NOTICE\n` +
+                    (!purgeUtxos
+                        ? `  UTXOs will NOT be purged (REINDEX_PURGE_UTXOS = false)\n`
+                        : '') +
+                    (!purgePublicKeys
+                        ? `  MLDSA public keys will NOT be purged (REINDEX_PURGE_PUBLIC_KEYS = false)\n`
+                        : '') +
+                    `  Set these to true in [OP_NET] config if you need a full purge.\n` +
+                    `--------------------------------------------`,
+            );
+        }
 
         // Target epochs have no block range — delete once upfront
         this.log(`Purging target epochs...`);
@@ -282,7 +292,10 @@ export class VMMongoStorage extends VMStorage {
 
                 if (purgeUtxos) {
                     this.log(`Purging unspent transactions...`);
-                    await this.unspentTransactionRepository.deleteTransactionsInRange(from, batchEnd);
+                    await this.unspentTransactionRepository.deleteTransactionsInRange(
+                        from,
+                        batchEnd,
+                    );
                 }
 
                 this.log(`Purging contracts...`);
@@ -363,9 +376,7 @@ export class VMMongoStorage extends VMStorage {
         // Batch delete to avoid MongoDB connection timeouts on large datasets.
         const BATCH_SIZE = BigInt(Config.OP_NET.REINDEX_BATCH_SIZE || 1_000);
         const latestBlock = await this.blockRepository.getLatestBlock();
-        const upperBound = latestBlock
-            ? BigInt(latestBlock.height.toString())
-            : blockId;
+        const upperBound = latestBlock ? BigInt(latestBlock.height.toString()) : blockId;
 
         for (let from = blockId; from <= upperBound; from += BATCH_SIZE) {
             const to = from + BATCH_SIZE;

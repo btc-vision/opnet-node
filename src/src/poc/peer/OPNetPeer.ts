@@ -248,7 +248,7 @@ export class OPNetPeer extends Logger {
         this.sendMsg = () => Promise.resolve();
         this.reportAuthenticatedPeer = () => {};
         this.getOPNetPeers = () => Promise.resolve([]);
-        this.onBlockWitness = async () => {};
+        this.onBlockWitness = () => {};
 
         this.eventHandlers.clear();
 

@@ -1,6 +1,4 @@
-import {
-    OPNetTransactionTypes
-} from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { OPNetTransactionTypes } from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { MessageType } from '../../../../enum/MessageType.js';
 import { ThreadMessageBase } from '../../ThreadMessageBase.js';
 
