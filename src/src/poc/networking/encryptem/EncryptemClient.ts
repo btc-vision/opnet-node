@@ -140,7 +140,7 @@ export class EncryptemClient extends Logger {
 
         const outBuf = Buffer.from(out.buffer, out.byteOffset, out.byteLength);
         const inputBuf = Buffer.from(input.buffer, input.byteOffset, input.byteLength);
-        const k = this.sodium.sodium_malloc(this.sodium.crypto_auth_KEYBYTES);
+        const k = Buffer.alloc(this.sodium.crypto_auth_KEYBYTES);
         this.sodium.randombytes_buf_deterministic(k, this.#serverSignaturePublicKey);
 
         return this.sodium.crypto_auth_verify(outBuf, inputBuf, k);
@@ -162,7 +162,7 @@ export class EncryptemClient extends Logger {
     }
 
     private generateNonce(): Buffer {
-        const keyBuf = this.sodium.sodium_malloc(this.sodium.crypto_box_NONCEBYTES);
+        const keyBuf = Buffer.alloc(this.sodium.crypto_box_NONCEBYTES);
         this.sodium.randombytes_buf(keyBuf);
         return keyBuf;
     }
@@ -175,7 +175,7 @@ export class EncryptemClient extends Logger {
         senderSigningPrivateKey: Buffer,
     ): Uint8Array {
         const nonce = this.generateNonce();
-        const cipherMsg = this.sodium.sodium_malloc(m.length + this.sodium.crypto_box_MACBYTES);
+        const cipherMsg = Buffer.alloc(m.length + this.sodium.crypto_box_MACBYTES);
 
         this.sodium.crypto_box_easy(cipherMsg, m, nonce, receiverPublicKey, senderPrivateKey);
 
@@ -210,9 +210,7 @@ export class EncryptemClient extends Logger {
         const nonce: Buffer = msg.subarray(0, this.sodium.crypto_box_NONCEBYTES);
         const cipher: Buffer = msg.subarray(this.sodium.crypto_box_NONCEBYTES);
 
-        const decryptedMessage = this.sodium.sodium_malloc(
-            cipher.length - this.sodium.crypto_box_MACBYTES,
-        );
+        const decryptedMessage = Buffer.alloc(cipher.length - this.sodium.crypto_box_MACBYTES);
 
         if (!this.verifyAuth(auth, signature)) {
             throw new Error('[Client] Bad AHEAD authentication.');
@@ -234,8 +232,8 @@ export class EncryptemClient extends Logger {
     }
 
     #authenticate(input: Buffer, sender: Buffer): Buffer {
-        const out = this.sodium.sodium_malloc(this.sodium.crypto_auth_BYTES);
-        const k = this.sodium.sodium_malloc(this.sodium.crypto_auth_KEYBYTES);
+        const out = Buffer.alloc(this.sodium.crypto_auth_BYTES);
+        const k = Buffer.alloc(this.sodium.crypto_auth_KEYBYTES);
         this.sodium.randombytes_buf_deterministic(k, sender);
 
         this.sodium.crypto_auth(out, input, k);
@@ -256,7 +254,7 @@ export class EncryptemClient extends Logger {
     }
 
     #signMessageV2(m: Buffer, publicSignKey: Buffer, privateKey: Buffer): Buffer | null {
-        const signedMessageBuffer = this.sodium.sodium_malloc(this.sodium.crypto_sign_BYTES);
+        const signedMessageBuffer = Buffer.alloc(this.sodium.crypto_sign_BYTES);
 
         this.sodium.crypto_sign_detached(signedMessageBuffer, m, privateKey);
 

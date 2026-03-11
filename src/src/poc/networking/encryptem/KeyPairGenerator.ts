@@ -94,7 +94,7 @@ export class KeyPairGenerator extends Logger {
     }
 
     public sign(data: Uint8Array, privateKey: Uint8Array): Uint8Array {
-        const signature = sodium.sodium_malloc(sodium.crypto_sign_BYTES);
+        const signature = Buffer.alloc(sodium.crypto_sign_BYTES);
         sodium.crypto_sign_detached(
             signature,
             Buffer.from(data.buffer, data.byteOffset, data.byteLength),
@@ -123,7 +123,7 @@ export class KeyPairGenerator extends Logger {
     private generateTrustedKeypair(): SodiumKeyPair {
         const seedBuffer: Buffer = crypto.randomBytes(sodium.crypto_sign_SEEDBYTES);
 
-        const seed = sodium.sodium_malloc(sodium.crypto_sign_SEEDBYTES);
+        const seed = Buffer.alloc(sodium.crypto_sign_SEEDBYTES);
         sodium.randombytes_buf_deterministic(seed, seedBuffer);
 
         return this.generateKeyPair(seed);
