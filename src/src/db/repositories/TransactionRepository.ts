@@ -48,6 +48,21 @@ export class TransactionRepository extends BaseRepository<
         await this.delete(criteria, currentSession);
     }
 
+    public async deleteTransactionsInRange(
+        from: bigint,
+        to: bigint,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const criteria: Partial<Filter<ITransactionDocument<OPNetTransactionTypes>>> = {
+            blockHeight: {
+                $gte: DataConverter.toDecimal128(from),
+                $lt: DataConverter.toDecimal128(to),
+            },
+        };
+
+        await this.delete(criteria, currentSession);
+    }
+
     /**
      * Internal method to run bulkWrite operations.
      * Everything is already expected to be in binary form (hash/id).

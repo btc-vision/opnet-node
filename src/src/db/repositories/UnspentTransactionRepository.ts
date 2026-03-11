@@ -66,6 +66,30 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         await this.updateMany(criteriaSpent, { deletedAtBlock: undefined }, currentSession);
     }
 
+    public async deleteTransactionsInRange(
+        from: bigint,
+        to: bigint,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const criteria: Partial<Filter<IUnspentTransaction>> = {
+            blockHeight: {
+                $gte: this.bigIntToLong(from),
+                $lt: this.bigIntToLong(to),
+            },
+        };
+
+        await this.delete(criteria, currentSession);
+
+        const criteriaSpent: Partial<Filter<IUnspentTransaction>> = {
+            deletedAtBlock: {
+                $gte: this.bigIntToLong(from),
+                $lt: this.bigIntToLong(to),
+            },
+        };
+
+        await this.updateMany(criteriaSpent, { deletedAtBlock: undefined }, currentSession);
+    }
+
     public async insertTransactions(transactions: ProcessUnspentTransactionList): Promise<void> {
         const start = Date.now();
 

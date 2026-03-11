@@ -29,6 +29,17 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
         await this.delete(criteria);
     }
 
+    public async deleteBlockWitnessesInRange(from: bigint, to: bigint): Promise<void> {
+        const criteria: Partial<Filter<IBlockWitnessDocument>> = {
+            blockNumber: {
+                $gte: DataConverter.toDecimal128(from),
+                $lt: DataConverter.toDecimal128(to),
+            },
+        };
+
+        await this.delete(criteria);
+    }
+
     public async updateWitnessProofs(attestationProofs: AttestationProof[]): Promise<void> {
         const bulk = this.getCollection().initializeUnorderedBulkOp();
 

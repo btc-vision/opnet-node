@@ -45,6 +45,18 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
         await this.delete(criteria, currentSession);
     }
 
+    public async deletePointerInRange(
+        from: bigint,
+        to: bigint,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const criteria: Partial<Filter<IContractPointerValueDocument>> = {
+            lastSeenAt: { $gte: from, $lt: to },
+        };
+
+        await this.delete(criteria, currentSession);
+    }
+
     public async getByContractsAndPointers(
         pointers: AddressMap<Uint8Array[]>,
         height?: bigint,

@@ -193,6 +193,21 @@ export class EpochSubmissionRepository extends BaseRepository<IEpochSubmissionsD
         await this.delete(criteria, currentSession);
     }
 
+    public async deleteSubmissionsInRange(
+        from: bigint,
+        to: bigint,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const criteria: Partial<Filter<IEpochSubmissionsDocument>> = {
+            confirmedAt: {
+                $gte: DataConverter.toDecimal128(from),
+                $lt: DataConverter.toDecimal128(to),
+            },
+        };
+
+        await this.delete(criteria, currentSession);
+    }
+
     /**
      * Delete submissions for epochs from a specific epoch number onwards
      */

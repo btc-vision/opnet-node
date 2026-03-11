@@ -40,6 +40,9 @@ export interface OPNetConfig {
     REINDEX: boolean;
 
     readonly REINDEX_FROM_BLOCK: number;
+    readonly REINDEX_PURGE_UTXOS: boolean;
+    readonly REINDEX_PURGE_PUBLIC_KEYS: boolean;
+    readonly REINDEX_BATCH_SIZE: number;
 
     readonly EPOCH_REINDEX: boolean; // Enable epoch-only reindex mode
     readonly EPOCH_REINDEX_FROM_EPOCH: number; // Starting epoch number (default: 0)

@@ -188,9 +188,28 @@ export class BlockIndexer extends Logger {
                     throw new Error(
                         `RESYNC_BLOCK_HEIGHTS_UNTIL (${Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL}) must be less than ` +
                             `OPNet activation block (${opnetEnabled.BLOCK}). ` +
-                            `Resyncing OPNet-enabled blocks would produce invalid block headers.`,
+                            `Set RESYNC_BLOCK_HEIGHTS_UNTIL = ${opnetEnabled.BLOCK - 1n} to resync all pre-OPNet blocks.`,
                     );
                 }
+            }
+
+            // Verify the node was previously indexed up to the requested resync height.
+            // Resyncing beyond what was already indexed would skip saving state data.
+            let latestBlockHeight: bigint = -1n;
+            try {
+                const latestBlock = await this.vmStorage.getLatestBlock();
+                if (latestBlock) {
+                    latestBlockHeight = BigInt(latestBlock.height);
+                }
+            } catch {
+                // No blocks in DB
+            }
+
+            if (latestBlockHeight < BigInt(Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL)) {
+                throw new Error(
+                    `RESYNC_BLOCK_HEIGHTS_UNTIL (${Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL}) exceeds the highest indexed block (${latestBlockHeight}). ` +
+                        `The node must be fully synced to at least block ${Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL} before resyncing.`,
+                );
             }
         }
 
@@ -757,9 +776,13 @@ export class BlockIndexer extends Logger {
         if (Config.DEV.PROCESS_ONLY_X_BLOCK) {
             if (this.processedBlocks >= Config.DEV.PROCESS_ONLY_X_BLOCK) {
                 if (Config.DEV.RESYNC_BLOCK_HEIGHTS) {
-                    this.success(
-                        `RESYNC COMPLETE: Re-processed ${this.processedBlocks} blocks up to height ${Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL}. ` +
-                            `Set RESYNC_BLOCK_HEIGHTS = false and restart for normal operation.`,
+                    this.important(
+                        `\n` +
+                            `========================================\n` +
+                            `  RESYNC COMPLETE\n` +
+                            `  Re-processed ${this.processedBlocks} blocks (up to height ${Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL})\n` +
+                            `  Set RESYNC_BLOCK_HEIGHTS = false and restart.\n` +
+                            `========================================`,
                     );
                 }
 

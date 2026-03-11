@@ -208,6 +208,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
             REINDEX: false,
             REINDEX_FROM_BLOCK: 0,
+            REINDEX_PURGE_UTXOS: false,
+            REINDEX_PURGE_PUBLIC_KEYS: false,
+            REINDEX_BATCH_SIZE: 1_000,
 
             EPOCH_REINDEX: false,
             EPOCH_REINDEX_FROM_EPOCH: 0,
@@ -455,6 +458,27 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.OP_NET.REINDEX_FROM_BLOCK !== 'number'
             ) {
                 throw new Error(`Oops the property OP_NET.REINDEX_FROM_BLOCK is not a number.`);
+            }
+
+            if (
+                parsedConfig.OP_NET.REINDEX_PURGE_UTXOS !== undefined &&
+                typeof parsedConfig.OP_NET.REINDEX_PURGE_UTXOS !== 'boolean'
+            ) {
+                throw new Error(`Oops the property OP_NET.REINDEX_PURGE_UTXOS is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.OP_NET.REINDEX_PURGE_PUBLIC_KEYS !== undefined &&
+                typeof parsedConfig.OP_NET.REINDEX_PURGE_PUBLIC_KEYS !== 'boolean'
+            ) {
+                throw new Error(`Oops the property OP_NET.REINDEX_PURGE_PUBLIC_KEYS is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.OP_NET.REINDEX_BATCH_SIZE !== undefined &&
+                typeof parsedConfig.OP_NET.REINDEX_BATCH_SIZE !== 'number'
+            ) {
+                throw new Error(`Oops the property OP_NET.REINDEX_BATCH_SIZE is not a number.`);
             }
 
             if (

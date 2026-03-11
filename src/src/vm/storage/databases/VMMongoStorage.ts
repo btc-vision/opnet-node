@@ -242,67 +242,108 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('MLDSA Public Key repository not initialized');
         }
 
-        if (Config.DEV_MODE) {
-            this.info(`Purging data until block ${blockId}`);
+        // Batch delete to avoid MongoDB connection timeouts on large datasets.
+        // Use the max of block header height and blockchain info height as upper bound,
+        // since different tables may have data at different heights.
+        const BATCH_SIZE = BigInt(Config.OP_NET.REINDEX_BATCH_SIZE || 1_000);
 
-            this.log(`Purging transactions...`);
-            await this.transactionRepository.deleteTransactionsFromBlockHeight(blockId);
+        const latestBlock = await this.blockRepository.getLatestBlock();
+        const blockHeaderHeight = latestBlock
+            ? BigInt(latestBlock.height.toString())
+            : blockId;
 
-            if (blockId > 0n) {
-                this.log(`Purging unspent transactions...`);
-                await this.unspentTransactionRepository.deleteTransactionsFromBlockHeight(blockId);
+        const chainInfo = await this.blockchainRepository.getByNetwork(Config.BITCOIN.NETWORK);
+        const chainInfoHeight = BigInt(chainInfo.inProgressBlock || 0);
+
+        const upperBound = blockHeaderHeight > chainInfoHeight
+            ? blockHeaderHeight
+            : chainInfoHeight;
+
+        const purgeUtxos = Config.OP_NET.REINDEX_PURGE_UTXOS;
+        const purgePublicKeys = Config.OP_NET.REINDEX_PURGE_PUBLIC_KEYS;
+
+        this.info(`Purging data from block ${blockId} to ${upperBound}...`);
+        if (!purgeUtxos) this.warn(`Skipping UTXO purge (REINDEX_PURGE_UTXOS = false)`);
+        if (!purgePublicKeys) this.warn(`Skipping public key purge (REINDEX_PURGE_PUBLIC_KEYS = false)`);
+
+        // Target epochs have no block range — delete once upfront
+        this.log(`Purging target epochs...`);
+        await this.targetEpochRepository.deleteAllTargetEpochs();
+
+        // Batched pass: delete in chunks up to the known upper bound
+        for (let from = blockId; from <= upperBound; from += BATCH_SIZE) {
+            const batchEnd = from + BATCH_SIZE;
+
+            if (Config.DEV_MODE) {
+                this.log(`Purging batch ${from} - ${batchEnd - 1n}...`);
+
+                this.log(`Purging transactions...`);
+                await this.transactionRepository.deleteTransactionsInRange(from, batchEnd);
+
+                if (purgeUtxos) {
+                    this.log(`Purging unspent transactions...`);
+                    await this.unspentTransactionRepository.deleteTransactionsInRange(from, batchEnd);
+                }
+
+                this.log(`Purging contracts...`);
+                await this.contractRepository.deleteContractsInRange(from, batchEnd);
+
+                this.log(`Purging pointers...`);
+                await this.pointerRepository.deletePointerInRange(from, batchEnd);
+
+                this.log(`Purging block headers...`);
+                await this.blockRepository.deleteBlockHeadersInRange(from, batchEnd);
+
+                this.log(`Purging block witnesses...`);
+                await this.blockWitnessRepository.deleteBlockWitnessesInRange(from, batchEnd);
+
+                this.log(`Purging reorgs...`);
+                await this.reorgRepository.deleteReorgsInRange(from, batchEnd);
+
+                this.log(`Purging epochs...`);
+                await this.epochRepository.deleteEpochInRange(from, batchEnd);
+
+                this.log(`Purging epoch submissions...`);
+                await this.epochSubmissionRepository.deleteSubmissionsInRange(from, batchEnd);
+
+                if (purgePublicKeys) {
+                    this.log(`Purging MLDSA public keys...`);
+                    await this.mldsaPublicKeysRepository.deleteInRange(from, batchEnd);
+                }
+            } else {
+                const promises: Promise<void>[] = [
+                    this.transactionRepository.deleteTransactionsInRange(from, batchEnd),
+                    this.contractRepository.deleteContractsInRange(from, batchEnd),
+                    this.pointerRepository.deletePointerInRange(from, batchEnd),
+                    this.blockRepository.deleteBlockHeadersInRange(from, batchEnd),
+                    this.blockWitnessRepository.deleteBlockWitnessesInRange(from, batchEnd),
+                    this.reorgRepository.deleteReorgsInRange(from, batchEnd),
+                    this.epochRepository.deleteEpochInRange(from, batchEnd),
+                    this.epochSubmissionRepository.deleteSubmissionsInRange(from, batchEnd),
+                ];
+
+                if (purgeUtxos) {
+                    promises.push(
+                        this.unspentTransactionRepository.deleteTransactionsInRange(from, batchEnd),
+                    );
+                }
+
+                if (purgePublicKeys) {
+                    promises.push(this.mldsaPublicKeysRepository.deleteInRange(from, batchEnd));
+                }
+
+                await Promise.safeAll(promises);
             }
-
-            this.log(`Purging contracts...`);
-            await this.contractRepository.deleteContractsFromBlockHeight(blockId);
-
-            this.log(`Purging pointers...`);
-            await this.pointerRepository.deletePointerFromBlockHeight(blockId);
-
-            this.log(`Purging block headers...`);
-            await this.blockRepository.deleteBlockHeadersFromBlockHeight(blockId);
-
-            this.log(`Purging block witnesses...`);
-            await this.blockWitnessRepository.deleteBlockWitnessesFromHeight(blockId);
-
-            this.log(`Purging reorgs...`);
-            await this.reorgRepository.deleteReorgs(blockId);
-
-            this.log(`Purging epochs...`);
-            await this.epochRepository.deleteEpochFromBitcoinBlockNumber(blockId);
-
-            this.log(`Purging epoch submissions...`);
-            await this.epochSubmissionRepository.deleteSubmissionsFromBlock(blockId);
-
-            this.log(`Purging target epochs...`);
-            await this.targetEpochRepository.deleteAllTargetEpochs();
-
-            this.log(`Purging MLDSA public keys...`);
-            await this.mldsaPublicKeysRepository.deleteFromBlockHeight(blockId);
-        } else {
-            const promises: Promise<void>[] = [
-                this.transactionRepository.deleteTransactionsFromBlockHeight(blockId),
-                this.unspentTransactionRepository.deleteTransactionsFromBlockHeight(blockId),
-                this.contractRepository.deleteContractsFromBlockHeight(blockId),
-                this.pointerRepository.deletePointerFromBlockHeight(blockId),
-                this.blockRepository.deleteBlockHeadersFromBlockHeight(blockId),
-                this.blockWitnessRepository.deleteBlockWitnessesFromHeight(blockId),
-                this.reorgRepository.deleteReorgs(blockId),
-                this.epochRepository.deleteEpochFromBitcoinBlockNumber(blockId),
-                this.epochSubmissionRepository.deleteSubmissionsFromBlock(blockId),
-                this.targetEpochRepository.deleteAllTargetEpochs(),
-                this.mldsaPublicKeysRepository.deleteFromBlockHeight(blockId),
-            ];
-
-            await Promise.safeAll(promises);
         }
 
         if (blockId <= 0n) {
             this.log(`Purging mempool...`);
             await this.mempoolRepository.deleteGreaterThanBlockHeight(blockId);
 
-            this.log(`Purging UTXOs...`);
-            await this.unspentTransactionRepository.deleteGreaterThanBlockHeight(blockId);
+            if (purgeUtxos) {
+                this.log(`Purging UTXOs...`);
+                await this.unspentTransactionRepository.deleteGreaterThanBlockHeight(blockId);
+            }
         }
 
         this.info(`Data purged until block ${blockId}`);
@@ -319,10 +360,23 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Block witness repository not initialized');
         }
 
-        await Promise.safeAll([
-            this.blockRepository.deleteBlockHeadersFromBlockHeight(blockId),
-            this.blockWitnessRepository.deleteBlockWitnessesFromHeight(blockId),
-        ]);
+        // Batch delete to avoid MongoDB connection timeouts on large datasets.
+        const BATCH_SIZE = BigInt(Config.OP_NET.REINDEX_BATCH_SIZE || 1_000);
+        const latestBlock = await this.blockRepository.getLatestBlock();
+        const upperBound = latestBlock
+            ? BigInt(latestBlock.height.toString())
+            : blockId;
+
+        for (let from = blockId; from <= upperBound; from += BATCH_SIZE) {
+            const to = from + BATCH_SIZE;
+
+            this.log(`Purging block headers ${from} - ${to < upperBound ? to : upperBound}...`);
+
+            await Promise.safeAll([
+                this.blockRepository.deleteBlockHeadersInRange(from, to),
+                this.blockWitnessRepository.deleteBlockWitnessesInRange(from, to),
+            ]);
+        }
 
         this.info(`Block headers and witnesses purged from block ${blockId}`);
     }
