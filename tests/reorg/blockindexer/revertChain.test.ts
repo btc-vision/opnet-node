@@ -394,7 +394,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
             expect(mockBlockFetcher.onReorg).toHaveBeenCalled();
             expect(indexer.sendMessageToAllThreads).toHaveBeenCalled();
             expect(mockVmStorage.killAllPendingWrites).toHaveBeenCalled();
-            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(50n);
+            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(50n, true);
             expect(mockChainObserver.onChainReorganisation).toHaveBeenCalledWith(
                 50n,
                 100n,
@@ -498,12 +498,12 @@ describe('revertChain - BlockIndexer (real class)', () => {
 
         it('should call revertDataUntilBlock regardless of reorged flag', async () => {
             await (indexer as any).revertChain(50n, 100n, 'newhash', false);
-            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(50n);
+            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(50n, true);
 
             vi.clearAllMocks();
 
             await (indexer as any).revertChain(50n, 100n, 'newhash', true);
-            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(50n);
+            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(50n, true);
         });
 
         it('should call killAllPendingWrites regardless of reorged flag', async () => {
@@ -848,7 +848,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
         it('should forward fromHeight to revertDataUntilBlock', async () => {
             await (indexer as any).revertChain(777n, 1000n, 'hash999', false);
 
-            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(777n);
+            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(777n, true);
         });
 
         it('should forward all three arguments to onChainReorganisation', async () => {
@@ -894,7 +894,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
             await (indexer as any).revertChain(99n, 100n, 'processing-error', false);
 
             expect(mockVmStorage.setReorg).not.toHaveBeenCalled();
-            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(99n);
+            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(99n, true);
         });
 
         it('should not skip killAllPendingWrites even on processing-error reverts', async () => {
@@ -923,7 +923,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
 
             await (indexer as any).revertChain(pendingHeight, newHeight, 'processing-error', false);
 
-            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(pendingHeight);
+            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(pendingHeight, true);
             expect(mockChainObserver.onChainReorganisation).toHaveBeenCalledWith(
                 pendingHeight,
                 newHeight,
@@ -966,7 +966,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
             const largeHeight = 999999999n;
             await (indexer as any).revertChain(largeHeight, largeHeight + 1000n, 'hash', true);
 
-            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(largeHeight);
+            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(largeHeight, true);
             expect(mockVmStorage.setReorg).toHaveBeenCalledWith(
                 expect.objectContaining({
                     fromBlock: largeHeight,
@@ -1015,7 +1015,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
         it('should handle fromHeight equal to toHeight', async () => {
             await (indexer as any).revertChain(50n, 50n, 'newhash', true);
 
-            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(50n);
+            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(50n, true);
             expect(mockVmStorage.setReorg).toHaveBeenCalledWith(
                 expect.objectContaining({
                     fromBlock: 50n,

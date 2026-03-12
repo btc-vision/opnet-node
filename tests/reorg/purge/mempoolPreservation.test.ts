@@ -368,4 +368,114 @@ describe('Mempool Preservation During Reorg', () => {
             expect(mocks.mempoolRepository.deleteGreaterThanBlockHeight).not.toHaveBeenCalled();
         });
     });
+
+    // ---------------------------------------------------------------
+    // purgeUtxosOverride parameter (live reorg always purges UTXOs)
+    // ---------------------------------------------------------------
+    describe('purgeUtxosOverride parameter', () => {
+        it('should purge UTXOs when purgeUtxosOverride=true even if config says false', async () => {
+            mockConfig.OP_NET.REINDEX_PURGE_UTXOS = false;
+            mocks.blockRepository.getLatestBlock.mockResolvedValue({ height: '200' });
+            mocks.blockchainInfoRepository.getByNetwork.mockResolvedValue({
+                inProgressBlock: 200,
+            });
+
+            await storage.revertDataUntilBlock(100n, true);
+
+            expect(
+                mocks.unspentTransactionRepository.deleteTransactionsFromBlockHeight,
+            ).toHaveBeenCalledWith(200n);
+            expect(mocks.unspentTransactionRepository.deleteTransactionsInRange).toHaveBeenCalled();
+        });
+
+        it('should NOT purge UTXOs when purgeUtxosOverride=false even if config says true', async () => {
+            mockConfig.OP_NET.REINDEX_PURGE_UTXOS = true;
+            mocks.blockRepository.getLatestBlock.mockResolvedValue({ height: '200' });
+            mocks.blockchainInfoRepository.getByNetwork.mockResolvedValue({
+                inProgressBlock: 200,
+            });
+
+            await storage.revertDataUntilBlock(100n, false);
+
+            expect(
+                mocks.unspentTransactionRepository.deleteTransactionsFromBlockHeight,
+            ).not.toHaveBeenCalled();
+            expect(
+                mocks.unspentTransactionRepository.deleteTransactionsInRange,
+            ).not.toHaveBeenCalled();
+        });
+
+        it('should fall back to config when purgeUtxosOverride is undefined', async () => {
+            mockConfig.OP_NET.REINDEX_PURGE_UTXOS = true;
+            mocks.blockRepository.getLatestBlock.mockResolvedValue({ height: '200' });
+            mocks.blockchainInfoRepository.getByNetwork.mockResolvedValue({
+                inProgressBlock: 200,
+            });
+
+            await storage.revertDataUntilBlock(100n);
+
+            expect(
+                mocks.unspentTransactionRepository.deleteTransactionsFromBlockHeight,
+            ).toHaveBeenCalled();
+        });
+
+        it('should fall back to config=false when purgeUtxosOverride is undefined', async () => {
+            mockConfig.OP_NET.REINDEX_PURGE_UTXOS = false;
+            mocks.blockRepository.getLatestBlock.mockResolvedValue({ height: '200' });
+            mocks.blockchainInfoRepository.getByNetwork.mockResolvedValue({
+                inProgressBlock: 200,
+            });
+
+            await storage.revertDataUntilBlock(100n);
+
+            expect(
+                mocks.unspentTransactionRepository.deleteTransactionsFromBlockHeight,
+            ).not.toHaveBeenCalled();
+        });
+
+        it('should purge UTXOs in both first pass and batched pass when override=true', async () => {
+            mockConfig.OP_NET.REINDEX_PURGE_UTXOS = false;
+            mocks.blockRepository.getLatestBlock.mockResolvedValue({ height: '500' });
+            mocks.blockchainInfoRepository.getByNetwork.mockResolvedValue({
+                inProgressBlock: 500,
+            });
+
+            await storage.revertDataUntilBlock(100n, true);
+
+            // First pass
+            expect(
+                mocks.unspentTransactionRepository.deleteTransactionsFromBlockHeight,
+            ).toHaveBeenCalledWith(500n);
+            // Batched pass
+            expect(mocks.unspentTransactionRepository.deleteTransactionsInRange).toHaveBeenCalled();
+        });
+
+        it('should purge UTXO at blockId=0 when override=true and config=false', async () => {
+            mockConfig.OP_NET.REINDEX_PURGE_UTXOS = false;
+            mocks.blockRepository.getLatestBlock.mockResolvedValue({ height: '100' });
+            mocks.blockchainInfoRepository.getByNetwork.mockResolvedValue({
+                inProgressBlock: 100,
+            });
+
+            await storage.revertDataUntilBlock(0n, true);
+
+            expect(
+                mocks.unspentTransactionRepository.deleteGreaterThanBlockHeight,
+            ).toHaveBeenCalledWith(0n);
+        });
+
+        it('should NOT purge UTXO at blockId=0 when override=false', async () => {
+            mockConfig.OP_NET.REINDEX_PURGE_UTXOS = true;
+            mocks.blockRepository.getLatestBlock.mockResolvedValue({ height: '100' });
+            mocks.blockchainInfoRepository.getByNetwork.mockResolvedValue({
+                inProgressBlock: 100,
+            });
+
+            await storage.revertDataUntilBlock(0n, false);
+
+            expect(
+                mocks.unspentTransactionRepository.deleteGreaterThanBlockHeight,
+            ).not.toHaveBeenCalled();
+        });
+    });
 });

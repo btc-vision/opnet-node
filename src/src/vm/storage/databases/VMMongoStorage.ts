@@ -192,7 +192,10 @@ export class VMMongoStorage extends VMStorage {
         }
     }
 
-    public async revertDataUntilBlock(blockId: bigint): Promise<void> {
+    public async revertDataUntilBlock(
+        blockId: bigint,
+        purgeUtxosOverride?: boolean,
+    ): Promise<void> {
         this.warn(`REVERT DATA UNTIL BLOCK ${blockId}`);
 
         /** We must delete all the data until the blockId */
@@ -259,7 +262,7 @@ export class VMMongoStorage extends VMStorage {
             blockHeaderHeight > chainInfoHeight ? blockHeaderHeight : chainInfoHeight;
         const upperBound = derivedUpper > blockId ? derivedUpper : blockId;
 
-        const purgeUtxos = Config.OP_NET.REINDEX_PURGE_UTXOS;
+        const purgeUtxos = purgeUtxosOverride ?? Config.OP_NET.REINDEX_PURGE_UTXOS;
 
         this.info(`Purging data from block ${blockId} to ${upperBound}...`);
 

@@ -672,7 +672,8 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             await (indexer as any).init();
 
             // revertChain should have been called via onHeightMismatch, calling revertDataUntilBlock with the watchdog height
-            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(90n);
+            // revertChain always passes purgeUtxos=true for live reorgs
+            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(90n, true);
         });
 
         it('should not trigger revertChain when watchdog height matches original', async () => {
@@ -903,6 +904,47 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
                 '6:watchdog.init',
                 '7:registerEvents',
             ]);
+        });
+    });
+
+    // ========================================================================
+    // purgeUtxosOverride: startup vs live reorg
+    // ========================================================================
+    describe('purgeUtxosOverride behavior', () => {
+        it('should NOT pass purgeUtxos override during startup purge (uses config default)', async () => {
+            mockConfig.OP_NET.REINDEX_PURGE_UTXOS = false;
+
+            await (indexer as any).init();
+
+            // init() calls revertDataUntilBlock(purgeFromBlock) WITHOUT the override
+            // so UTXO purge is skipped per config — this is intentional for startup
+            const calls = mockVmStorage.revertDataUntilBlock.mock.calls;
+            // First call is from init's normal purge — should have only 1 arg (no override)
+            expect(calls[0]).toEqual([100n]);
+        });
+
+        it('should pass purgeUtxos=true when revertChain is triggered by height mismatch', async () => {
+            mockChainObserver.pendingBlockHeight = 100n;
+            mockReorgWatchdog.pendingBlockHeight = 90n;
+
+            await (indexer as any).init();
+
+            // Second revertDataUntilBlock call is from revertChain (height mismatch)
+            // revertChain always passes true to ensure UTXO consistency
+            const calls = mockVmStorage.revertDataUntilBlock.mock.calls;
+            const revertChainCall = calls.find((c: bigint[]) => c[0] === 90n);
+            expect(revertChainCall).toEqual([90n, true]);
+        });
+
+        it('should always purge UTXOs during live reorg even with REINDEX_PURGE_UTXOS=false', async () => {
+            mockConfig.OP_NET.REINDEX_PURGE_UTXOS = false;
+
+            // Directly call revertChain (simulating a live reorg)
+            (indexer as any)._blockFetcher = mockBlockFetcher;
+            await (indexer as any).revertChain(50n, 100n, 'newhash', true);
+
+            // revertChain passes purgeUtxos=true regardless of config
+            expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(50n, true);
         });
     });
 
