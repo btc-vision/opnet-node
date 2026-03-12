@@ -78,6 +78,9 @@ export class BlockWitnessManager extends Logger {
     private selfQueueDraining: boolean = false;
     private readonly MAX_CONCURRENT_SELF_PROOFS: number = 10;
 
+    /** Resolvers waiting for a concurrency slot to open. */
+    private slotWaiters: Array<() => void> = [];
+
     constructor(
         private readonly config: BtcIndexerConfig,
         private readonly identity: OPNetIdentity,
@@ -262,12 +265,7 @@ export class BlockWitnessManager extends Logger {
             // Wait for a concurrency slot
             if (this.activeSelfProofs >= this.MAX_CONCURRENT_SELF_PROOFS) {
                 await new Promise<void>((resolve) => {
-                    const interval = setInterval(() => {
-                        if (this.activeSelfProofs < this.MAX_CONCURRENT_SELF_PROOFS) {
-                            clearInterval(interval);
-                            resolve();
-                        }
-                    }, 5);
+                    this.slotWaiters.push(resolve);
                 });
             }
 
@@ -300,6 +298,12 @@ export class BlockWitnessManager extends Logger {
                 })
                 .finally(() => {
                     this.activeSelfProofs--;
+
+                    // Wake up a waiter if one is blocked on a concurrency slot
+                    if (this.slotWaiters.length > 0) {
+                        const waiter = this.slotWaiters.shift();
+                        if (waiter) waiter();
+                    }
 
                     if (onComplete) {
                         try {

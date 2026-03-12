@@ -21,9 +21,9 @@ function toLong(val: unknown): Long {
         return Long.fromBits(obj.low, obj.high, obj.unsigned);
     }
 
-    if (typeof val === 'string') return Long.fromString(val);
-    if (typeof val === 'number') return Long.fromNumber(val);
-    if (typeof val === 'bigint') return Long.fromString(val.toString());
+    if (typeof val === 'string') return Long.fromString(val, true);
+    if (typeof val === 'number') return Long.fromNumber(val, true);
+    if (typeof val === 'bigint') return Long.fromString(val.toString(), true);
 
     return Long.ZERO;
 }

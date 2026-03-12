@@ -832,7 +832,7 @@ describe('PoC.onBlockProcessed', () => {
         PoCClass = mod.PoC;
     });
 
-    it('should send WITNESS_HEIGHT_UPDATE to ALL witness threads and WITNESS_BLOCK_PROCESSED to ONE', () => {
+    it('should send WITNESS_HEIGHT_UPDATE to ALL witness threads and WITNESS_BLOCK_PROCESSED to ONE', async () => {
         const poc = new PoCClass(mockConfig as any);
         const mockSendToThread = vi.fn().mockResolvedValue(null);
         const mockSendToAllThreads = vi.fn().mockResolvedValue(undefined);
@@ -842,7 +842,7 @@ describe('PoC.onBlockProcessed', () => {
         const blockData = makeBlockProcessedData(500n);
         const msg = { type: MessageType.BLOCK_PROCESSED, data: blockData };
 
-        (poc as any).onBlockProcessed(msg);
+        await (poc as any).onBlockProcessed(msg);
 
         // Broadcast height to ALL witness instances
         expect(mockSendToAllThreads).toHaveBeenCalledWith(ThreadTypes.WITNESS, {
@@ -857,7 +857,7 @@ describe('PoC.onBlockProcessed', () => {
         });
     });
 
-    it('should call updateConsensusHeight on P2PManager', () => {
+    it('should call updateConsensusHeight on P2PManager', async () => {
         const poc = new PoCClass(mockConfig as any);
         poc.sendMessageToThread = vi.fn().mockResolvedValue(null);
         poc.sendMessageToAllThreads = vi.fn().mockResolvedValue(undefined);
@@ -865,13 +865,13 @@ describe('PoC.onBlockProcessed', () => {
         const blockData = makeBlockProcessedData(500n);
         const msg = { type: MessageType.BLOCK_PROCESSED, data: blockData };
 
-        (poc as any).onBlockProcessed(msg);
+        await (poc as any).onBlockProcessed(msg);
 
         const p2p = (poc as any).p2p;
         expect(p2p.updateConsensusHeight).toHaveBeenCalledWith(500n);
     });
 
-    it('should return {} immediately (non-blocking)', () => {
+    it('should return {} after completing height broadcast', async () => {
         const poc = new PoCClass(mockConfig as any);
         poc.sendMessageToThread = vi.fn().mockResolvedValue(null);
         poc.sendMessageToAllThreads = vi.fn().mockResolvedValue(undefined);
@@ -879,9 +879,64 @@ describe('PoC.onBlockProcessed', () => {
         const blockData = makeBlockProcessedData(500n);
         const msg = { type: MessageType.BLOCK_PROCESSED, data: blockData };
 
-        const result = (poc as any).onBlockProcessed(msg);
+        const result = await (poc as any).onBlockProcessed(msg);
 
         expect(result).toEqual({});
+    });
+
+    it('should serialize rapid successive calls — heights always in order', async () => {
+        const poc = new PoCClass(mockConfig as any);
+        const heightOrder: bigint[] = [];
+        const proofOrder: bigint[] = [];
+        poc.sendMessageToAllThreads = vi.fn().mockImplementation(async (_type: unknown, msg: { data: { blockNumber: bigint } }) => {
+            heightOrder.push(msg.data.blockNumber);
+            // Simulate slow broadcast
+            await new Promise((r) => setTimeout(r, 10));
+        });
+        poc.sendMessageToThread = vi.fn().mockImplementation(async (_type: unknown, msg: { data: { blockNumber: bigint } }) => {
+            proofOrder.push(msg.data.blockNumber);
+            return null;
+        });
+
+        const msg1 = { type: MessageType.BLOCK_PROCESSED, data: makeBlockProcessedData(100n) };
+        const msg2 = { type: MessageType.BLOCK_PROCESSED, data: makeBlockProcessedData(101n) };
+        const msg3 = { type: MessageType.BLOCK_PROCESSED, data: makeBlockProcessedData(102n) };
+
+        // Fire all 3 without awaiting — simulates rapid block arrival
+        const p1 = (poc as any).onBlockProcessed(msg1);
+        const p2 = (poc as any).onBlockProcessed(msg2);
+        const p3 = (poc as any).onBlockProcessed(msg3);
+
+        await Promise.all([p1, p2, p3]);
+
+        // Heights broadcast in strict order (serialized by blockProcessedLock)
+        expect(heightOrder).toEqual([100n, 101n, 102n]);
+
+        // All 3 proofs sent (round-robin, fire-and-forget)
+        expect(proofOrder).toEqual([100n, 101n, 102n]);
+    });
+
+    it('should not skip blocks when burst arrives', async () => {
+        const poc = new PoCClass(mockConfig as any);
+        const heights: bigint[] = [];
+        poc.sendMessageToAllThreads = vi.fn().mockImplementation(async (_type: unknown, msg: { data: { blockNumber: bigint } }) => {
+            heights.push(msg.data.blockNumber);
+        });
+        poc.sendMessageToThread = vi.fn().mockResolvedValue(null);
+
+        const promises = [];
+        for (let i = 0n; i < 20n; i++) {
+            const msg = { type: MessageType.BLOCK_PROCESSED, data: makeBlockProcessedData(i) };
+            promises.push((poc as any).onBlockProcessed(msg));
+        }
+
+        await Promise.all(promises);
+
+        // All 20 heights must be broadcast, in order
+        expect(heights.length).toBe(20);
+        for (let i = 0n; i < 20n; i++) {
+            expect(heights[Number(i)]).toBe(i);
+        }
     });
 });
 

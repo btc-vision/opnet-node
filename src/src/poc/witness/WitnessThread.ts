@@ -141,7 +141,9 @@ export class WitnessThread extends Thread<ThreadTypes.WITNESS> {
 
                 // Reconstruct Long values degraded by structured clone
                 const packet = reconstructSyncResponse(m.data as ISyncBlockHeaderResponse);
-                void this.blockWitnessManager.onBlockWitnessResponse(packet);
+                void this.blockWitnessManager.onBlockWitnessResponse(packet).catch((e: unknown) => {
+                    this.error(`onBlockWitnessResponse error: ${(e as Error).stack}`);
+                });
                 return {};
             }
             default: {
