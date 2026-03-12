@@ -5,7 +5,9 @@ import { MessageType } from '../../threading/enum/MessageType.js';
 import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { Config } from '../../config/Config.js';
 import { RPCBlockFetcher } from '../fetcher/RPCBlockFetcher.js';
-import { CurrentIndexerBlockResponseData } from '../../threading/interfaces/thread-messages/messages/indexer/CurrentIndexerBlock.js';
+import {
+    CurrentIndexerBlockResponseData
+} from '../../threading/interfaces/thread-messages/messages/indexer/CurrentIndexerBlock.js';
 import { ChainObserver } from './observer/ChainObserver.js';
 import { IndexingTask } from './tasks/IndexingTask.js';
 import { BlockFetcher } from '../fetcher/abstract/BlockFetcher.js';
@@ -29,13 +31,18 @@ import { OPNetConsensus } from '../../poc/configurations/OPNetConsensus.js';
 import fs from 'fs';
 import { EpochManager } from './epoch/EpochManager.js';
 import { EpochReindexer } from './epoch/EpochReindexer.js';
+import { MongoDBConfigurationDefaults } from '../../vm/storage/databases/MongoDBConfigurationDefaults.js';
 
 export class BlockIndexer extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     private chainReorged: boolean = false;
 
-    private readonly database: ConfigurableDBManager = new ConfigurableDBManager(Config);
+    private readonly database: ConfigurableDBManager = new ConfigurableDBManager(
+        Config,
+        MongoDBConfigurationDefaults,
+    );
+
     private readonly vmStorage: VMStorage = this.getVMStorage();
 
     private readonly vmManager: VMManager = new VMManager(Config, false, this.vmStorage);

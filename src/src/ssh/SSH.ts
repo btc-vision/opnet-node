@@ -19,6 +19,7 @@ import { P2PVersion } from '../poc/configurations/P2PVersion.js';
 import { TrustedAuthority } from '../poc/configurations/manager/TrustedAuthority.js';
 import fs from 'fs';
 import { SendMessageToThreadFunction } from '../threading/thread/Thread.js';
+import { MongoDBConfigurationDefaults } from '../vm/storage/databases/MongoDBConfigurationDefaults.js';
 
 const chalk = new Chalk({ level: 3 });
 
@@ -30,7 +31,10 @@ export class SSH extends Logger {
     private banner: string = this.generateBanner();
 
     private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC();
-    private readonly db: ConfigurableDBManager = new ConfigurableDBManager(Config);
+    private readonly db: ConfigurableDBManager = new ConfigurableDBManager(
+        Config,
+        MongoDBConfigurationDefaults,
+    );
 
     private readonly identity: OPNetIdentity;
     private hostKey: string | undefined;

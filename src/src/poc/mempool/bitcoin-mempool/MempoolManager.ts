@@ -25,12 +25,17 @@ import { fromHex, Network } from '@btc-vision/bitcoin';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
 import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { getMongodbMajorVersion } from '../../../vm/storage/databases/MongoUtils.js';
+import { MongoDBConfigurationDefaults } from '../../../vm/storage/databases/MongoDBConfigurationDefaults.js';
 
 export class MempoolManager extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC();
-    private readonly db: ConfigurableDBManager = new ConfigurableDBManager(Config);
+    private readonly db: ConfigurableDBManager = new ConfigurableDBManager(
+        Config,
+        MongoDBConfigurationDefaults,
+    );
+
     private readonly transactionVerifier: TransactionVerifierManager;
 
     #blockchainInformationRepository: BlockchainInfoRepository | undefined;

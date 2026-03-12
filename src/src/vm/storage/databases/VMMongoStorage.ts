@@ -49,6 +49,7 @@ import {
     MLDSAPublicKeyRepository,
 } from '../../../db/repositories/MLDSAPublicKeysRepository.js';
 import { getMongodbMajorVersion } from './MongoUtils.js';
+import { MongoDBConfigurationDefaults } from './MongoDBConfigurationDefaults.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -73,7 +74,8 @@ export class VMMongoStorage extends VMStorage {
         databaseManager?: ConfigurableDBManager,
     ) {
         super();
-        this.databaseManager = databaseManager || new ConfigurableDBManager(this.config);
+        this.databaseManager =
+            databaseManager || new ConfigurableDBManager(this.config, MongoDBConfigurationDefaults);
     }
 
     public get blockchainRepository(): BlockchainInfoRepository {
@@ -286,7 +288,9 @@ export class VMMongoStorage extends VMStorage {
 
             if (purgeUtxos) {
                 this.log(`Purging unspent transactions...`);
-                await this.unspentTransactionRepository.deleteTransactionsFromBlockHeight(upperBound);
+                await this.unspentTransactionRepository.deleteTransactionsFromBlockHeight(
+                    upperBound,
+                );
             }
 
             this.log(`Purging contracts...`);

@@ -52,6 +52,7 @@ import {
 } from '../../../threading/interfaces/thread-messages/messages/api/FeeRequest.js';
 import { RawMempoolInfo } from '@btc-vision/bitcoin-rpc/src/rpc/types/MempoolInfo.js';
 import { getMongodbMajorVersion } from '../../../vm/storage/databases/MongoUtils.js';
+import { MongoDBConfigurationDefaults } from '../../../vm/storage/databases/MongoDBConfigurationDefaults.js';
 
 const btcPerKvBtoSatPerVByte = (btcPerKvB: number): number => (btcPerKvB * 1e8) / 1_000;
 
@@ -63,7 +64,10 @@ export class Mempool extends Logger {
     private readonly transactionSizeValidator: TransactionSizeValidator =
         new TransactionSizeValidator();
 
-    private readonly db: ConfigurableDBManager = new ConfigurableDBManager(Config);
+    private readonly db: ConfigurableDBManager = new ConfigurableDBManager(
+        Config,
+        MongoDBConfigurationDefaults,
+    );
 
     #blockchainInformationRepository: BlockchainInfoRepository | undefined;
     #mempoolRepository: MempoolRepository | undefined;
