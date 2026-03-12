@@ -937,7 +937,7 @@ export class P2PManager extends Logger {
                 data: witness,
             });
         };
-        peer.onBlockWitnessResponse = async (packet: ISyncBlockHeaderResponse): Promise<void> => {
+        peer.onBlockWitnessResponse = (packet: ISyncBlockHeaderResponse): void => {
             void this.sendMessageToThread(ThreadTypes.WITNESS, {
                 type: MessageType.WITNESS_PEER_RESPONSE,
                 data: packet,

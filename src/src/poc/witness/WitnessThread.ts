@@ -12,10 +12,7 @@ import { AuthorityManager } from '../configurations/manager/AuthorityManager.js'
 import { BlockProcessedData } from '../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
 import { IBlockHeaderWitness } from '../networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { ISyncBlockHeaderResponse } from '../networking/protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
-import {
-    reconstructBlockWitness,
-    reconstructSyncResponse,
-} from './WitnessSerializer.js';
+import { reconstructBlockWitness, reconstructSyncResponse } from './WitnessSerializer.js';
 
 export class WitnessThread extends Thread<ThreadTypes.WITNESS> {
     public readonly threadType: ThreadTypes.WITNESS = ThreadTypes.WITNESS;
@@ -50,10 +47,10 @@ export class WitnessThread extends Thread<ThreadTypes.WITNESS> {
         }, 5000);
     }
 
-    protected async onLinkMessage(
+    protected onLinkMessage(
         type: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
-    ): Promise<undefined | ThreadData> {
+    ): undefined | ThreadData {
         switch (type) {
             case ThreadTypes.P2P: {
                 return this.handleP2PMessage(m);

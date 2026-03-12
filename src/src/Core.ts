@@ -5,10 +5,7 @@ import { DBManagerInstance } from './db/DBManager.js';
 import { IndexManager } from './db/indexes/IndexManager.js';
 import { ServicesConfigurations } from './services/ServicesConfigurations.js';
 import { MessageType } from './threading/enum/MessageType.js';
-import {
-    LinkThreadMessage,
-    LinkType,
-} from './threading/interfaces/thread-messages/messages/LinkThreadMessage.js';
+import { LinkThreadMessage, LinkType, } from './threading/interfaces/thread-messages/messages/LinkThreadMessage.js';
 import {
     LinkThreadRequestData,
     LinkThreadRequestMessage,

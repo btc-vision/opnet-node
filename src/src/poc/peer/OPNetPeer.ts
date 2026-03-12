@@ -112,7 +112,7 @@ export class OPNetPeer extends Logger {
         throw new Error('onBlockWitness not implemented.');
     };
 
-    public onBlockWitnessResponse: (packet: ISyncBlockHeaderResponse) => Promise<void> = () => {
+    public onBlockWitnessResponse: (packet: ISyncBlockHeaderResponse) => void = () => {
         throw new Error('onBlockWitnessResponse not implemented.');
     };
 
@@ -309,9 +309,9 @@ export class OPNetPeer extends Logger {
             return this.getOPNetPeers();
         };
 
-        this.serverNetworkingManager.onBlockWitnessResponse = async (
+        this.serverNetworkingManager.onBlockWitnessResponse = (
             packet: ISyncBlockHeaderResponse,
-        ): Promise<void> => {
+        ): void => {
             return this.onBlockWitnessResponse(packet);
         };
 

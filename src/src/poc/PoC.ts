@@ -49,7 +49,7 @@ export class PoC extends Logger {
     ): Promise<ThreadData> {
         switch (m.type) {
             case MessageType.BLOCK_PROCESSED: {
-                return await this.onBlockProcessed(m as BlockProcessedMessage);
+                return this.onBlockProcessed(m as BlockProcessedMessage);
             }
             case MessageType.RPC_METHOD: {
                 return await this.handleRPCMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
@@ -60,6 +60,14 @@ export class PoC extends Logger {
             default:
                 throw new Error(`Unknown message type: ${m.type} received in PoC.`);
         }
+    }
+
+    public async broadcastBlockWitness(witness: IBlockHeaderWitness): Promise<void> {
+        await this.p2p.broadcastBlockWitnessToNetwork(witness);
+    }
+
+    public async requestPeerWitnesses(blockNumber: bigint): Promise<void> {
+        await this.p2p.requestWitnessesFromPeers(blockNumber);
     }
 
     private async handleGetPeerMessage(): Promise<ThreadData> {
@@ -93,14 +101,6 @@ export class PoC extends Logger {
         m: ThreadMessageBase<MessageType>,
     ): Promise<void> {
         return this.sendMessageToAllThreads(threadType, m);
-    }
-
-    public async broadcastBlockWitness(witness: IBlockHeaderWitness): Promise<void> {
-        await this.p2p.broadcastBlockWitnessToNetwork(witness);
-    }
-
-    public async requestPeerWitnesses(blockNumber: bigint): Promise<void> {
-        await this.p2p.requestWitnessesFromPeers(blockNumber);
     }
 
     private onBlockProcessed(m: BlockProcessedMessage): ThreadData {
