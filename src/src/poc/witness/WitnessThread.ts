@@ -90,27 +90,32 @@ export class WitnessThread extends Thread<ThreadTypes.WITNESS> {
         }
 
         switch (m.type) {
-            case MessageType.WITNESS_BLOCK_PROCESSED: {
-                const data = m.data as BlockProcessedData;
-                const isFirst = !this.currentBlockSet;
-                if (isFirst) this.currentBlockSet = true;
+            case MessageType.WITNESS_HEIGHT_UPDATE: {
+                // Broadcast to ALL instances: update currentBlock so peer witnesses
+                // for recent blocks are accepted (not rejected as "too old").
+                const { blockNumber } = m.data as { blockNumber: bigint };
+                void this.blockWitnessManager.setCurrentBlock(blockNumber, true);
 
-                this.blockWitnessManager.queueSelfWitness(
-                    data,
-                    () => {
-                        // After witness generated, tell P2P to request from peers
-                        void this.sendMessageToThread(ThreadTypes.P2P, {
-                            type: MessageType.WITNESS_REQUEST_PEERS,
-                            data: { blockNumber: data.blockNumber },
-                        });
-                    },
-                    isFirst
-                        ? () => {
-                              // Height is now set — replay any buffered peer witnesses
-                              this.flushPendingPeerMessages();
-                          }
-                        : undefined,
-                );
+                if (!this.currentBlockSet) {
+                    this.currentBlockSet = true;
+                    // Height is now set — replay any buffered peer witnesses
+                    this.flushPendingPeerMessages();
+                }
+
+                return {};
+            }
+            case MessageType.WITNESS_BLOCK_PROCESSED: {
+                // Round-robin to ONE instance: generate proof for this block.
+                // Height is already set by WITNESS_HEIGHT_UPDATE (broadcast).
+                const data = m.data as BlockProcessedData;
+
+                this.blockWitnessManager.queueSelfWitness(data, () => {
+                    // After witness generated, tell P2P to request from peers
+                    void this.sendMessageToThread(ThreadTypes.P2P, {
+                        type: MessageType.WITNESS_REQUEST_PEERS,
+                        data: { blockNumber: data.blockNumber },
+                    });
+                });
 
                 return {};
             }

@@ -16,6 +16,9 @@ export class PoC extends Logger {
 
     private readonly p2p: P2PManager;
 
+    /** Serializes onBlockProcessed calls so each completes before the next starts. */
+    private blockProcessedLock: Promise<void> = Promise.resolve();
+
     constructor(private readonly config: BtcIndexerConfig) {
         super();
 
@@ -49,7 +52,7 @@ export class PoC extends Logger {
     ): Promise<ThreadData> {
         switch (m.type) {
             case MessageType.BLOCK_PROCESSED: {
-                return this.onBlockProcessed(m as BlockProcessedMessage);
+                return await this.onBlockProcessed(m as BlockProcessedMessage);
             }
             case MessageType.RPC_METHOD: {
                 return await this.handleRPCMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
@@ -103,14 +106,24 @@ export class PoC extends Logger {
         return this.sendMessageToAllThreads(threadType, m);
     }
 
-    private onBlockProcessed(m: BlockProcessedMessage): ThreadData {
-        // Forward to dedicated WITNESS thread for heavy proof generation
+    private async onBlockProcessed(m: BlockProcessedMessage): Promise<ThreadData> {
+        // Wait for previous block to finish so height + proof are always in order.
+        await this.blockProcessedLock;
+
+        // Broadcast height to ALL witness instances
+        this.blockProcessedLock = this.sendMessageToAllThreads(ThreadTypes.WITNESS, {
+            type: MessageType.WITNESS_HEIGHT_UPDATE,
+            data: { blockNumber: m.data.blockNumber },
+        });
+        await this.blockProcessedLock;
+
+        // Round-robin proof generation to ONE witness instance
         void this.sendMessageToThread(ThreadTypes.WITNESS, {
             type: MessageType.WITNESS_BLOCK_PROCESSED,
             data: m.data,
         });
 
-        // Lightweight: update consensus height on this thread
+        // Update consensus height on this thread
         this.p2p.updateConsensusHeight(m.data.blockNumber);
 
         return {};

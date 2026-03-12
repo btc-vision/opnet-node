@@ -363,12 +363,12 @@ describe('WitnessThread', () => {
             expect(call[0]).toBe(data);
         });
 
-        it('should set currentBlockSet to true on first WITNESS_BLOCK_PROCESSED', () => {
+        it('should set currentBlockSet to true on first WITNESS_HEIGHT_UPDATE', () => {
             expect((thread as any).currentBlockSet).toBe(false);
 
             const msg = {
-                type: MessageType.WITNESS_BLOCK_PROCESSED,
-                data: makeBlockProcessedData(),
+                type: MessageType.WITNESS_HEIGHT_UPDATE,
+                data: { blockNumber: 100n },
             };
             (thread as any).handleP2PMessage(msg);
 
@@ -403,7 +403,7 @@ describe('WitnessThread', () => {
             });
         });
 
-        it('should pass onHeightSet callback on first call that flushes buffered messages', () => {
+        it('should not pass a third argument (onHeightSet) to queueSelfWitness', () => {
             const msg = {
                 type: MessageType.WITNESS_BLOCK_PROCESSED,
                 data: makeBlockProcessedData(),
@@ -411,25 +411,28 @@ describe('WitnessThread', () => {
 
             (thread as any).handleP2PMessage(msg);
 
-            const onHeightSet = mockBlockWitnessManagerInstance.queueSelfWitness.mock.calls[0][2];
-            expect(onHeightSet).toBeTypeOf('function');
+            // After the refactor, queueSelfWitness receives only (data, onComplete).
+            // There is no onHeightSet callback — height is set by WITNESS_HEIGHT_UPDATE.
+            const call = mockBlockWitnessManagerInstance.queueSelfWitness.mock.calls[0];
+            expect(call).toHaveLength(2);
         });
 
-        it('should NOT pass onHeightSet callback on subsequent calls', () => {
-            const msg1 = {
+        it('should call setCurrentBlock via WITNESS_HEIGHT_UPDATE, not via WITNESS_BLOCK_PROCESSED', () => {
+            // WITNESS_BLOCK_PROCESSED does NOT set height
+            const blockMsg = {
                 type: MessageType.WITNESS_BLOCK_PROCESSED,
                 data: makeBlockProcessedData(100n),
             };
-            const msg2 = {
-                type: MessageType.WITNESS_BLOCK_PROCESSED,
-                data: makeBlockProcessedData(101n),
+            (thread as any).handleP2PMessage(blockMsg);
+            expect(mockBlockWitnessManagerInstance.setCurrentBlock).not.toHaveBeenCalled();
+
+            // WITNESS_HEIGHT_UPDATE DOES set height
+            const heightMsg = {
+                type: MessageType.WITNESS_HEIGHT_UPDATE,
+                data: { blockNumber: 100n },
             };
-
-            (thread as any).handleP2PMessage(msg1);
-            (thread as any).handleP2PMessage(msg2);
-
-            const onHeightSet2 = mockBlockWitnessManagerInstance.queueSelfWitness.mock.calls[1][2];
-            expect(onHeightSet2).toBeUndefined();
+            (thread as any).handleP2PMessage(heightMsg);
+            expect(mockBlockWitnessManagerInstance.setCurrentBlock).toHaveBeenCalledWith(100n, true);
         });
     });
 
@@ -453,12 +456,12 @@ describe('WitnessThread', () => {
         });
 
         it('should not buffer messages after currentBlockSet is true', () => {
-            // First, set currentBlockSet by processing a block
-            const blockMsg = {
-                type: MessageType.WITNESS_BLOCK_PROCESSED,
-                data: makeBlockProcessedData(),
+            // First, set currentBlockSet via WITNESS_HEIGHT_UPDATE
+            const heightMsg = {
+                type: MessageType.WITNESS_HEIGHT_UPDATE,
+                data: { blockNumber: 100n },
             };
-            (thread as any).handleP2PMessage(blockMsg);
+            (thread as any).handleP2PMessage(heightMsg);
 
             // Now process peer data
             const witnessData = makeWitnessData(100);
@@ -651,24 +654,18 @@ describe('WitnessThread', () => {
             expect((thread as any).pendingPeerMessages).toHaveLength(3);
         });
 
-        it('should flush buffered messages after first WITNESS_BLOCK_PROCESSED via onHeightSet', () => {
+        it('should flush buffered messages after first WITNESS_HEIGHT_UPDATE', () => {
             // Buffer some peer messages
             const peerMsg = { type: MessageType.WITNESS_PEER_DATA, data: makeWitnessData(50) };
             (thread as any).handleP2PMessage(peerMsg);
             expect((thread as any).pendingPeerMessages).toHaveLength(1);
 
-            // Now process the first block
-            const blockMsg = {
-                type: MessageType.WITNESS_BLOCK_PROCESSED,
-                data: makeBlockProcessedData(50n),
+            // Now send WITNESS_HEIGHT_UPDATE which sets currentBlockSet and flushes
+            const heightMsg = {
+                type: MessageType.WITNESS_HEIGHT_UPDATE,
+                data: { blockNumber: 50n },
             };
-            (thread as any).handleP2PMessage(blockMsg);
-
-            // The onHeightSet callback was passed to queueSelfWitness.
-            // Simulate calling it:
-            const onHeightSet = mockBlockWitnessManagerInstance.queueSelfWitness.mock.calls[0][2];
-            expect(onHeightSet).toBeTypeOf('function');
-            onHeightSet();
+            (thread as any).handleP2PMessage(heightMsg);
 
             // After flushing, pending messages should be empty
             expect((thread as any).pendingPeerMessages).toHaveLength(0);
@@ -677,7 +674,8 @@ describe('WitnessThread', () => {
         });
 
         it('should process WITNESS_BLOCK_PROCESSED even before currentBlockSet', () => {
-            // WITNESS_BLOCK_PROCESSED should always be processed (it is what sets currentBlockSet)
+            // WITNESS_BLOCK_PROCESSED should always be processed (it queues proof generation)
+            // but it does NOT set currentBlockSet — that is done by WITNESS_HEIGHT_UPDATE.
             const msg = {
                 type: MessageType.WITNESS_BLOCK_PROCESSED,
                 data: makeBlockProcessedData(1n),
@@ -687,7 +685,8 @@ describe('WitnessThread', () => {
 
             expect(result).toEqual({});
             expect(mockBlockWitnessManagerInstance.queueSelfWitness).toHaveBeenCalledTimes(1);
-            expect((thread as any).currentBlockSet).toBe(true);
+            // currentBlockSet remains false until WITNESS_HEIGHT_UPDATE
+            expect((thread as any).currentBlockSet).toBe(false);
         });
 
         it('should flush mixed PEER_DATA and PEER_RESPONSE messages in order', () => {
@@ -714,15 +713,11 @@ describe('WitnessThread', () => {
                 data: makeWitnessData(12),
             });
 
-            // Process first block
+            // Send WITNESS_HEIGHT_UPDATE to set currentBlockSet and flush
             (thread as any).handleP2PMessage({
-                type: MessageType.WITNESS_BLOCK_PROCESSED,
-                data: makeBlockProcessedData(100n),
+                type: MessageType.WITNESS_HEIGHT_UPDATE,
+                data: { blockNumber: 100n },
             });
-
-            // Trigger flush
-            const onHeightSet = mockBlockWitnessManagerInstance.queueSelfWitness.mock.calls[0][2];
-            onHeightSet();
 
             expect(callOrder).toEqual([
                 'onBlockWitness',
@@ -837,16 +832,25 @@ describe('PoC.onBlockProcessed', () => {
         PoCClass = mod.PoC;
     });
 
-    it('should forward WITNESS_BLOCK_PROCESSED to WITNESS thread', () => {
+    it('should send WITNESS_HEIGHT_UPDATE to ALL witness threads and WITNESS_BLOCK_PROCESSED to ONE', () => {
         const poc = new PoCClass(mockConfig as any);
         const mockSendToThread = vi.fn().mockResolvedValue(null);
+        const mockSendToAllThreads = vi.fn().mockResolvedValue(undefined);
         poc.sendMessageToThread = mockSendToThread;
+        poc.sendMessageToAllThreads = mockSendToAllThreads;
 
         const blockData = makeBlockProcessedData(500n);
         const msg = { type: MessageType.BLOCK_PROCESSED, data: blockData };
 
         (poc as any).onBlockProcessed(msg);
 
+        // Broadcast height to ALL witness instances
+        expect(mockSendToAllThreads).toHaveBeenCalledWith(ThreadTypes.WITNESS, {
+            type: MessageType.WITNESS_HEIGHT_UPDATE,
+            data: { blockNumber: 500n },
+        });
+
+        // Round-robin proof generation to ONE witness instance
         expect(mockSendToThread).toHaveBeenCalledWith(ThreadTypes.WITNESS, {
             type: MessageType.WITNESS_BLOCK_PROCESSED,
             data: blockData,
@@ -856,6 +860,7 @@ describe('PoC.onBlockProcessed', () => {
     it('should call updateConsensusHeight on P2PManager', () => {
         const poc = new PoCClass(mockConfig as any);
         poc.sendMessageToThread = vi.fn().mockResolvedValue(null);
+        poc.sendMessageToAllThreads = vi.fn().mockResolvedValue(undefined);
 
         const blockData = makeBlockProcessedData(500n);
         const msg = { type: MessageType.BLOCK_PROCESSED, data: blockData };
@@ -869,6 +874,7 @@ describe('PoC.onBlockProcessed', () => {
     it('should return {} immediately (non-blocking)', () => {
         const poc = new PoCClass(mockConfig as any);
         poc.sendMessageToThread = vi.fn().mockResolvedValue(null);
+        poc.sendMessageToAllThreads = vi.fn().mockResolvedValue(undefined);
 
         const blockData = makeBlockProcessedData(500n);
         const msg = { type: MessageType.BLOCK_PROCESSED, data: blockData };
@@ -936,10 +942,10 @@ describe('Witness message flow integration', () => {
     });
 
     it('should handle peer witness flow: WITNESS_PEER_DATA -> reconstruct Long -> onBlockWitness', () => {
-        // First set currentBlockSet
+        // First set currentBlockSet via WITNESS_HEIGHT_UPDATE
         (thread as any).handleP2PMessage({
-            type: MessageType.WITNESS_BLOCK_PROCESSED,
-            data: makeBlockProcessedData(100n),
+            type: MessageType.WITNESS_HEIGHT_UPDATE,
+            data: { blockNumber: 100n },
         });
 
         // Now process peer witness with degraded Longs
@@ -980,10 +986,10 @@ describe('Witness message flow integration', () => {
     });
 
     it('should handle peer response flow: WITNESS_PEER_RESPONSE -> reconstruct Long -> onBlockWitnessResponse', () => {
-        // First set currentBlockSet
+        // First set currentBlockSet via WITNESS_HEIGHT_UPDATE
         (thread as any).handleP2PMessage({
-            type: MessageType.WITNESS_BLOCK_PROCESSED,
-            data: makeBlockProcessedData(100n),
+            type: MessageType.WITNESS_HEIGHT_UPDATE,
+            data: { blockNumber: 100n },
         });
 
         const degradedBlockNumber = { low: 100, high: 0, unsigned: true };
@@ -1012,8 +1018,8 @@ describe('Witness message flow integration', () => {
         expect(reconstructed.blockNumber.toString()).toBe('100');
     });
 
-    it('should correctly sequence: buffer -> first block -> flush -> process normally', () => {
-        // Step 1: Buffer some peer messages before any block is processed
+    it('should correctly sequence: buffer -> height update -> flush -> process normally', () => {
+        // Step 1: Buffer some peer messages before any height is set
         (thread as any).handleP2PMessage({
             type: MessageType.WITNESS_PEER_DATA,
             data: makeWitnessData(50),
@@ -1026,21 +1032,17 @@ describe('Witness message flow integration', () => {
         expect(mockBlockWitnessManagerInstance.onBlockWitness).not.toHaveBeenCalled();
         expect(mockBlockWitnessManagerInstance.onBlockWitnessResponse).not.toHaveBeenCalled();
 
-        // Step 2: Process first block
+        // Step 2: Send WITNESS_HEIGHT_UPDATE — sets currentBlockSet and flushes
         (thread as any).handleP2PMessage({
-            type: MessageType.WITNESS_BLOCK_PROCESSED,
-            data: makeBlockProcessedData(100n),
+            type: MessageType.WITNESS_HEIGHT_UPDATE,
+            data: { blockNumber: 100n },
         });
 
-        // Step 3: Trigger flush via onHeightSet callback
-        const onHeightSet = mockBlockWitnessManagerInstance.queueSelfWitness.mock.calls[0][2];
-        onHeightSet();
-
-        // Step 4: Buffered messages should now be processed
+        // Step 3: Buffered messages should now be processed
         expect(mockBlockWitnessManagerInstance.onBlockWitness).toHaveBeenCalledTimes(1);
         expect(mockBlockWitnessManagerInstance.onBlockWitnessResponse).toHaveBeenCalledTimes(1);
 
-        // Step 5: New messages should go directly (no buffering)
+        // Step 4: New messages should go directly (no buffering)
         (thread as any).handleP2PMessage({
             type: MessageType.WITNESS_PEER_DATA,
             data: makeWitnessData(101),
@@ -1055,15 +1057,11 @@ describe('Witness message flow integration', () => {
             data: makeWitnessData(10),
         });
 
-        // Process first block
+        // Send WITNESS_HEIGHT_UPDATE — flushes buffered messages
         (thread as any).handleP2PMessage({
-            type: MessageType.WITNESS_BLOCK_PROCESSED,
-            data: makeBlockProcessedData(100n),
+            type: MessageType.WITNESS_HEIGHT_UPDATE,
+            data: { blockNumber: 100n },
         });
-
-        // Flush
-        const onHeightSet = mockBlockWitnessManagerInstance.queueSelfWitness.mock.calls[0][2];
-        onHeightSet();
 
         // Second flush should do nothing extra
         (thread as any).flushPendingPeerMessages();
