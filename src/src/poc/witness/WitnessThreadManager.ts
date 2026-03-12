@@ -10,15 +10,16 @@ import { ThreadManager } from '../../threading/manager/ThreadManager.js';
 import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { Threader } from '../../threading/Threader.js';
 
-export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.RPC> {
-    public readonly logColor: string = '#bc00fa';
+export class WitnessThreadManager extends ThreadManager<ThreadTypes.WITNESS> {
+    public readonly logColor: string = '#e2ef37';
 
-    protected readonly threadManager: Threader<ThreadTypes.RPC> = new Threader(ThreadTypes.RPC);
+    protected readonly threadManager: Threader<ThreadTypes.WITNESS> = new Threader(
+        ThreadTypes.WITNESS,
+    );
 
     constructor() {
         super();
-
-        this.init();
+        void this.createAllThreads();
     }
 
     public onGlobalMessage(_msg: ThreadMessageBase<MessageType>, _thread: Worker): Promise<void> {
@@ -29,9 +30,8 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.RPC> {
         _threadType: ThreadTypes,
         _threadId: number,
         message: LinkThreadMessage<LinkType>,
-    ): boolean {
+    ): Promise<boolean> | boolean {
         const targetThreadType = message.data.targetThreadType;
-
         switch (targetThreadType) {
             default: {
                 return false;
@@ -42,7 +42,7 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.RPC> {
     protected sendLinkMessageToThreadOfType(
         threadType: ThreadTypes,
         _message: LinkThreadRequestMessage,
-    ): boolean {
+    ): Promise<boolean> | boolean {
         switch (threadType) {
             default: {
                 return false;
@@ -57,9 +57,28 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.RPC> {
     }
 
     protected async createLinkBetweenThreads(): Promise<void> {
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.MEMPOOL);
+        // Link to P2P: receives forwarded BLOCK_PROCESSED and peer witness data
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.P2P);
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.WITNESS);
+
+        // No INDEXER link is needed. The WitnessThread never calls
+        // getCurrentBlock() (which would require an INDEXER link); instead,
+        // it receives block height via WITNESS_BLOCK_PROCESSED from the P2P
+        // thread. Peer witnesses arriving before the first BLOCK_PROCESSED
+        // are buffered in WitnessThread and replayed once the height is set.
+        //
+        // CHAIN_REORG is also not forwarded explicitly. Reorgs are detected
+        // implicitly: when the indexer reverts, it re-sends a lower-height
+        // BLOCK_PROCESSED which triggers revertKnownWitnessesReorg() inside
+        // the self-witness queue processor (currentBlock >= data.blockNumber).
+        // In the brief window between reorg and the next BLOCK_PROCESSED,
+        // peer witnesses for reverted blocks will fail RPC validation against
+        // the updated chain, so no invalid witnesses are stored.
+    }
+
+    private async createAllThreads(): Promise<void> {
+        this.init();
+        await this.threadManager.createThreads();
     }
 }
+
+new WitnessThreadManager();

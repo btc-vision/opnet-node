@@ -9,6 +9,7 @@ import { P2PManager } from './networking/P2PManager.js';
 import { RPCMessage } from '../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { OPNetBroadcastData } from '../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
+import { IBlockHeaderWitness } from './networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 
 export class PoC extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -94,10 +95,23 @@ export class PoC extends Logger {
         return this.sendMessageToAllThreads(threadType, m);
     }
 
-    private async onBlockProcessed(m: BlockProcessedMessage): Promise<ThreadData> {
-        const data = m.data;
+    public async broadcastBlockWitness(witness: IBlockHeaderWitness): Promise<void> {
+        await this.p2p.broadcastBlockWitnessToNetwork(witness);
+    }
 
-        await this.p2p.generateBlockHeaderProof(data, true);
+    public async requestPeerWitnesses(blockNumber: bigint): Promise<void> {
+        await this.p2p.requestWitnessesFromPeers(blockNumber);
+    }
+
+    private onBlockProcessed(m: BlockProcessedMessage): ThreadData {
+        // Forward to dedicated WITNESS thread for heavy proof generation
+        void this.sendMessageToThread(ThreadTypes.WITNESS, {
+            type: MessageType.WITNESS_BLOCK_PROCESSED,
+            data: m.data,
+        });
+
+        // Lightweight: update consensus height on this thread
+        this.p2p.updateConsensusHeight(m.data.blockNumber);
 
         return {};
     }

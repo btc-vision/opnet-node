@@ -39,4 +39,11 @@ export enum MessageType {
     PLUGIN_UNREGISTER_OPCODES, // Plugin notifies opcodes should be removed
     PLUGIN_EXECUTE_WS_HANDLER, // API thread requests WS handler execution
     PLUGIN_WS_RESULT, // Plugin thread returns WS result
+
+    // Witness thread messages
+    WITNESS_BLOCK_PROCESSED, // P2P forwards block data to witness thread
+    WITNESS_PEER_DATA, // P2P forwards peer witness data to witness thread
+    WITNESS_PEER_RESPONSE, // P2P forwards peer sync response to witness thread
+    WITNESS_BROADCAST, // Witness thread asks P2P to broadcast a witness
+    WITNESS_REQUEST_PEERS, // Witness thread asks P2P to request witnesses from peers
 }

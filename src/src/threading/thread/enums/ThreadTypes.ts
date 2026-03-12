@@ -9,4 +9,5 @@ export enum ThreadTypes {
     SSH = `ssh`,
     SYNCHRONISATION = `sync`,
     PLUGIN = `plugin`,
+    WITNESS = `witness`,
 }

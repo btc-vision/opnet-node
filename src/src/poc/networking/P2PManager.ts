@@ -44,6 +44,7 @@ import { OPNetPeer } from '../peer/OPNetPeer.js';
 import { DisconnectionCode } from './enums/DisconnectionCode.js';
 import { BlockWitnessManager } from './p2p/BlockWitnessManager.js';
 import { IBlockHeaderWitness } from './protobuf/packets/blockchain/common/BlockHeaderWitness.js';
+import { ISyncBlockHeaderResponse } from './protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 import { ITransactionPacket } from './protobuf/packets/blockchain/common/TransactionPacket.js';
 import { OPNetPeerInfo } from './protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { AuthenticationManager } from './server/managers/AuthenticationManager.js';
@@ -190,6 +191,40 @@ export class P2PManager extends Logger {
     ) => Promise<void> = () => {
         throw new Error('sendMessageToAllThreads not implemented.');
     };
+
+    /**
+     * Queue a self-generated block header proof for async processing.
+     * Returns immediately so the caller's thread is not blocked.
+     */
+    public queueBlockHeaderProof(data: BlockProcessedData): void {
+        this.blockWitnessManager.queueSelfWitness(data, () => {
+            // After witness is generated, request witnesses from peers.
+            if (Config.OP_NET.MODE !== OPNetIndexerMode.LIGHT) {
+                if (data.blockNumber - 1n > 0n) {
+                    void this.requestBlockWitnessesFromPeer(data.blockNumber - 1n);
+                }
+
+                void this.requestBlockWitnessesFromPeer(data.blockNumber);
+            }
+        });
+    }
+
+    public updateConsensusHeight(blockNumber: bigint): void {
+        void this.blockWitnessManager.setCurrentBlock(blockNumber, true);
+    }
+
+    public async broadcastBlockWitnessToNetwork(witness: IBlockHeaderWitness): Promise<void> {
+        await this.broadcastBlockWitness(witness);
+    }
+
+    public async requestWitnessesFromPeers(blockNumber: bigint): Promise<void> {
+        if (Config.OP_NET.MODE !== OPNetIndexerMode.LIGHT) {
+            if (blockNumber - 1n > 0n) {
+                await this.requestBlockWitnessesFromPeer(blockNumber - 1n);
+            }
+            await this.requestBlockWitnessesFromPeer(blockNumber);
+        }
+    }
 
     public async generateBlockHeaderProof(
         data: BlockProcessedData,
@@ -895,12 +930,19 @@ export class P2PManager extends Logger {
         peer.sendMsg = this.sendToPeer.bind(this);
         peer.reportAuthenticatedPeer = this.reportAuthenticatedPeer.bind(this);
         peer.getOPNetPeers = this.getOPNetPeers.bind(this);
-        peer.onBlockWitness = this.blockWitnessManager.onBlockWitness.bind(
-            this.blockWitnessManager,
-        );
-        peer.onBlockWitnessResponse = this.blockWitnessManager.onBlockWitnessResponse.bind(
-            this.blockWitnessManager,
-        );
+        // Forward incoming peer witnesses to the dedicated WITNESS thread
+        peer.onBlockWitness = (witness: IBlockHeaderWitness) => {
+            void this.sendMessageToThread(ThreadTypes.WITNESS, {
+                type: MessageType.WITNESS_PEER_DATA,
+                data: witness,
+            });
+        };
+        peer.onBlockWitnessResponse = async (packet: ISyncBlockHeaderResponse): Promise<void> => {
+            void this.sendMessageToThread(ThreadTypes.WITNESS, {
+                type: MessageType.WITNESS_PEER_RESPONSE,
+                data: packet,
+            });
+        };
         peer.onPeersDiscovered = this.onOPNetPeersDiscovered.bind(this);
         peer.requestBlockWitnesses = this.blockWitnessManager.requestBlockWitnesses.bind(
             this.blockWitnessManager,
