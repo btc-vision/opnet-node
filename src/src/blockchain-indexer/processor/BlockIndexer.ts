@@ -5,7 +5,9 @@ import { MessageType } from '../../threading/enum/MessageType.js';
 import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { Config } from '../../config/Config.js';
 import { RPCBlockFetcher } from '../fetcher/RPCBlockFetcher.js';
-import { CurrentIndexerBlockResponseData } from '../../threading/interfaces/thread-messages/messages/indexer/CurrentIndexerBlock.js';
+import {
+    CurrentIndexerBlockResponseData
+} from '../../threading/interfaces/thread-messages/messages/indexer/CurrentIndexerBlock.js';
 import { ChainObserver } from './observer/ChainObserver.js';
 import { IndexingTask } from './tasks/IndexingTask.js';
 import { BlockFetcher } from '../fetcher/abstract/BlockFetcher.js';
@@ -29,13 +31,18 @@ import { OPNetConsensus } from '../../poc/configurations/OPNetConsensus.js';
 import fs from 'fs';
 import { EpochManager } from './epoch/EpochManager.js';
 import { EpochReindexer } from './epoch/EpochReindexer.js';
+import { MongoDBConfigurationDefaults } from '../../vm/storage/databases/MongoDBConfigurationDefaults.js';
 
 export class BlockIndexer extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     private chainReorged: boolean = false;
 
-    private readonly database: ConfigurableDBManager = new ConfigurableDBManager(Config);
+    private readonly database: ConfigurableDBManager = new ConfigurableDBManager(
+        Config,
+        MongoDBConfigurationDefaults,
+    );
+
     private readonly vmStorage: VMStorage = this.getVMStorage();
 
     private readonly vmManager: VMManager = new VMManager(Config, false, this.vmStorage);
@@ -171,16 +178,63 @@ export class BlockIndexer extends Logger {
             await this.handleEpochReindex();
         }
 
+        // Validate resync range does not extend into OPNet-enabled blocks.
+        // Resyncing OPNet blocks would produce invalid block headers.
+        if (Config.DEV.RESYNC_BLOCK_HEIGHTS) {
+            const opnetEnabled = OPNetConsensus.opnetEnabled;
+            if (opnetEnabled.ENABLED) {
+                if (opnetEnabled.BLOCK === 0n) {
+                    // OPNet active from genesis — resync not allowed at all
+                    throw new Error(
+                        `RESYNC_BLOCK_HEIGHTS cannot be used on this network. ` +
+                            `OPNet is enabled from block 0 — all blocks are OPNet blocks.`,
+                    );
+                }
+
+                if (BigInt(Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL) >= opnetEnabled.BLOCK) {
+                    throw new Error(
+                        `RESYNC_BLOCK_HEIGHTS_UNTIL (${Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL}) must be less than ` +
+                            `OPNet activation block (${opnetEnabled.BLOCK}). ` +
+                            `Set RESYNC_BLOCK_HEIGHTS_UNTIL = ${opnetEnabled.BLOCK - 1n} to resync all pre-OPNet blocks.`,
+                    );
+                }
+            }
+
+            // Verify the node was previously indexed up to the requested resync height.
+            // Resyncing beyond what was already indexed would skip saving state data.
+            let latestBlockHeight: bigint = -1n;
+            try {
+                const latestBlock = await this.vmStorage.getLatestBlock();
+                if (latestBlock) {
+                    latestBlockHeight = BigInt(latestBlock.height);
+                }
+            } catch {
+                // No blocks in DB
+            }
+
+            if (latestBlockHeight < BigInt(Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL)) {
+                throw new Error(
+                    `RESYNC_BLOCK_HEIGHTS_UNTIL (${Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL}) exceeds the highest indexed block (${latestBlockHeight}). ` +
+                        `The node must be fully synced to at least block ${Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL} before resyncing.`,
+                );
+            }
+        }
+
         // Always purge, in case of bad indexing of the last block.
         const purgeFromBlock = Config.OP_NET.REINDEX
             ? BigInt(Config.OP_NET.REINDEX_FROM_BLOCK)
             : this.chainObserver.pendingBlockHeight;
 
-        this.warn(`Safely purging data from block ${purgeFromBlock}`);
-
         // Purge.
         const originalHeight = this.chainObserver.pendingBlockHeight;
-        await this.vmStorage.revertDataUntilBlock(purgeFromBlock);
+
+        if (Config.DEV.RESYNC_BLOCK_HEIGHTS) {
+            this.warn(`RESYNC MODE: Purging only block headers from block ${purgeFromBlock}`);
+            await this.vmStorage.revertBlockHeadersOnly(purgeFromBlock);
+        } else {
+            this.warn(`Safely purging data from block ${purgeFromBlock}`);
+            await this.vmStorage.revertDataUntilBlock(purgeFromBlock);
+        }
         this.log(`Setting new height... ${purgeFromBlock}`);
 
         await this.chainObserver.setNewHeight(purgeFromBlock);
@@ -452,7 +506,8 @@ export class BlockIndexer extends Logger {
             await this.vmStorage.killAllPendingWrites();
 
             // Revert block data FIRST - main thread work must complete before plugins
-            await this.vmStorage.revertDataUntilBlock(fromHeight);
+            // Always purge UTXOs during live reorg to restore spent/unspent state correctly
+            await this.vmStorage.revertDataUntilBlock(fromHeight, true);
             await this.chainObserver.onChainReorganisation(fromHeight, toHeight, newBest);
 
             // Revert data.
@@ -728,6 +783,17 @@ export class BlockIndexer extends Logger {
 
         if (Config.DEV.PROCESS_ONLY_X_BLOCK) {
             if (this.processedBlocks >= Config.DEV.PROCESS_ONLY_X_BLOCK) {
+                if (Config.DEV.RESYNC_BLOCK_HEIGHTS) {
+                    this.important(
+                        `\n` +
+                            `--------------------------------------------\n` +
+                            `  RESYNC COMPLETE\n` +
+                            `  Re-processed ${this.processedBlocks} blocks (up to height ${Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL})\n` +
+                            `  Set RESYNC_BLOCK_HEIGHTS = false and restart.\n` +
+                            `--------------------------------------------`,
+                    );
+                }
+
                 return;
             }
         }

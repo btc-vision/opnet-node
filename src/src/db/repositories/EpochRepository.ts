@@ -281,6 +281,21 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
         await this.delete(criteria, currentSession);
     }
 
+    public async deleteEpochInRange(
+        from: bigint,
+        to: bigint,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const criteria: Partial<Filter<IEpochDocument>> = {
+            startBlock: {
+                $gte: DataConverter.toDecimal128(from),
+                $lt: DataConverter.toDecimal128(to),
+            },
+        };
+
+        await this.delete(criteria, currentSession);
+    }
+
     public async deleteEpochsFromEpochNumber(
         epochNumber: bigint,
         currentSession?: ClientSession,

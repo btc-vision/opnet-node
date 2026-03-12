@@ -122,16 +122,15 @@ export class BroadcastTransaction extends Route<
                         },
                     };
 
-                    void ServerThread.sendMessageToAllThreads(
-                        ThreadTypes.API,
-                        notification,
-                    ).catch((e: unknown) => {
-                        const errorDetails =
-                            e instanceof Error ? (e.stack ?? e.message) : String(e);
-                        this.error(
-                            `Failed to notify API threads of mempool transaction: ${errorDetails}`,
-                        );
-                    });
+                    void ServerThread.sendMessageToAllThreads(ThreadTypes.API, notification).catch(
+                        (e: unknown) => {
+                            const errorDetails =
+                                e instanceof Error ? (e.stack ?? e.message) : String(e);
+                            this.error(
+                                `Failed to notify API threads of mempool transaction: ${errorDetails}`,
+                            );
+                        },
+                    );
                 }
 
                 return mergedResult;

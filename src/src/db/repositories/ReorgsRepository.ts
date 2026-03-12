@@ -37,6 +37,17 @@ export class ReorgsRepository extends BaseRepository<IReorgDocument> {
         await this.delete(filter);
     }
 
+    public async deleteReorgsInRange(from: bigint, to: bigint): Promise<void> {
+        const filter: Filter<IReorgDocument> = {
+            fromBlock: {
+                $gte: DataConverter.toDecimal128(from),
+                $lt: DataConverter.toDecimal128(to),
+            },
+        };
+
+        await this.delete(filter);
+    }
+
     public async setReorg(reorgData: IReorgData): Promise<void> {
         const reorg: IReorgDocument = {
             fromBlock: DataConverter.toDecimal128(reorgData.fromBlock),

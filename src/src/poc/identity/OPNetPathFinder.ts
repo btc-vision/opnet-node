@@ -1,4 +1,4 @@
-import { fromBase64, toBase64, fromUtf8, toUtf8 } from '@btc-vision/bitcoin';
+import { fromBase64, fromUtf8, toBase64, toUtf8 } from '@btc-vision/bitcoin';
 import fs from 'fs';
 import path from 'path';
 import { Config } from '../../config/Config.js';

@@ -9,8 +9,12 @@ import { WebSocketAPIError } from '../ProtocolHandler.js';
 import { DefinedRoutes } from '../../routes/DefinedRoutes.js';
 import { Routes } from '../../enums/Routes.js';
 import { PackedMessage } from '../packets/APIPacket.js';
-import { BlockHeaderAPIDocumentWithTransactions } from '../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
-import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import {
+    BlockHeaderAPIDocumentWithTransactions
+} from '../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
+import {
+    OPNetTransactionTypes
+} from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 
 // Import typed request interfaces
 import {
@@ -455,9 +459,7 @@ export class HandlerRegistry extends Logger {
                 ] as BroadcastTransactionPackage;
 
                 const txHexes: string[] = request.transactions.map((tx) =>
-                    tx instanceof Uint8Array
-                        ? toHex(tx)
-                        : toHex(new Uint8Array(tx)),
+                    tx instanceof Uint8Array ? toHex(tx) : toHex(new Uint8Array(tx)),
                 );
 
                 const result = await route.getData({

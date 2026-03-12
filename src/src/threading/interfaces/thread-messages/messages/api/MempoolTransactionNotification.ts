@@ -7,7 +7,6 @@ export interface MempoolTransactionNotificationData {
     readonly transactionType: OPNetTransactionTypes;
 }
 
-export interface MempoolTransactionNotificationMessage
-    extends ThreadMessageBase<MessageType.NOTIFY_MEMPOOL_TRANSACTION> {
+export interface MempoolTransactionNotificationMessage extends ThreadMessageBase<MessageType.NOTIFY_MEMPOOL_TRANSACTION> {
     readonly data: MempoolTransactionNotificationData;
 }

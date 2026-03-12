@@ -54,6 +54,14 @@ export class EpochManager extends Logger {
         this.epochValidator = new EpochValidator(this.storage);
     }
 
+    private static compareBytes(a: Uint8Array, b: Uint8Array): number {
+        const len = Math.min(a.length, b.length);
+        for (let i = 0; i < len; i++) {
+            if (a[i] !== b[i]) return a[i] - b[i];
+        }
+        return a.length - b.length;
+    }
+
     /**
      * Callback to send messages to other threads
      * Assigned by BlockIndexer
@@ -393,14 +401,6 @@ export class EpochManager extends Logger {
                 ? new Uint8Array(winningSubmission.epochProposed.graffiti.buffer)
                 : new Uint8Array(OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH),
         };
-    }
-
-    private static compareBytes(a: Uint8Array, b: Uint8Array): number {
-        const len = Math.min(a.length, b.length);
-        for (let i = 0; i < len; i++) {
-            if (a[i] !== b[i]) return a[i] - b[i];
-        }
-        return a.length - b.length;
     }
 
     private getWinningSubmission(

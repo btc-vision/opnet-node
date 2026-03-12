@@ -108,7 +108,7 @@ export class OPNetPeer extends Logger {
             throw new Error('requestBlockWitnesses not implemented.');
         };
 
-    public onBlockWitness: (blockWitness: IBlockHeaderWitness) => Promise<void> = () => {
+    public onBlockWitness: (blockWitness: IBlockHeaderWitness) => void = () => {
         throw new Error('onBlockWitness not implemented.');
     };
 
@@ -248,7 +248,7 @@ export class OPNetPeer extends Logger {
         this.sendMsg = () => Promise.resolve();
         this.reportAuthenticatedPeer = () => {};
         this.getOPNetPeers = () => Promise.resolve([]);
-        this.onBlockWitness = async () => {};
+        this.onBlockWitness = () => {};
 
         this.eventHandlers.clear();
 
@@ -344,8 +344,8 @@ export class OPNetPeer extends Logger {
             this.onPeersDiscoveredInternal(peers);
         };
 
-        this.clientNetworkingManager.onBlockWitness = async (blockWitness: IBlockHeaderWitness) => {
-            await this.onBlockWitness(blockWitness);
+        this.clientNetworkingManager.onBlockWitness = (blockWitness: IBlockHeaderWitness) => {
+            this.onBlockWitness(blockWitness);
         };
 
         this.clientNetworkingManager.requestBlockWitnesses = async (blockNumber: bigint) => {

@@ -63,6 +63,35 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
         await this.updateMany(criteria, update, currentSession);
     }
 
+    public async deleteInRange(
+        from: bigint,
+        to: bigint,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        // Null exposed keys in range first
+        const nullCriteria: Partial<Filter<MLDSAPublicKeyDocument>> = {
+            exposedBlockHeight: {
+                $gte: Long.fromBigInt(from),
+                $lt: Long.fromBigInt(to),
+            },
+        };
+
+        await this.updateMany(
+            nullCriteria,
+            { publicKey: null, exposedBlockHeight: null },
+            currentSession,
+        );
+
+        const criteria: Partial<Filter<MLDSAPublicKeyDocument>> = {
+            insertedBlockHeight: {
+                $gte: Long.fromBigInt(from),
+                $lt: Long.fromBigInt(to),
+            },
+        };
+
+        await this.delete(criteria, currentSession);
+    }
+
     public async savePublicKeys(keys: MLDSAUpdateData[]): Promise<void> {
         const bulkWriteOperations: AnyBulkWriteOperation<MLDSAPublicKeyDocument>[] = keys.map(
             (key) => {

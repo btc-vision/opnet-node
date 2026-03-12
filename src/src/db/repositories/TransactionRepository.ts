@@ -1,9 +1,4 @@
-import {
-    BaseRepository,
-    DataAccessError,
-    DataAccessErrorType,
-    DataConverter,
-} from '@btc-vision/bsi-common';
+import { BaseRepository, DataAccessError, DataAccessErrorType, DataConverter, } from '@btc-vision/bsi-common';
 import {
     AnyBulkWriteOperation,
     Binary,
@@ -43,6 +38,21 @@ export class TransactionRepository extends BaseRepository<
     ): Promise<void> {
         const criteria: Partial<Filter<ITransactionDocument<OPNetTransactionTypes>>> = {
             blockHeight: { $gte: DataConverter.toDecimal128(blockHeight) },
+        };
+
+        await this.delete(criteria, currentSession);
+    }
+
+    public async deleteTransactionsInRange(
+        from: bigint,
+        to: bigint,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const criteria: Partial<Filter<ITransactionDocument<OPNetTransactionTypes>>> = {
+            blockHeight: {
+                $gte: DataConverter.toDecimal128(from),
+                $lt: DataConverter.toDecimal128(to),
+            },
         };
 
         await this.delete(criteria, currentSession);

@@ -453,6 +453,8 @@ export class Block {
     }
 
     public insertPartialTransactions(vmManager: VMManager): void {
+        if (Config.DEV.RESYNC_BLOCK_HEIGHTS) return; // Skip transaction saving in resync mode
+
         // temporary
         this.saveGenericPromises.push(this.saveGenericTransactions(vmManager));
 
@@ -512,7 +514,9 @@ export class Block {
         this.timeForGenericTransactions = timeAfterGenericTransactions - timeAfterBlockProcessing;
 
         // We must process opnet transactions
-        this.saveGenericPromises.push(this.saveOPNetTransactions(vmManager));
+        if (!Config.DEV.RESYNC_BLOCK_HEIGHTS) {
+            this.saveGenericPromises.push(this.saveOPNetTransactions(vmManager));
+        }
     }
 
     public async finalizeBlock(vmManager: VMManager): Promise<boolean> {

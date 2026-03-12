@@ -17,7 +17,7 @@ export interface ScriptAddress {
      * (same idea as Bitcoin Core's "addresses" array).
      */
     addresses?: string[];
-    /** Bitcoin Core–style script classification */
+    /** Bitcoin Core-style script classification */
     type:
         | 'pubkey'
         | 'pubkeyhash'

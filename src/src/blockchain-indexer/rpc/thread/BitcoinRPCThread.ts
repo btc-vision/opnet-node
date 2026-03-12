@@ -1,4 +1,9 @@
-import { BitcoinRawTransactionParams, BitcoinRPC } from '@btc-vision/bitcoin-rpc';
+import {
+    BitcoinRawTransactionParams,
+    BitcoinRPC,
+    PackageResult,
+    TestMempoolAcceptResult,
+} from '@btc-vision/bitcoin-rpc';
 import { fromHex } from '@btc-vision/bitcoin';
 import { DataConverter } from '@btc-vision/bsi-common';
 import { Config } from '../../../config/Config.js';
@@ -30,7 +35,6 @@ import {
     SubmitPackageRequest,
     TestMempoolAcceptRequest,
 } from '../../../threading/interfaces/thread-messages/messages/api/PackageRequest.js';
-import { PackageResult, TestMempoolAcceptResult } from '@btc-vision/bitcoin-rpc';
 import { RPCSubWorkerManager } from './RPCSubWorkerManager.js';
 import { PointerStorageMap } from '../../../vm/evaluated/EvaluatedResult.js';
 import { NetEvent } from '@btc-vision/transaction';
@@ -260,9 +264,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
         return await this.bitcoinRPC.testMempoolAccept(data.data.rawtxs);
     }
 
-    private async submitPackage(
-        data: SubmitPackageRequest,
-    ): Promise<PackageResult | null> {
+    private async submitPackage(data: SubmitPackageRequest): Promise<PackageResult | null> {
         return await this.bitcoinRPC.submitPackage(data.data.packageTxs);
     }
 

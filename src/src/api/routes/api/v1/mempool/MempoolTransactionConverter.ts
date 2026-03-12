@@ -1,6 +1,8 @@
 import { toHex } from '@btc-vision/bitcoin';
 import { IMempoolTransactionObj } from '../../../../../db/interfaces/IMempoolTransaction.js';
-import { MempoolTransactionData } from '../../../../json-rpc/types/interfaces/results/mempool/MempoolTransactionData.js';
+import {
+    MempoolTransactionData
+} from '../../../../json-rpc/types/interfaces/results/mempool/MempoolTransactionData.js';
 
 /**
  * Converts raw mempool database objects into the API-facing {@link MempoolTransactionData} shape.

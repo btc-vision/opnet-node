@@ -40,6 +40,8 @@ export interface OPNetConfig {
     REINDEX: boolean;
 
     readonly REINDEX_FROM_BLOCK: number;
+    readonly REINDEX_PURGE_UTXOS: boolean;
+    readonly REINDEX_BATCH_SIZE: number;
 
     readonly EPOCH_REINDEX: boolean; // Enable epoch-only reindex mode
     readonly EPOCH_REINDEX_FROM_EPOCH: number; // Starting epoch number (default: 0)
@@ -165,7 +167,7 @@ export interface APIExtendedConfigurations extends APIConfig {
 }
 
 export interface DevConfig {
-    readonly PROCESS_ONLY_X_BLOCK: number;
+    PROCESS_ONLY_X_BLOCK: number;
     readonly DEBUG_TRANSACTION_FAILURE: boolean;
     readonly ALLOW_LARGE_TRANSACTIONS: boolean;
     readonly DEBUG_TRANSACTION_PARSE_FAILURE: boolean;
@@ -181,6 +183,9 @@ export interface DevConfig {
     readonly ENABLE_CONTRACT_DEBUG: boolean;
     readonly ALWAYS_ENABLE_REORG_VERIFICATION: boolean;
     readonly ENABLE_REORG_NIGHTMARE: boolean;
+
+    RESYNC_BLOCK_HEIGHTS: boolean;
+    readonly RESYNC_BLOCK_HEIGHTS_UNTIL: number;
 }
 
 export interface BitcoinConfig {

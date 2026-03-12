@@ -132,7 +132,7 @@ export class AnyoneCanSpendDetector extends Logger {
         }
 
         this.log(
-            `[detect] start – value=${output.value} sat, scriptLen=${output.scriptPubKeyBuffer.length}`,
+            `[detect] start - value=${output.value} sat, scriptLen=${output.scriptPubKeyBuffer.length}`,
         );
 
         const hit =
@@ -151,7 +151,7 @@ export class AnyoneCanSpendDetector extends Logger {
         if (this.evaluatesTrue(buf)) {
             const policyUnsafe = buf.length > 10_000 || this.countBigPushes(asm) > 0;
             this.log(
-                `[detect] script evaluates TRUE in VM (policyUnsafe=${policyUnsafe}) – generic reason`,
+                `[detect] script evaluates TRUE in VM (policyUnsafe=${policyUnsafe}) - generic reason`,
             );
             return { reason: AnyoneCanSpendReason.GenericAlwaysTrue, policyUnsafe };
         }

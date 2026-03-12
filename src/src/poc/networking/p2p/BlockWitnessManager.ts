@@ -56,6 +56,16 @@ export class BlockWitnessManager extends Logger {
 
     private MAXIMUM_WITNESSES_PER_MESSAGE: number = 20;
 
+    /** Witness validation concurrency control */
+    private witnessQueue: Array<{ blockNumber: bigint; witness: IBlockHeaderWitness }> = [];
+    private activeValidations: number = 0;
+
+    private readonly MAX_CONCURRENT_WITNESS_VALIDATIONS: number = 3;
+    private readonly MAX_VALIDATIONS_PER_BLOCK: number = 5;
+    private readonly MAX_WITNESS_QUEUE_SIZE: number = 128;
+
+    private blockValidationCount: Map<bigint, number> = new Map();
+
     constructor(
         private readonly config: BtcIndexerConfig,
         private readonly identity: OPNetIdentity,
@@ -123,7 +133,8 @@ export class BlockWitnessManager extends Logger {
             }),
         };
 
-        await this.processBlockWitnesses(blockNumber, blockWitness);
+        this.enqueueWitnessValidation(blockNumber, blockWitness);
+        this.drainWitnessQueue();
     }
 
     public async requestBlockWitnesses(blockNumber: bigint): Promise<ISyncBlockHeaderResponse> {
@@ -202,22 +213,21 @@ export class BlockWitnessManager extends Logger {
         await this.processBlockWitnesses(data.blockNumber, blockWitness);
     }
 
-    public async onBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
+    public onBlockWitness(blockWitness: IBlockHeaderWitness): void {
         if (this.currentBlock === -1n) {
             return;
         }
 
         const blockNumber: bigint = BigInt(blockWitness.blockNumber.toString());
-        if (this.currentBlock === blockNumber) {
-            await this.processBlockWitnesses(blockNumber, blockWitness);
-        } else if (this.currentBlock < blockNumber) {
+        if (this.currentBlock < blockNumber) {
             // note: if not initialized, this.currentBlock is 0n.
             this.addToPendingWitnessesVerification(blockNumber, blockWitness);
-        } else {
-            await this.processBlockWitnesses(blockNumber, blockWitness);
+            return;
         }
 
-        await this.processQueuedWitnesses();
+        this.enqueueWitnessValidation(blockNumber, blockWitness);
+        this.processQueuedWitnesses();
+        this.drainWitnessQueue();
     }
 
     private revertKnownWitnessesReorg(toBlock: bigint): void {
@@ -226,6 +236,7 @@ export class BlockWitnessManager extends Logger {
         for (const blockNumber of blocks) {
             if (blockNumber >= toBlock) {
                 this.knownTrustedWitnesses.delete(blockNumber);
+                this.blockValidationCount.delete(blockNumber);
             }
         }
     }
@@ -233,14 +244,21 @@ export class BlockWitnessManager extends Logger {
     private purgeOldWitnesses(): void {
         const blocks = Array.from(this.knownTrustedWitnesses.keys());
 
-        blocks.forEach((block) => {
+        for (const block of blocks) {
             if (this.currentBlock - block > this.pendingBlockThreshold) {
                 this.knownTrustedWitnesses.delete(block);
             }
-        });
+        }
+
+        const validationBlocks = Array.from(this.blockValidationCount.keys());
+        for (const block of validationBlocks) {
+            if (this.currentBlock - block > this.pendingBlockThreshold) {
+                this.blockValidationCount.delete(block);
+            }
+        }
     }
 
-    private async processQueuedWitnesses(): Promise<void> {
+    private processQueuedWitnesses(): void {
         if (this.currentBlock === -1n) {
             return;
         }
@@ -253,11 +271,51 @@ export class BlockWitnessManager extends Logger {
 
         this.pendingWitnessesVerification.delete(block);
 
-        const promises = queued.map((witness) => {
-            return this.processBlockWitnesses(block, witness);
-        });
+        for (const witness of queued) {
+            this.enqueueWitnessValidation(block, witness);
+        }
+    }
 
-        await Promise.safeAll(promises);
+    private enqueueWitnessValidation(blockNumber: bigint, witness: IBlockHeaderWitness): void {
+        // Per-block limit
+        const count = this.blockValidationCount.get(blockNumber) || 0;
+        if (count >= this.MAX_VALIDATIONS_PER_BLOCK) return;
+
+        // Queue size limit
+        if (this.witnessQueue.length >= this.MAX_WITNESS_QUEUE_SIZE) return;
+
+        // Reject old blocks
+        if (blockNumber < this.currentBlock - this.pendingBlockThreshold) return;
+
+        this.witnessQueue.push({ blockNumber, witness });
+    }
+
+    private drainWitnessQueue(): void {
+        while (
+            this.witnessQueue.length > 0 &&
+            this.activeValidations < this.MAX_CONCURRENT_WITNESS_VALIDATIONS
+        ) {
+            const item = this.witnessQueue.shift();
+            if (!item) continue;
+
+            // Re-check per-block limit (might have changed while queued)
+            const count = this.blockValidationCount.get(item.blockNumber) || 0;
+            if (count >= this.MAX_VALIDATIONS_PER_BLOCK) continue;
+
+            this.activeValidations++;
+            this.blockValidationCount.set(item.blockNumber, count + 1);
+
+            void this.processBlockWitnesses(item.blockNumber, item.witness)
+                .catch((e: unknown) => {
+                    if (this.config.DEBUG_LEVEL >= DebugLevel.ERROR) {
+                        this.error(`Witness validation error: ${(e as Error).stack}`);
+                    }
+                })
+                .finally(() => {
+                    this.activeValidations--;
+                    this.drainWitnessQueue();
+                });
+        }
     }
 
     private async validateBlockHeaderAtHeight(

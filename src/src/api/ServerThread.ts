@@ -16,9 +16,7 @@ import {
     IPluginWsExecuteRequest,
 } from '../plugins/interfaces/IPluginMessages.js';
 import { WSManager } from './websocket/WebSocketManager.js';
-import {
-    MempoolTransactionNotificationData
-} from '../threading/interfaces/thread-messages/messages/api/MempoolTransactionNotification.js';
+import { MempoolTransactionNotificationData } from '../threading/interfaces/thread-messages/messages/api/MempoolTransactionNotification.js';
 
 Globals.register();
 

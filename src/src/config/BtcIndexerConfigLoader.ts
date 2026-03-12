@@ -90,6 +90,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ENABLE_REORG_NIGHTMARE: false,
             DEBUG_API_CALLS: false,
             DEBUG_PENDING_REQUESTS: false,
+
+            RESYNC_BLOCK_HEIGHTS: false,
+            RESYNC_BLOCK_HEIGHTS_UNTIL: 0,
         },
 
         P2P: {
@@ -205,6 +208,8 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
             REINDEX: false,
             REINDEX_FROM_BLOCK: 0,
+            REINDEX_PURGE_UTXOS: false,
+            REINDEX_BATCH_SIZE: 1_000,
 
             EPOCH_REINDEX: false,
             EPOCH_REINDEX_FROM_EPOCH: 0,
@@ -452,6 +457,25 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.OP_NET.REINDEX_FROM_BLOCK !== 'number'
             ) {
                 throw new Error(`Oops the property OP_NET.REINDEX_FROM_BLOCK is not a number.`);
+            }
+
+            if (
+                parsedConfig.OP_NET.REINDEX_PURGE_UTXOS !== undefined &&
+                typeof parsedConfig.OP_NET.REINDEX_PURGE_UTXOS !== 'boolean'
+            ) {
+                throw new Error(`Oops the property OP_NET.REINDEX_PURGE_UTXOS is not a boolean.`);
+            }
+
+            if (parsedConfig.OP_NET.REINDEX_BATCH_SIZE !== undefined) {
+                if (typeof parsedConfig.OP_NET.REINDEX_BATCH_SIZE !== 'number') {
+                    throw new Error(`Oops the property OP_NET.REINDEX_BATCH_SIZE is not a number.`);
+                }
+
+                if (parsedConfig.OP_NET.REINDEX_BATCH_SIZE <= 0) {
+                    throw new Error(
+                        `OP_NET.REINDEX_BATCH_SIZE must be greater than 0, got ${parsedConfig.OP_NET.REINDEX_BATCH_SIZE}.`,
+                    );
+                }
             }
 
             if (
@@ -1053,6 +1077,22 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ) {
                 throw new Error(`Oops the property DEV.DEBUG_PENDING_REQUESTS is not a boolean.`);
             }
+
+            if (
+                parsedConfig.DEV.RESYNC_BLOCK_HEIGHTS !== undefined &&
+                typeof parsedConfig.DEV.RESYNC_BLOCK_HEIGHTS !== 'boolean'
+            ) {
+                throw new Error(`Oops the property DEV.RESYNC_BLOCK_HEIGHTS is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL !== undefined &&
+                typeof parsedConfig.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property DEV.RESYNC_BLOCK_HEIGHTS_UNTIL is not a number.`,
+                );
+            }
         }
 
         if (parsedConfig.DATABASE?.AUTH) {
@@ -1273,6 +1313,36 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             keyof IBtcIndexerConfig,
             IBtcIndexerConfig['EPOCH']
         >(parsedConfig.EPOCH, defaultConfigs.EPOCH);
+
+        // Resync mode: re-process blocks from scratch, only updating block headers
+        if (this.config.DEV.RESYNC_BLOCK_HEIGHTS) {
+            if (
+                !this.config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL ||
+                this.config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL <= 0
+            ) {
+                throw new Error(
+                    'RESYNC_BLOCK_HEIGHTS_UNTIL must be set to a positive number when RESYNC_BLOCK_HEIGHTS is enabled',
+                );
+            }
+
+            // +1 because PROCESS_ONLY_X_BLOCK is a counter, not a height.
+            // Counter reaches N after processing block N-1, so to include the target block we add 1.
+            this.config.DEV.PROCESS_ONLY_X_BLOCK = this.config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL + 1;
+
+            this.config.INDEXER = {
+                ...this.config.INDEXER,
+                START_INDEXING_UTXO_AT_BLOCK_HEIGHT: this.config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL,
+            };
+
+            // Force reindex from block 0 so the node re-processes all blocks.
+            // BlockIndexer will use revertBlockHeadersOnly instead of revertDataUntilBlock
+            // when RESYNC_BLOCK_HEIGHTS is enabled, preserving all non-header data.
+            this.config.OP_NET.REINDEX = true;
+            this.config.OP_NET = {
+                ...this.config.OP_NET,
+                REINDEX_FROM_BLOCK: 0,
+            };
+        }
     }
 
     private getConfigModified<U extends keyof IBtcIndexerConfig, T extends IBtcIndexerConfig[U]>(
