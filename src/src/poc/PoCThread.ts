@@ -5,6 +5,8 @@ import { ThreadData } from '../threading/interfaces/ThreadData.js';
 import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
 import { Thread } from '../threading/thread/Thread.js';
 import { PoC } from './PoC.js';
+import { IBlockHeaderWitness } from './networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
+import { reconstructBlockWitness } from './witness/WitnessSerializer.js';
 
 export class PoCThread extends Thread<ThreadTypes.P2P> {
     public readonly threadType: ThreadTypes.P2P = ThreadTypes.P2P;
@@ -48,6 +50,9 @@ export class PoCThread extends Thread<ThreadTypes.P2P> {
             case ThreadTypes.SSH: {
                 return await this.handleBitcoinIndexerMessage(m);
             }
+            case ThreadTypes.WITNESS: {
+                return await this.handleWitnessMessage(m);
+            }
             default: {
                 throw new Error(`Unknown message sent by thread of type: ${type}`);
             }
@@ -62,6 +67,29 @@ export class PoCThread extends Thread<ThreadTypes.P2P> {
         m: ThreadMessageBase<MessageType>,
     ): Promise<ThreadData> {
         return await this.poc.handleBitcoinIndexerMessage(m);
+    }
+
+    private async handleWitnessMessage(
+        m: ThreadMessageBase<MessageType>,
+    ): Promise<ThreadData | undefined> {
+        switch (m.type) {
+            case MessageType.WITNESS_BROADCAST: {
+                // Witness thread wants us to broadcast a witness to peers.
+                // Long instances lose their prototype after structured clone
+                // (worker_threads postMessage); reconstruct before use.
+                const witness = reconstructBlockWitness(m.data as IBlockHeaderWitness);
+                await this.poc.broadcastBlockWitness(witness);
+                return {};
+            }
+            case MessageType.WITNESS_REQUEST_PEERS: {
+                // Witness thread wants us to request witnesses from peers
+                const data = m.data as { blockNumber: bigint };
+                await this.poc.requestPeerWitnesses(data.blockNumber);
+                return {};
+            }
+            default:
+                return undefined;
+        }
     }
 }
 

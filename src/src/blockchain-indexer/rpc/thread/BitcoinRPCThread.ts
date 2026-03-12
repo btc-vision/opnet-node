@@ -92,6 +92,9 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
             case ThreadTypes.MEMPOOL: {
                 return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
             }
+            case ThreadTypes.WITNESS: {
+                return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
+            }
             default:
                 this.log(`Unknown thread message received. {Type: ${m.type}}`);
                 break;

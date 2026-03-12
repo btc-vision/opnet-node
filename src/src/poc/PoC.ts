@@ -9,11 +9,15 @@ import { P2PManager } from './networking/P2PManager.js';
 import { RPCMessage } from '../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { OPNetBroadcastData } from '../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
+import { IBlockHeaderWitness } from './networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 
 export class PoC extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     private readonly p2p: P2PManager;
+
+    /** Serializes onBlockProcessed calls so each completes before the next starts. */
+    private blockProcessedLock: Promise<void> = Promise.resolve();
 
     constructor(private readonly config: BtcIndexerConfig) {
         super();
@@ -61,6 +65,14 @@ export class PoC extends Logger {
         }
     }
 
+    public async broadcastBlockWitness(witness: IBlockHeaderWitness): Promise<void> {
+        await this.p2p.broadcastBlockWitnessToNetwork(witness);
+    }
+
+    public async requestPeerWitnesses(blockNumber: bigint): Promise<void> {
+        await this.p2p.requestWitnessesFromPeers(blockNumber);
+    }
+
     private async handleGetPeerMessage(): Promise<ThreadData> {
         const peers = await this.p2p.getOPNetPeers();
 
@@ -95,9 +107,24 @@ export class PoC extends Logger {
     }
 
     private async onBlockProcessed(m: BlockProcessedMessage): Promise<ThreadData> {
-        const data = m.data;
+        // Wait for previous block to finish so height + proof are always in order.
+        await this.blockProcessedLock;
 
-        await this.p2p.generateBlockHeaderProof(data, true);
+        // Broadcast height to ALL witness instances
+        this.blockProcessedLock = this.sendMessageToAllThreads(ThreadTypes.WITNESS, {
+            type: MessageType.WITNESS_HEIGHT_UPDATE,
+            data: { blockNumber: m.data.blockNumber },
+        });
+        await this.blockProcessedLock;
+
+        // Round-robin proof generation to ONE witness instance
+        void this.sendMessageToThread(ThreadTypes.WITNESS, {
+            type: MessageType.WITNESS_BLOCK_PROCESSED,
+            data: m.data,
+        });
+
+        // Update consensus height on this thread
+        this.p2p.updateConsensusHeight(m.data.blockNumber);
 
         return {};
     }

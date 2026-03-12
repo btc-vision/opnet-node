@@ -56,7 +56,7 @@ export class BlockWitnessManager extends Logger {
 
     private MAXIMUM_WITNESSES_PER_MESSAGE: number = 20;
 
-    /** Witness validation concurrency control */
+    /** Witness validation concurrency control (external peer witnesses) */
     private witnessQueue: Array<{ blockNumber: bigint; witness: IBlockHeaderWitness }> = [];
     private activeValidations: number = 0;
 
@@ -65,6 +65,21 @@ export class BlockWitnessManager extends Logger {
     private readonly MAX_WITNESS_QUEUE_SIZE: number = 128;
 
     private blockValidationCount: Map<bigint, number> = new Map();
+
+    /** Self-witness generation queue (option 2: decouple via queue) */
+    private selfWitnessQueue: Array<{
+        data: BlockProcessedData;
+        onComplete?: () => void;
+        onHeightSet?: () => void;
+    }> = [];
+
+    /** Concurrent self-witness proof generation (option 3: threaded processing) */
+    private activeSelfProofs: number = 0;
+    private selfQueueDraining: boolean = false;
+    private readonly MAX_CONCURRENT_SELF_PROOFS: number = 10;
+
+    /** Resolvers waiting for a concurrency slot to open. */
+    private slotWaiters: Array<() => void> = [];
 
     constructor(
         private readonly config: BtcIndexerConfig,
@@ -186,6 +201,21 @@ export class BlockWitnessManager extends Logger {
         OPNetConsensus.setBlockHeight(this.currentBlock, reorg);
     }
 
+    /**
+     * Queue a self-generated witness for async processing.
+     * Returns immediately — the P2P message handler is not blocked.
+     * The queue drains concurrently with up to MAX_CONCURRENT_SELF_PROOFS
+     * overlapping proof generations, allowing RPC I/O to interleave.
+     */
+    public queueSelfWitness(
+        data: BlockProcessedData,
+        onComplete?: () => void,
+        onHeightSet?: () => void,
+    ): void {
+        this.selfWitnessQueue.push({ data, onComplete, onHeightSet });
+        this.drainSelfWitnessQueue();
+    }
+
     public async generateBlockHeaderProof(
         data: BlockProcessedData,
         isSelf: boolean,
@@ -199,6 +229,94 @@ export class BlockWitnessManager extends Logger {
             await this.setCurrentBlock(data.blockNumber, true);
         }
 
+        const blockChecksumHash = this.generateBlockHeaderChecksumHash(data);
+        const signedWitness = this.identity.acknowledgeData(blockChecksumHash);
+        const trustedWitness = this.identity.acknowledgeTrustedData(blockChecksumHash);
+
+        const blockWitness: IBlockHeaderWitness = {
+            ...data,
+            blockNumber: Long.fromString(data.blockNumber.toString()),
+            validatorWitnesses: [signedWitness],
+            trustedWitnesses: [trustedWitness],
+        };
+
+        await this.processBlockWitnesses(data.blockNumber, blockWitness);
+    }
+
+    /**
+     * Drain the self-witness queue. For each item:
+     *  1. Update consensus height sequentially (must be in block order).
+     *  2. Fire off proof generation concurrently (up to MAX_CONCURRENT_SELF_PROOFS).
+     *
+     * This allows multiple proof generations to overlap their I/O (RPC round-trips)
+     * while keeping consensus height updates strictly ordered.
+     */
+    private drainSelfWitnessQueue(): void {
+        if (this.selfQueueDraining) return;
+        this.selfQueueDraining = true;
+
+        void this.processSelfQueue().finally(() => {
+            this.selfQueueDraining = false;
+        });
+    }
+
+    private async processSelfQueue(): Promise<void> {
+        while (this.selfWitnessQueue.length > 0) {
+            // Wait for a concurrency slot
+            if (this.activeSelfProofs >= this.MAX_CONCURRENT_SELF_PROOFS) {
+                await new Promise<void>((resolve) => {
+                    this.slotWaiters.push(resolve);
+                });
+            }
+
+            const item = this.selfWitnessQueue.shift();
+            if (!item) continue;
+
+            const { data, onComplete, onHeightSet } = item;
+
+            // Sequential: update consensus height in block order.
+            // This must happen before firing off the concurrent proof.
+            if (this.currentBlock >= data.blockNumber) {
+                this.revertKnownWitnessesReorg(data.blockNumber);
+            }
+            await this.setCurrentBlock(data.blockNumber, true);
+
+            if (onHeightSet) {
+                try {
+                    onHeightSet();
+                } catch (e: unknown) {
+                    this.error(`Self witness onHeightSet error: ${(e as Error).stack}`);
+                }
+            }
+
+            // Concurrent: fire off proof generation without awaiting.
+            // Multiple proofs overlap their RPC I/O on the event loop.
+            this.activeSelfProofs++;
+            void this.generateSelfProof(data)
+                .catch((e: unknown) => {
+                    this.error(`Self witness generation error: ${(e as Error).stack}`);
+                })
+                .finally(() => {
+                    this.activeSelfProofs--;
+
+                    // Wake up a waiter if one is blocked on a concurrency slot
+                    if (this.slotWaiters.length > 0) {
+                        const waiter = this.slotWaiters.shift();
+                        if (waiter) waiter();
+                    }
+
+                    if (onComplete) {
+                        try {
+                            onComplete();
+                        } catch (e: unknown) {
+                            this.error(`Self witness onComplete error: ${(e as Error).stack}`);
+                        }
+                    }
+                });
+        }
+    }
+
+    private async generateSelfProof(data: BlockProcessedData): Promise<void> {
         const blockChecksumHash = this.generateBlockHeaderChecksumHash(data);
         const signedWitness = this.identity.acknowledgeData(blockChecksumHash);
         const trustedWitness = this.identity.acknowledgeTrustedData(blockChecksumHash);

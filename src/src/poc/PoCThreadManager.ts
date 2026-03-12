@@ -59,6 +59,7 @@ export class PoCThreadManager extends ThreadManager<ThreadTypes.P2P> {
     protected async createLinkBetweenThreads(): Promise<void> {
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.INDEXER);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.WITNESS);
     }
 
     private async createAllThreads(): Promise<void> {
