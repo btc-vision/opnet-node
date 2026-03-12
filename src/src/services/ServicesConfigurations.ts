@@ -63,7 +63,7 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
     },
 
     [ThreadTypes.WITNESS]: {
-        maxInstance: 3,
+        maxInstance: 6,
         managerTarget: './src/poc/witness/WitnessThreadManager.js',
         target: './src/poc/witness/WitnessThread.js',
     },
