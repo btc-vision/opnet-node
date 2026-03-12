@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeAll } from 'vitest';
+import { beforeAll, describe, expect, test } from 'vitest';
 import { TransactionInput } from '../../src/src/blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import { VIn } from '@btc-vision/bitcoin-rpc';
 import { OPNetConsensus } from '../../src/src/poc/configurations/OPNetConsensus.js';
