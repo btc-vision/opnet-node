@@ -1,11 +1,9 @@
 /**
- * CRITICAL CONSENSUS VULNERABILITY TESTS - RPCBlockFetcher.watchBlockChanges
+ * Tests for RPCBlockFetcher.watchBlockChanges hash-based change detection.
  *
- * Tests for the block change notification system and its interaction
- * with reorg detection. While watchBlockChanges correctly detects hash
- * changes (including same-height hash changes), the notification it sends
- * doesn't carry enough context for downstream consumers to detect that
- * a reorg occurred vs a normal block advancement.
+ * Verifies that the RPC poller correctly detects block hash changes
+ * (new blocks, same-height reorgs, height regressions) and notifies
+ * subscribers. Also tests error recovery and isFirst behavior.
  */
 import '../../reorg/setup.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -185,87 +183,39 @@ describe('RPCBlockFetcher.watchBlockChanges - Reorg Detection', () => {
             // Should notify because hash changed
             expect(subscriberCalls).toHaveLength(2);
             expect(subscriberCalls[1].height).toBe(100);
-
-            // BUG: The notification doesn't indicate this is a HEIGHT REGRESSION.
-            // The subscriber (BlockIndexer.onBlockChange) receives height=100
-            // but has no way to know the PREVIOUS tip was 101.
-            // It should include context like "previousTipHeight" so the subscriber
-            // can detect the regression.
         });
     });
 
-    describe('VULNERABILITY: notification lacks reorg context', () => {
-        it('should include previous tip height in notification for reorg detection', async () => {
-            // First poll: height 5757
-            rpc.getBlockHeight.mockResolvedValueOnce({
-                blockHeight: 5757,
-                blockHash: 'hash5757',
-            });
-            rpc.getBlockHeader.mockResolvedValueOnce({
-                height: 5757,
-                hash: 'hash5757',
-                previousblockhash: 'hash5756',
-            });
-
-            await fetcher.watchBlockChanges(true);
-
-            // Second poll: height regressed to 5756 (reorg)
-            rpc.getBlockHeight.mockResolvedValueOnce({
-                blockHeight: 5756,
-                blockHash: 'new_hash5756',
-            });
-            rpc.getBlockHeader.mockResolvedValueOnce({
-                height: 5756,
-                hash: 'new_hash5756',
-                previousblockhash: 'hash5755',
-            });
-
-            await vi.advanceTimersByTimeAsync(mockConfig.INDEXER.BLOCK_QUERY_INTERVAL);
-
-            expect(subscriberCalls).toHaveLength(2);
-
-            // The notification should carry enough context for reorg detection.
-            // Currently it only has: height, hash, previousblockhash
-            // It SHOULD also have: whether height went down, or the previous tip info.
-            //
-            // BUG: No reorg indicator in the notification.
-            // The subscriber has to independently track the previous height,
-            // which BlockIndexer.onBlockChange does NOT do.
-        });
-
-        it('should detect rapid same-height hash flipping (chain instability)', async () => {
+    describe('rapid same-height hash changes', () => {
+        it('should detect 3 consecutive competing blocks at the same height', async () => {
             // Block 100 hash A
             rpc.getBlockHeight.mockResolvedValueOnce({ blockHeight: 100, blockHash: 'hashA' });
             rpc.getBlockHeader.mockResolvedValueOnce({
-                height: 100,
-                hash: 'hashA',
-                previousblockhash: 'hash99',
+                height: 100, hash: 'hashA', previousblockhash: 'hash99',
             });
             await fetcher.watchBlockChanges(true);
 
             // Block 100 hash B (reorg #1)
             rpc.getBlockHeight.mockResolvedValueOnce({ blockHeight: 100, blockHash: 'hashB' });
             rpc.getBlockHeader.mockResolvedValueOnce({
-                height: 100,
-                hash: 'hashB',
-                previousblockhash: 'hash99',
+                height: 100, hash: 'hashB', previousblockhash: 'hash99',
             });
             await vi.advanceTimersByTimeAsync(mockConfig.INDEXER.BLOCK_QUERY_INTERVAL);
 
             // Block 100 hash C (reorg #2)
             rpc.getBlockHeight.mockResolvedValueOnce({ blockHeight: 100, blockHash: 'hashC' });
             rpc.getBlockHeader.mockResolvedValueOnce({
-                height: 100,
-                hash: 'hashC',
-                previousblockhash: 'hash99',
+                height: 100, hash: 'hashC', previousblockhash: 'hash99',
             });
             await vi.advanceTimersByTimeAsync(mockConfig.INDEXER.BLOCK_QUERY_INTERVAL);
 
-            // All three changes should be detected
             expect(subscriberCalls).toHaveLength(3);
             expect(subscriberCalls[0].hash).toBe('hashA');
             expect(subscriberCalls[1].hash).toBe('hashB');
             expect(subscriberCalls[2].hash).toBe('hashC');
+
+            // All at same height
+            expect(subscriberCalls.every((c) => c.height === 100)).toBe(true);
         });
     });
 

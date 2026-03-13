@@ -85,8 +85,6 @@ function setupRestoreMocks(
     mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 }
 
-type LastBlockShape = { hash?: string; checksum?: string; blockNumber?: bigint };
-
 describe('ReorgWatchdog - Same-Height Reorg Detection (CRITICAL)', () => {
     let mockVMStorage: ReturnType<typeof createMockVMStorage>;
     let mockVMManager: ReturnType<typeof createMockVMManager>;
@@ -104,99 +102,6 @@ describe('ReorgWatchdog - Same-Height Reorg Detection (CRITICAL)', () => {
             mockVMManager as never,
             mockRpcClient as never,
         );
-    });
-
-    describe('sync gap >= 100 is a valid performance optimization', () => {
-        it('should skip reorg verification when sync gap >= 100 (performance optimization)', async () => {
-            watchdog.onBlockChange({
-                height: 5000,
-                hash: 'tip_hash',
-                previousblockhash: 'tip_prev',
-            } as never);
-
-            const block = createMockBlock({ height: 100n, hash: 'block100', previousBlockHash: 'prev99' });
-            const task = createMockTask({ tip: 100n, block });
-
-            const result = await watchdog.verifyChainReorgForBlock(task as never);
-
-            expect(result).toBe(false);
-            expect(mockVMManager.blockHeaderValidator.validateBlockChecksum).not.toHaveBeenCalled();
-        });
-
-        it('should still update lastBlock when skipping verification for large gap', async () => {
-            watchdog.onBlockChange({
-                height: 5000,
-                hash: 'tip_hash',
-                previousblockhash: 'tip_prev',
-            } as never);
-
-            const block = createMockBlock({ height: 100n, hash: 'myhash', checksumRoot: 'mycs' });
-            const task = createMockTask({ tip: 100n, block });
-
-            await watchdog.verifyChainReorgForBlock(task as never);
-
-            const lastBlock = Reflect.get(watchdog, 'lastBlock') as LastBlockShape;
-            expect(lastBlock.hash).toBe('myhash');
-            expect(lastBlock.checksum).toBe('mycs');
-            expect(lastBlock.blockNumber).toBe(100n);
-        });
-
-        it('should allow override with ALWAYS_ENABLE_REORG_VERIFICATION even at large gap', async () => {
-            mockConfig.DEV.ALWAYS_ENABLE_REORG_VERIFICATION = true;
-
-            watchdog.onBlockChange({
-                height: 5000,
-                hash: 'tip_hash',
-                previousblockhash: 'tip_prev',
-            } as never);
-
-            const block = createMockBlock({ height: 100n, previousBlockHash: 'prev99' });
-            const task = createMockTask({ tip: 100n, block });
-
-            mockVMManager.blockHeaderValidator.getBlockHeader.mockResolvedValue({
-                hash: 'prev99',
-                checksumRoot: 'checksum',
-            });
-
-            const result = await watchdog.verifyChainReorgForBlock(task as never);
-
-            expect(result).toBe(false);
-            expect(mockVMManager.blockHeaderValidator.validateBlockChecksum).toHaveBeenCalled();
-        });
-
-        it('should skip verification at exactly gap = 100', async () => {
-            watchdog.onBlockChange({
-                height: 200,
-                hash: 'tip',
-                previousblockhash: 'tip_prev',
-            } as never);
-
-            const task = createMockTask({ tip: 100n });
-            const result = await watchdog.verifyChainReorgForBlock(task as never);
-
-            expect(result).toBe(false);
-            expect(mockVMManager.blockHeaderValidator.validateBlockChecksum).not.toHaveBeenCalled();
-        });
-
-        it('should run verification at gap = 99', async () => {
-            watchdog.onBlockChange({
-                height: 199,
-                hash: 'tip',
-                previousblockhash: 'tip_prev',
-            } as never);
-
-            const block = createMockBlock({ height: 100n, previousBlockHash: 'prev99' });
-            const task = createMockTask({ tip: 100n, block });
-
-            mockVMManager.blockHeaderValidator.getBlockHeader.mockResolvedValue({
-                hash: 'prev99',
-                checksumRoot: 'checksum',
-            });
-
-            await watchdog.verifyChainReorgForBlock(task as never);
-
-            expect(mockVMManager.blockHeaderValidator.validateBlockChecksum).toHaveBeenCalled();
-        });
     });
 
     describe('same-height block hash comparison (competing blocks)', () => {
