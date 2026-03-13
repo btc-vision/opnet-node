@@ -63,10 +63,7 @@ export abstract class VMStorage extends Logger {
         };
     }
 
-    public abstract revertDataUntilBlock(
-        height: bigint,
-        purgeUtxos?: boolean,
-    ): Promise<void>;
+    public abstract revertDataUntilBlock(height: bigint, purgeUtxos?: boolean): Promise<void>;
 
     public abstract revertBlockHeadersOnly(height: bigint): Promise<void>;
 

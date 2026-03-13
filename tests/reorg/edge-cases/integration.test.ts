@@ -162,7 +162,7 @@ function createOrchestrator() {
             await vmStorage.revertDataUntilBlock(fromHeight);
             await observer.onChainReorganisation(fromHeight, toHeight, newBest);
             if (reorged) {
-                // Simulated reorgFromHeight — just track the call
+                // Simulated reorgFromHeight, just track the call
             }
             await pluginNotifier(fromHeight, toHeight, newBest);
         } finally {
@@ -354,7 +354,7 @@ describe('Integration: reorg edge-cases', () => {
 
             await storage.revertDataUntilBlock(3n);
 
-            // upperBound=5, batched pass: to=5 > 3 (from=4), to=4 > 3 (from=3) — 2 batches
+            // upperBound=5, batched pass: to=5 > 3 (from=4), to=4 > 3 (from=3), 2 batches
             const calls = mocks.transactionRepository.deleteTransactionsInRange.mock.calls;
             expect(calls.length).toBe(2);
         });
@@ -415,7 +415,7 @@ describe('Integration: reorg edge-cases', () => {
 
             await storage.revertDataUntilBlock(100n);
 
-            // Default BATCH_SIZE = 1000, range 100..1500 -> 2 batches: to=1500 (from=500), to=500 (from=100) — but actually walking down
+            // Default BATCH_SIZE = 1000, range 100..1500 -> 2 batches: to=1500 (from=500), to=500 (from=100), but actually walking down
             // Batched pass: to=1500 > 100, from=max(1500-1000, 100)=500; to=500 > 100, from=max(500-1000, 100)=100; to=100 == 100 stop
             const calls = mocks.transactionRepository.deleteTransactionsInRange.mock.calls;
             expect(calls.length).toBe(2);

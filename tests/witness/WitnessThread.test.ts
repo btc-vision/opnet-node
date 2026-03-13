@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Long from 'long';
 import { ThreadTypes } from '../../src/src/threading/thread/enums/ThreadTypes.js';
 import { MessageType } from '../../src/src/threading/enum/MessageType.js';
+// First, let's get the class itself:
+import { WitnessThread } from '../../src/src/poc/witness/WitnessThread.js';
 
 // ---------------------------------------------------------------------------
-// Hoisted mocks — must be defined before vi.mock() calls
+// Hoisted mocks, must be defined before vi.mock() calls
 // ---------------------------------------------------------------------------
 
 const mockConfig = vi.hoisted(() => ({
@@ -68,7 +70,7 @@ const mockOPNetConsensus = vi.hoisted(() => ({
 }));
 
 // ---------------------------------------------------------------------------
-// vi.mock — module-level mocking
+// vi.mock, module-level mocking
 // ---------------------------------------------------------------------------
 
 vi.mock('../../src/src/config/Config.js', () => ({ Config: mockConfig }));
@@ -99,23 +101,32 @@ vi.mock('@btc-vision/bsi-common', () => ({
 vi.mock('../../src/src/threading/thread/Thread.js', () => ({
     Thread: class MockThread {
         readonly logColor: string = '';
-        log(..._a: unknown[]) {}
-        warn(..._a: unknown[]) {}
-        error(..._a: unknown[]) {}
-        info(..._a: unknown[]) {}
-        debugBright(..._a: unknown[]) {}
-        success(..._a: unknown[]) {}
-        fail(..._a: unknown[]) {}
-        panic(..._a: unknown[]) {}
-        important(..._a: unknown[]) {}
-
         sendMessageToThread = vi.fn().mockResolvedValue(null);
         sendMessageToAllThreads = vi.fn().mockResolvedValue(undefined);
-        registerEvents() {}
 
         constructor() {
-            // Do NOT call registerEvents — no worker_threads
+            // Do NOT call registerEvents, no worker_threads
         }
+
+        log(..._a: unknown[]) {}
+
+        warn(..._a: unknown[]) {}
+
+        error(..._a: unknown[]) {}
+
+        info(..._a: unknown[]) {}
+
+        debugBright(..._a: unknown[]) {}
+
+        success(..._a: unknown[]) {}
+
+        fail(..._a: unknown[]) {}
+
+        panic(..._a: unknown[]) {}
+
+        important(..._a: unknown[]) {}
+
+        registerEvents() {}
     },
 }));
 
@@ -181,9 +192,6 @@ vi.mock('fs', () => ({
 
 // We need a dynamic import approach because the module instantiates itself.
 // Let's test the logic by constructing the class manually.
-
-// First, let's get the class itself:
-import { WitnessThread } from '../../src/src/poc/witness/WitnessThread.js';
 
 // ---------------------------------------------------------------------------
 // Helper data factories
@@ -345,9 +353,9 @@ describe('WitnessThread', () => {
     });
 
     // ======================================================================
-    // handleP2PMessage — WITNESS_BLOCK_PROCESSED
+    // handleP2PMessage, WITNESS_BLOCK_PROCESSED
     // ======================================================================
-    describe('handleP2PMessage — WITNESS_BLOCK_PROCESSED', () => {
+    describe('handleP2PMessage, WITNESS_BLOCK_PROCESSED', () => {
         beforeEach(async () => {
             await (thread as any).onThreadLinkSetup();
         });
@@ -412,7 +420,7 @@ describe('WitnessThread', () => {
             (thread as any).handleP2PMessage(msg);
 
             // After the refactor, queueSelfWitness receives only (data, onComplete).
-            // There is no onHeightSet callback — height is set by WITNESS_HEIGHT_UPDATE.
+            // There is no onHeightSet callback, height is set by WITNESS_HEIGHT_UPDATE.
             const call = mockBlockWitnessManagerInstance.queueSelfWitness.mock.calls[0];
             expect(call).toHaveLength(2);
         });
@@ -432,14 +440,17 @@ describe('WitnessThread', () => {
                 data: { blockNumber: 100n },
             };
             (thread as any).handleP2PMessage(heightMsg);
-            expect(mockBlockWitnessManagerInstance.setCurrentBlock).toHaveBeenCalledWith(100n, true);
+            expect(mockBlockWitnessManagerInstance.setCurrentBlock).toHaveBeenCalledWith(
+                100n,
+                true,
+            );
         });
     });
 
     // ======================================================================
-    // handleP2PMessage — WITNESS_PEER_DATA
+    // handleP2PMessage, WITNESS_PEER_DATA
     // ======================================================================
-    describe('handleP2PMessage — WITNESS_PEER_DATA', () => {
+    describe('handleP2PMessage, WITNESS_PEER_DATA', () => {
         beforeEach(async () => {
             await (thread as any).onThreadLinkSetup();
         });
@@ -478,7 +489,11 @@ describe('WitnessThread', () => {
 
             // Create witness data with degraded Long (simulating structured clone)
             const original = Long.fromNumber(500, true);
-            const degradedBlockNumber = { low: original.low, high: original.high, unsigned: original.unsigned };
+            const degradedBlockNumber = {
+                low: original.low,
+                high: original.high,
+                unsigned: original.unsigned,
+            };
             const degradedTimestamp = { low: 1000, high: 0, unsigned: true };
 
             const witnessData = {
@@ -506,7 +521,8 @@ describe('WitnessThread', () => {
             (thread as any).handleP2PMessage(msg);
 
             expect(mockBlockWitnessManagerInstance.onBlockWitness).toHaveBeenCalledTimes(1);
-            const reconstructedWitness = mockBlockWitnessManagerInstance.onBlockWitness.mock.calls[0][0];
+            const reconstructedWitness =
+                mockBlockWitnessManagerInstance.onBlockWitness.mock.calls[0][0];
             expect(reconstructedWitness.blockNumber).toBeInstanceOf(Long);
             expect(reconstructedWitness.blockNumber.toString()).toBe('500');
         });
@@ -521,9 +537,9 @@ describe('WitnessThread', () => {
     });
 
     // ======================================================================
-    // handleP2PMessage — WITNESS_PEER_RESPONSE
+    // handleP2PMessage, WITNESS_PEER_RESPONSE
     // ======================================================================
-    describe('handleP2PMessage — WITNESS_PEER_RESPONSE', () => {
+    describe('handleP2PMessage, WITNESS_PEER_RESPONSE', () => {
         beforeEach(async () => {
             await (thread as any).onThreadLinkSetup();
         });
@@ -572,7 +588,8 @@ describe('WitnessThread', () => {
             const msg = { type: MessageType.WITNESS_PEER_RESPONSE, data: responseData };
             (thread as any).handleP2PMessage(msg);
 
-            const reconstructed = mockBlockWitnessManagerInstance.onBlockWitnessResponse.mock.calls[0][0];
+            const reconstructed =
+                mockBlockWitnessManagerInstance.onBlockWitnessResponse.mock.calls[0][0];
             expect(reconstructed.blockNumber).toBeInstanceOf(Long);
             expect(reconstructed.blockNumber.toString()).toBe('200');
         });
@@ -587,9 +604,9 @@ describe('WitnessThread', () => {
     });
 
     // ======================================================================
-    // handleP2PMessage — unknown message type
+    // handleP2PMessage, unknown message type
     // ======================================================================
-    describe('handleP2PMessage — unknown message type', () => {
+    describe('handleP2PMessage, unknown message type', () => {
         beforeEach(async () => {
             await (thread as any).onThreadLinkSetup();
         });
@@ -600,9 +617,7 @@ describe('WitnessThread', () => {
 
             (thread as any).handleP2PMessage(msg);
 
-            expect(warnSpy).toHaveBeenCalledWith(
-                expect.stringContaining('unknown message type'),
-            );
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('unknown message type'));
         });
 
         it('should return undefined for unknown message type', () => {
@@ -614,9 +629,9 @@ describe('WitnessThread', () => {
     });
 
     // ======================================================================
-    // handleP2PMessage — before blockWitnessManager is initialized
+    // handleP2PMessage, before blockWitnessManager is initialized
     // ======================================================================
-    describe('handleP2PMessage — before initialization', () => {
+    describe('handleP2PMessage, before initialization', () => {
         it('should warn and return {} when blockWitnessManager is not initialized', () => {
             // The thread is freshly constructed, onThreadLinkSetup not called
             const warnSpy = vi.spyOn(thread as any, 'warn');
@@ -644,7 +659,10 @@ describe('WitnessThread', () => {
 
         it('should buffer multiple peer messages before first block', () => {
             const msg1 = { type: MessageType.WITNESS_PEER_DATA, data: makeWitnessData(10) };
-            const msg2 = { type: MessageType.WITNESS_PEER_RESPONSE, data: makeSyncResponseData(11) };
+            const msg2 = {
+                type: MessageType.WITNESS_PEER_RESPONSE,
+                data: makeSyncResponseData(11),
+            };
             const msg3 = { type: MessageType.WITNESS_PEER_DATA, data: makeWitnessData(12) };
 
             (thread as any).handleP2PMessage(msg1);
@@ -675,7 +693,7 @@ describe('WitnessThread', () => {
 
         it('should process WITNESS_BLOCK_PROCESSED even before currentBlockSet', () => {
             // WITNESS_BLOCK_PROCESSED should always be processed (it queues proof generation)
-            // but it does NOT set currentBlockSet — that is done by WITNESS_HEIGHT_UPDATE.
+            // but it does NOT set currentBlockSet, that is done by WITNESS_HEIGHT_UPDATE.
             const msg = {
                 type: MessageType.WITNESS_BLOCK_PROCESSED,
                 data: makeBlockProcessedData(1n),
@@ -766,9 +784,7 @@ describe('WitnessThread', () => {
             (thread as any).currentBlockSet = true;
             (thread as any).flushPendingPeerMessages();
 
-            expect(logSpy).not.toHaveBeenCalledWith(
-                expect.stringContaining('Replaying'),
-            );
+            expect(logSpy).not.toHaveBeenCalledWith(expect.stringContaining('Replaying'));
         });
     });
 
@@ -884,25 +900,29 @@ describe('PoC.onBlockProcessed', () => {
         expect(result).toEqual({});
     });
 
-    it('should serialize rapid successive calls — heights always in order', async () => {
+    it('should serialize rapid successive calls, heights always in order', async () => {
         const poc = new PoCClass(mockConfig as any);
         const heightOrder: bigint[] = [];
         const proofOrder: bigint[] = [];
-        poc.sendMessageToAllThreads = vi.fn().mockImplementation(async (_type: unknown, msg: { data: { blockNumber: bigint } }) => {
-            heightOrder.push(msg.data.blockNumber);
-            // Simulate slow broadcast
-            await new Promise((r) => setTimeout(r, 10));
-        });
-        poc.sendMessageToThread = vi.fn().mockImplementation(async (_type: unknown, msg: { data: { blockNumber: bigint } }) => {
-            proofOrder.push(msg.data.blockNumber);
-            return null;
-        });
+        poc.sendMessageToAllThreads = vi
+            .fn()
+            .mockImplementation(async (_type: unknown, msg: { data: { blockNumber: bigint } }) => {
+                heightOrder.push(msg.data.blockNumber);
+                // Simulate slow broadcast
+                await new Promise((r) => setTimeout(r, 10));
+            });
+        poc.sendMessageToThread = vi
+            .fn()
+            .mockImplementation(async (_type: unknown, msg: { data: { blockNumber: bigint } }) => {
+                proofOrder.push(msg.data.blockNumber);
+                return null;
+            });
 
         const msg1 = { type: MessageType.BLOCK_PROCESSED, data: makeBlockProcessedData(100n) };
         const msg2 = { type: MessageType.BLOCK_PROCESSED, data: makeBlockProcessedData(101n) };
         const msg3 = { type: MessageType.BLOCK_PROCESSED, data: makeBlockProcessedData(102n) };
 
-        // Fire all 3 without awaiting — simulates rapid block arrival
+        // Fire all 3 without awaiting, simulates rapid block arrival
         const p1 = (poc as any).onBlockProcessed(msg1);
         const p2 = (poc as any).onBlockProcessed(msg2);
         const p3 = (poc as any).onBlockProcessed(msg3);
@@ -919,9 +939,11 @@ describe('PoC.onBlockProcessed', () => {
     it('should not skip blocks when burst arrives', async () => {
         const poc = new PoCClass(mockConfig as any);
         const heights: bigint[] = [];
-        poc.sendMessageToAllThreads = vi.fn().mockImplementation(async (_type: unknown, msg: { data: { blockNumber: bigint } }) => {
-            heights.push(msg.data.blockNumber);
-        });
+        poc.sendMessageToAllThreads = vi
+            .fn()
+            .mockImplementation(async (_type: unknown, msg: { data: { blockNumber: bigint } }) => {
+                heights.push(msg.data.blockNumber);
+            });
         poc.sendMessageToThread = vi.fn().mockResolvedValue(null);
 
         const promises = [];
@@ -955,7 +977,7 @@ describe('BlockWitnessManager.queueSelfWitness (logic)', () => {
     // WitnessThread integration.
 
     it('should pass data to queueSelfWitness with correct arguments via WitnessThread', async () => {
-        // This is validated in the WitnessThread tests above — included here
+        // This is validated in the WitnessThread tests above, included here
         // for the test category completeness
         const data = makeBlockProcessedData(42n);
         expect(data.blockNumber).toBe(42n);
@@ -1068,7 +1090,8 @@ describe('Witness message flow integration', () => {
         });
 
         expect(mockBlockWitnessManagerInstance.onBlockWitnessResponse).toHaveBeenCalledTimes(1);
-        const reconstructed = mockBlockWitnessManagerInstance.onBlockWitnessResponse.mock.calls[0][0];
+        const reconstructed =
+            mockBlockWitnessManagerInstance.onBlockWitnessResponse.mock.calls[0][0];
         expect(reconstructed.blockNumber).toBeInstanceOf(Long);
         expect(reconstructed.blockNumber.toString()).toBe('100');
     });
@@ -1087,7 +1110,7 @@ describe('Witness message flow integration', () => {
         expect(mockBlockWitnessManagerInstance.onBlockWitness).not.toHaveBeenCalled();
         expect(mockBlockWitnessManagerInstance.onBlockWitnessResponse).not.toHaveBeenCalled();
 
-        // Step 2: Send WITNESS_HEIGHT_UPDATE — sets currentBlockSet and flushes
+        // Step 2: Send WITNESS_HEIGHT_UPDATE, sets currentBlockSet and flushes
         (thread as any).handleP2PMessage({
             type: MessageType.WITNESS_HEIGHT_UPDATE,
             data: { blockNumber: 100n },
@@ -1112,7 +1135,7 @@ describe('Witness message flow integration', () => {
             data: makeWitnessData(10),
         });
 
-        // Send WITNESS_HEIGHT_UPDATE — flushes buffered messages
+        // Send WITNESS_HEIGHT_UPDATE, flushes buffered messages
         (thread as any).handleP2PMessage({
             type: MessageType.WITNESS_HEIGHT_UPDATE,
             data: { blockNumber: 100n },
@@ -1131,14 +1154,20 @@ describe('Witness message flow integration', () => {
 // ===========================================================================
 
 describe('PoCThread.handleWitnessMessage', () => {
-    // Import PoCThread — it has same mock dependencies
-    vi.mock('../../src/src/poc/networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js', () => ({
-        // Minimal mock — just the interface types, no actual protobuf
-    }));
+    // Import PoCThread, it has same mock dependencies
+    vi.mock(
+        '../../src/src/poc/networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js',
+        () => ({
+            // Minimal mock, just the interface types, no actual protobuf
+        }),
+    );
 
-    vi.mock('../../src/src/poc/networking/protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js', () => ({
-        // Minimal mock
-    }));
+    vi.mock(
+        '../../src/src/poc/networking/protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js',
+        () => ({
+            // Minimal mock
+        }),
+    );
 
     let PoCThreadClass: typeof import('../../src/src/poc/PoCThread.js').PoCThread;
 

@@ -59,6 +59,28 @@ function createMockTask(overrides: Record<string, unknown> = {}) {
     };
 }
 
+type LastBlockShape = { hash?: string; checksum?: string; blockNumber?: bigint };
+type LastBlockHashResult = { hash?: string; checksum?: string; opnetBlock?: Record<string, unknown>; blockNumber?: bigint };
+type CurrentHeaderShape = { blockNumber?: bigint; blockHash?: string; previousBlockHash?: string };
+
+/** Helper to call private method verifyChainReorg via Reflect */
+function callVerifyChainReorg(watchdog: ReorgWatchdog, block: Record<string, unknown>): Promise<boolean> {
+    const method = Reflect.get(watchdog, 'verifyChainReorg') as (block: Record<string, unknown>) => Promise<boolean>;
+    return Reflect.apply(method, watchdog, [block]);
+}
+
+/** Helper to call private method getLastBlockHash via Reflect */
+function callGetLastBlockHash(watchdog: ReorgWatchdog, height: bigint): Promise<LastBlockHashResult | undefined> {
+    const method = Reflect.get(watchdog, 'getLastBlockHash') as (height: bigint) => Promise<LastBlockHashResult | undefined>;
+    return Reflect.apply(method, watchdog, [height]);
+}
+
+/** Helper to call private method updateBlock via Reflect */
+function callUpdateBlock(watchdog: ReorgWatchdog, block: Record<string, unknown>): void {
+    const method = Reflect.get(watchdog, 'updateBlock') as (block: Record<string, unknown>) => void;
+    Reflect.apply(method, watchdog, [block]);
+}
+
 describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
     let mockVMStorage: ReturnType<typeof createMockVMStorage>;
     let mockVMManager: ReturnType<typeof createMockVMManager>;
@@ -82,11 +104,11 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
 
     describe('verifyChainReorgForBlock - sync gap skip', () => {
         it('test 481: should skip reorg verification when sync gap is exactly 100', async () => {
-            (watchdog as any)._currentHeader = {
-                blockNumber: 200n,
-                blockHash: 'headhash',
-                previousBlockHash: 'headprev',
-            };
+            watchdog.onBlockChange({
+                height: 200,
+                hash: 'headhash',
+                previousblockhash: 'headprev',
+            } as never);
             const task = createMockTask({ tip: 100n });
             const result = await watchdog.verifyChainReorgForBlock(task as never);
             expect(result).toBe(false);
@@ -94,22 +116,22 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
         });
 
         it('test 482: should skip reorg verification when sync gap is greater than 100', async () => {
-            (watchdog as any)._currentHeader = {
-                blockNumber: 500n,
-                blockHash: 'headhash',
-                previousBlockHash: 'headprev',
-            };
+            watchdog.onBlockChange({
+                height: 500,
+                hash: 'headhash',
+                previousblockhash: 'headprev',
+            } as never);
             const task = createMockTask({ tip: 100n });
             const result = await watchdog.verifyChainReorgForBlock(task as never);
             expect(result).toBe(false);
         });
 
         it('test 483: should perform reorg verification when sync gap is 99', async () => {
-            (watchdog as any)._currentHeader = {
-                blockNumber: 199n,
-                blockHash: 'headhash',
-                previousBlockHash: 'headprev',
-            };
+            watchdog.onBlockChange({
+                height: 199,
+                hash: 'headhash',
+                previousblockhash: 'headprev',
+            } as never);
             const block = createMockBlock({ height: 100n, previousBlockHash: 'prevhash' });
             const task = createMockTask({ tip: 100n, block });
             // Make verifyChainReorg return false (no reorg)
@@ -122,11 +144,11 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
         });
 
         it('test 484: should perform reorg verification when sync gap is 0', async () => {
-            (watchdog as any)._currentHeader = {
-                blockNumber: 100n,
-                blockHash: 'headhash',
-                previousBlockHash: 'headprev',
-            };
+            watchdog.onBlockChange({
+                height: 100,
+                hash: 'blockhash', // matches block.hash so same-height check passes
+                previousblockhash: 'headprev',
+            } as never);
             const block = createMockBlock({ height: 100n, previousBlockHash: 'prevhash' });
             const task = createMockTask({ tip: 100n, block });
             mockVMManager.blockHeaderValidator.getBlockHeader.mockResolvedValue({
@@ -138,11 +160,11 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
         });
 
         it('test 485: should perform reorg verification when sync gap is 1', async () => {
-            (watchdog as any)._currentHeader = {
-                blockNumber: 101n,
-                blockHash: 'headhash',
-                previousBlockHash: 'headprev',
-            };
+            watchdog.onBlockChange({
+                height: 101,
+                hash: 'headhash',
+                previousblockhash: 'headprev',
+            } as never);
             const block = createMockBlock({ height: 100n, previousBlockHash: 'prevhash' });
             const task = createMockTask({ tip: 100n, block });
             mockVMManager.blockHeaderValidator.getBlockHeader.mockResolvedValue({
@@ -155,11 +177,11 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
 
         it('test 486: should force reorg verification when ALWAYS_ENABLE_REORG_VERIFICATION is true even with large gap', async () => {
             mockConfig.DEV.ALWAYS_ENABLE_REORG_VERIFICATION = true;
-            (watchdog as any)._currentHeader = {
-                blockNumber: 500n,
-                blockHash: 'headhash',
-                previousBlockHash: 'headprev',
-            };
+            watchdog.onBlockChange({
+                height: 500,
+                hash: 'headhash',
+                previousblockhash: 'headprev',
+            } as never);
             const block = createMockBlock({ height: 100n, previousBlockHash: 'prevhash' });
             const task = createMockTask({ tip: 100n, block });
             mockVMManager.blockHeaderValidator.getBlockHeader.mockResolvedValue({
@@ -172,25 +194,26 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
         });
 
         it('test 487: should update lastBlock when sync gap causes skip', async () => {
-            (watchdog as any)._currentHeader = {
-                blockNumber: 300n,
-                blockHash: 'headhash',
-                previousBlockHash: 'headprev',
-            };
+            watchdog.onBlockChange({
+                height: 300,
+                hash: 'headhash',
+                previousblockhash: 'headprev',
+            } as never);
             const block = createMockBlock({ height: 100n, hash: 'myhash', checksumRoot: 'mycs' });
             const task = createMockTask({ tip: 100n, block });
             await watchdog.verifyChainReorgForBlock(task as never);
-            expect((watchdog as any).lastBlock.hash).toBe('myhash');
-            expect((watchdog as any).lastBlock.checksum).toBe('mycs');
-            expect((watchdog as any).lastBlock.blockNumber).toBe(100n);
+            const lastBlock = Reflect.get(watchdog, 'lastBlock') as LastBlockShape;
+            expect(lastBlock.hash).toBe('myhash');
+            expect(lastBlock.checksum).toBe('mycs');
+            expect(lastBlock.blockNumber).toBe(100n);
         });
 
         it('test 488: should update lastBlock by calling getBlockHeaderDocument when skipping', async () => {
-            (watchdog as any)._currentHeader = {
-                blockNumber: 250n,
-                blockHash: 'headhash',
-                previousBlockHash: 'headprev',
-            };
+            watchdog.onBlockChange({
+                height: 250,
+                hash: 'headhash',
+                previousblockhash: 'headprev',
+            } as never);
             const block = createMockBlock({ height: 100n });
             const task = createMockTask({ tip: 100n, block });
             await watchdog.verifyChainReorgForBlock(task as never);
@@ -202,11 +225,11 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
 
     describe('verifyChainReorgForBlock - reorg result path', () => {
         it('test 489: should return false and update block when no reorg detected', async () => {
-            (watchdog as any)._currentHeader = {
-                blockNumber: 105n,
-                blockHash: 'headhash',
-                previousBlockHash: 'headprev',
-            };
+            watchdog.onBlockChange({
+                height: 105,
+                hash: 'headhash',
+                previousblockhash: 'headprev',
+            } as never);
             const block = createMockBlock({
                 height: 100n,
                 previousBlockHash: 'prevhash',
@@ -219,15 +242,15 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
             });
             const result = await watchdog.verifyChainReorgForBlock(task as never);
             expect(result).toBe(false);
-            expect((watchdog as any).lastBlock.hash).toBe('goodhash');
+            expect((Reflect.get(watchdog, 'lastBlock') as LastBlockShape).hash).toBe('goodhash');
         });
 
         it('test 490: should return true when reorg is detected (Bitcoin hash mismatch)', async () => {
-            (watchdog as any)._currentHeader = {
-                blockNumber: 105n,
-                blockHash: 'headhash',
-                previousBlockHash: 'headprev',
-            };
+            watchdog.onBlockChange({
+                height: 105,
+                hash: 'headhash',
+                previousblockhash: 'headprev',
+            } as never);
             const block = createMockBlock({
                 height: 100n,
                 previousBlockHash: 'wrongprevhash',
@@ -248,11 +271,11 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
         });
 
         it('test 491: should call restoreBlockchain when reorg detected', async () => {
-            (watchdog as any)._currentHeader = {
-                blockNumber: 105n,
-                blockHash: 'headhash',
-                previousBlockHash: 'headprev',
-            };
+            watchdog.onBlockChange({
+                height: 105,
+                hash: 'headhash',
+                previousblockhash: 'headprev',
+            } as never);
             const block = createMockBlock({
                 height: 100n,
                 previousBlockHash: 'badprev',
@@ -269,17 +292,17 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 checksumRoot: 'checksum',
             });
 
-            const restoreSpy = vi.spyOn(watchdog as any, 'restoreBlockchain');
+            const restoreSpy = vi.spyOn(watchdog as never, 'restoreBlockchain');
             await watchdog.verifyChainReorgForBlock(task as never);
             expect(restoreSpy).toHaveBeenCalledWith(100n);
         });
 
         it('test 492: should not update lastBlock when reorg detected', async () => {
-            (watchdog as any)._currentHeader = {
-                blockNumber: 105n,
-                blockHash: 'headhash',
-                previousBlockHash: 'headprev',
-            };
+            watchdog.onBlockChange({
+                height: 105,
+                hash: 'headhash',
+                previousblockhash: 'headprev',
+            } as never);
             const block = createMockBlock({
                 height: 100n,
                 previousBlockHash: 'badprev',
@@ -297,15 +320,15 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
             });
             await watchdog.verifyChainReorgForBlock(task as never);
             // restoreBlockchain resets lastBlock to {}
-            expect((watchdog as any).lastBlock.hash).toBeUndefined();
+            expect((Reflect.get(watchdog, 'lastBlock') as LastBlockShape).hash).toBeUndefined();
         });
 
         it('test 493: should not call updateBlock when reorg detected', async () => {
-            (watchdog as any)._currentHeader = {
-                blockNumber: 105n,
-                blockHash: 'headhash',
-                previousBlockHash: 'headprev',
-            };
+            watchdog.onBlockChange({
+                height: 105,
+                hash: 'headhash',
+                previousblockhash: 'headprev',
+            } as never);
             const block = createMockBlock({
                 height: 100n,
                 previousBlockHash: 'badprev',
@@ -321,7 +344,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 checksumRoot: 'checksum',
             });
 
-            const updateSpy = vi.spyOn(watchdog as any, 'updateBlock');
+            const updateSpy = vi.spyOn(watchdog as never, 'updateBlock');
             await watchdog.verifyChainReorgForBlock(task as never);
             expect(updateSpy).not.toHaveBeenCalled();
         });
@@ -346,7 +369,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 hash: 'correcthash',
                 checksumRoot: 'checksum',
             });
-            const result = await (watchdog as any).verifyChainReorg(block);
+            const result = await callVerifyChainReorg(watchdog, block);
             expect(result).toBe(true);
         });
 
@@ -360,7 +383,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 checksumRoot: 'checksum',
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
-            const result = await (watchdog as any).verifyChainReorg(block);
+            const result = await callVerifyChainReorg(watchdog, block);
             expect(result).toBe(false);
         });
 
@@ -374,7 +397,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 checksumRoot: 'checksum',
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(false);
-            const result = await (watchdog as any).verifyChainReorg(block);
+            const result = await callVerifyChainReorg(watchdog, block);
             expect(result).toBe(true);
         });
 
@@ -389,7 +412,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 checksumRoot: 'goodchecksum',
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
-            const result = await (watchdog as any).verifyChainReorg(block);
+            const result = await callVerifyChainReorg(watchdog, block);
             expect(result).toBe(true);
         });
 
@@ -404,7 +427,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 checksumRoot: 'goodchecksum',
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
-            const result = await (watchdog as any).verifyChainReorg(block);
+            const result = await callVerifyChainReorg(watchdog, block);
             expect(result).toBe(false);
         });
 
@@ -419,7 +442,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 checksumRoot: 'goodchecksum',
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(false);
-            const result = await (watchdog as any).verifyChainReorg(block);
+            const result = await callVerifyChainReorg(watchdog, block);
             expect(result).toBe(true);
         });
 
@@ -432,7 +455,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 hash: 'correcthash',
                 checksumRoot: 'checksum',
             });
-            await (watchdog as any).verifyChainReorg(block);
+            await callVerifyChainReorg(watchdog, block);
             expect(mockVMManager.blockHeaderValidator.validateBlockChecksum).not.toHaveBeenCalled();
         });
 
@@ -442,24 +465,24 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 previousBlockHash: 'somehash',
             });
             mockVMManager.blockHeaderValidator.getBlockHeader.mockResolvedValue(undefined);
-            await expect((watchdog as any).verifyChainReorg(block)).rejects.toThrow(
+            await expect(callVerifyChainReorg(watchdog, block)).rejects.toThrow(
                 'Error fetching previous block hash',
             );
         });
 
         it('test 503: should use cached lastBlock when available for matching height', async () => {
-            (watchdog as any).lastBlock = {
+            Reflect.set(watchdog, 'lastBlock', {
                 hash: 'cachedhash',
                 checksum: 'cachedchecksum',
                 blockNumber: 99n,
                 opnetBlock: { hash: 'cachedhash', checksumRoot: 'cachedchecksum' },
-            };
+            });
             const block = createMockBlock({
                 height: 100n,
                 previousBlockHash: 'cachedhash',
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
-            const result = await (watchdog as any).verifyChainReorg(block);
+            const result = await callVerifyChainReorg(watchdog, block);
             expect(result).toBe(false);
             // Should not have called getBlockHeader since cache was used
             expect(mockVMManager.blockHeaderValidator.getBlockHeader).not.toHaveBeenCalled();
@@ -471,13 +494,13 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
     describe('verifyChainReorg - genesis block handling', () => {
         it('test 504: should return false for block at height 1 (previousBlock = 0)', async () => {
             const block = createMockBlock({ height: 1n, previousBlockHash: 'genesis' });
-            const result = await (watchdog as any).verifyChainReorg(block);
+            const result = await callVerifyChainReorg(watchdog, block);
             expect(result).toBe(false);
         });
 
         it('test 505: should return false for block at height 0 (previousBlock = -1)', async () => {
             const block = createMockBlock({ height: 0n, previousBlockHash: 'noprev' });
-            const result = await (watchdog as any).verifyChainReorg(block);
+            const result = await callVerifyChainReorg(watchdog, block);
             expect(result).toBe(false);
         });
     });
@@ -486,18 +509,18 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
 
     describe('getLastBlockHash', () => {
         it('test 506: should return undefined for height -1', async () => {
-            const result = await (watchdog as any).getLastBlockHash(-1n);
+            const result = await callGetLastBlockHash(watchdog, -1n);
             expect(result).toBeUndefined();
         });
 
         it('test 507: should return cached lastBlock when height matches and hash/checksum present', async () => {
-            (watchdog as any).lastBlock = {
+            Reflect.set(watchdog, 'lastBlock', {
                 hash: 'cached',
                 checksum: 'cachedcs',
                 blockNumber: 50n,
                 opnetBlock: { hash: 'cached', checksumRoot: 'cachedcs' },
-            };
-            const result = await (watchdog as any).getLastBlockHash(50n);
+            });
+            const result = await callGetLastBlockHash(watchdog, 50n);
             expect(result).toEqual({
                 hash: 'cached',
                 checksum: 'cachedcs',
@@ -506,16 +529,16 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
         });
 
         it('test 508: should not return cache when blockNumber does not match', async () => {
-            (watchdog as any).lastBlock = {
+            Reflect.set(watchdog, 'lastBlock', {
                 hash: 'cached',
                 checksum: 'cachedcs',
                 blockNumber: 50n,
-            };
+            });
             mockVMManager.blockHeaderValidator.getBlockHeader.mockResolvedValue({
                 hash: 'fromdb',
                 checksumRoot: 'fromdbcs',
             });
-            const result = await (watchdog as any).getLastBlockHash(51n);
+            const result = await callGetLastBlockHash(watchdog, 51n);
             expect(result?.hash).toBe('fromdb');
         });
 
@@ -524,7 +547,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 hash: 'dbhash',
                 checksumRoot: 'dbcs',
             });
-            const result = await (watchdog as any).getLastBlockHash(42n);
+            const result = await callGetLastBlockHash(watchdog, 42n);
             expect(mockVMManager.blockHeaderValidator.getBlockHeader).toHaveBeenCalledWith(42n);
             expect(result).toEqual({
                 blockNumber: 42n,
@@ -536,7 +559,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
 
         it('test 510: should throw when blockHeaderValidator returns undefined', async () => {
             mockVMManager.blockHeaderValidator.getBlockHeader.mockResolvedValue(undefined);
-            await expect((watchdog as any).getLastBlockHash(42n)).rejects.toThrow(
+            await expect(callGetLastBlockHash(watchdog, 42n)).rejects.toThrow(
                 'Error fetching previous block hash',
             );
         });
@@ -556,7 +579,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 checksumRoot: 'anychecksum',
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
-            const result = await (watchdog as any).verifyChainReorg(block);
+            const result = await callVerifyChainReorg(watchdog, block);
             expect(result).toBe(false);
         });
 
@@ -571,7 +594,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 checksumRoot: 'anychecksum',
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(false);
-            const result = await (watchdog as any).verifyChainReorg(block);
+            const result = await callVerifyChainReorg(watchdog, block);
             expect(result).toBe(true);
         });
 
@@ -586,7 +609,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 checksumRoot: 'different',
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(false);
-            const result = await (watchdog as any).verifyChainReorg(block);
+            const result = await callVerifyChainReorg(watchdog, block);
             expect(result).toBe(true);
         });
 
@@ -601,7 +624,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 checksumRoot: 'correctcs',
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
-            const result = await (watchdog as any).verifyChainReorg(block);
+            const result = await callVerifyChainReorg(watchdog, block);
             expect(result).toBe(true);
         });
     });
@@ -621,7 +644,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockRejectedValue(
                 new Error('validation failed'),
             );
-            const result = await (watchdog as any).verifyChainReorg(block);
+            const result = await callVerifyChainReorg(watchdog, block);
             expect(result).toBe(true);
         });
 
@@ -638,23 +661,23 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 new Error('boom'),
             );
             // Should not throw, but should return true
-            await expect((watchdog as any).verifyChainReorg(block)).resolves.toBe(true);
+            await expect(callVerifyChainReorg(watchdog, block)).resolves.toBe(true);
         });
 
         it('test 517: should throw when getLastBlockHash returns no opnetBlock', async () => {
             // Set up lastBlock without opnetBlock
-            (watchdog as any).lastBlock = {
+            Reflect.set(watchdog, 'lastBlock', {
                 hash: 'cached',
                 checksum: 'cachedcs',
                 blockNumber: 99n,
                 opnetBlock: undefined,
-            };
+            });
             const block = createMockBlock({
                 height: 100n,
                 previousBlockHash: 'somehash',
             });
             // getLastBlockHash returns object without opnetBlock, so verifyChainReorg throws
-            await expect((watchdog as any).verifyChainReorg(block)).rejects.toThrow(
+            await expect(callVerifyChainReorg(watchdog, block)).rejects.toThrow(
                 'Error fetching previous block hash',
             );
         });
@@ -667,7 +690,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 height: 100n,
                 previousBlockHash: 'somehash',
             });
-            await expect((watchdog as any).verifyChainReorg(block)).rejects.toThrow('DB error');
+            await expect(callVerifyChainReorg(watchdog, block)).rejects.toThrow('DB error');
         });
     });
 
@@ -680,7 +703,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 hash: 'blockhhash42',
                 previousblockhash: 'blockhhash41',
             } as never);
-            const header = (watchdog as any)._currentHeader;
+            const header = Reflect.get(watchdog, '_currentHeader') as CurrentHeaderShape;
             expect(header).toEqual({
                 blockNumber: 42n,
                 blockHash: 'blockhhash42',
@@ -694,7 +717,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 hash: 'h999',
                 previousblockhash: 'h998',
             } as never);
-            expect((watchdog as any)._currentHeader.blockNumber).toBe(999n);
+            expect((Reflect.get(watchdog, '_currentHeader') as CurrentHeaderShape).blockNumber).toBe(999n);
         });
 
         it('test 521: should overwrite previous header on subsequent calls', () => {
@@ -708,50 +731,51 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
                 hash: 'h20',
                 previousblockhash: 'h19',
             } as never);
-            expect((watchdog as any)._currentHeader.blockNumber).toBe(20n);
-            expect((watchdog as any)._currentHeader.blockHash).toBe('h20');
+            const header = Reflect.get(watchdog, '_currentHeader') as CurrentHeaderShape;
+            expect(header.blockNumber).toBe(20n);
+            expect(header.blockHash).toBe('h20');
         });
     });
 
     describe('updateBlock', () => {
         it('test 522: should set lastBlock hash from block', () => {
             const block = createMockBlock({ hash: 'newhash' });
-            (watchdog as any).updateBlock(block);
-            expect((watchdog as any).lastBlock.hash).toBe('newhash');
+            callUpdateBlock(watchdog, block);
+            expect((Reflect.get(watchdog, 'lastBlock') as LastBlockShape).hash).toBe('newhash');
         });
 
         it('test 523: should set lastBlock checksum from block checksumRoot', () => {
             const block = createMockBlock({ checksumRoot: 'newchecksum' });
-            (watchdog as any).updateBlock(block);
-            expect((watchdog as any).lastBlock.checksum).toBe('newchecksum');
+            callUpdateBlock(watchdog, block);
+            expect((Reflect.get(watchdog, 'lastBlock') as LastBlockShape).checksum).toBe('newchecksum');
         });
 
         it('test 524: should set lastBlock blockNumber from block height', () => {
             const block = createMockBlock({ height: 55n });
-            (watchdog as any).updateBlock(block);
-            expect((watchdog as any).lastBlock.blockNumber).toBe(55n);
+            callUpdateBlock(watchdog, block);
+            expect((Reflect.get(watchdog, 'lastBlock') as LastBlockShape).blockNumber).toBe(55n);
         });
 
         it('test 525: should call getBlockHeaderDocument on the block', () => {
             const block = createMockBlock();
-            (watchdog as any).updateBlock(block);
+            callUpdateBlock(watchdog, block);
             expect(block.getBlockHeaderDocument).toHaveBeenCalled();
         });
     });
 
     describe('pendingBlockHeight', () => {
         it('test 526: should throw when lastBlock blockNumber is undefined', () => {
-            (watchdog as any).lastBlock = {};
+            Reflect.set(watchdog, 'lastBlock', {});
             expect(() => watchdog.pendingBlockHeight).toThrow('Last block number is not set');
         });
 
         it('test 527: should return the lastBlock blockNumber', () => {
-            (watchdog as any).lastBlock = { blockNumber: 42n };
+            Reflect.set(watchdog, 'lastBlock', { blockNumber: 42n });
             expect(watchdog.pendingBlockHeight).toBe(42n);
         });
 
         it('test 528: should return -1n when initialized at genesis', () => {
-            (watchdog as any).lastBlock = { blockNumber: -1n };
+            Reflect.set(watchdog, 'lastBlock', { blockNumber: -1n });
             expect(watchdog.pendingBlockHeight).toBe(-1n);
         });
     });
@@ -760,7 +784,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
         it('test 529: should add callback to reorgListeners', () => {
             const cb = vi.fn().mockResolvedValue(undefined);
             watchdog.subscribeToReorgs(cb);
-            expect((watchdog as any).reorgListeners).toContain(cb);
+            expect(Reflect.get(watchdog, 'reorgListeners') as unknown[]).toContain(cb);
         });
 
         it('test 530: should allow multiple subscriptions', () => {
@@ -770,7 +794,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
             watchdog.subscribeToReorgs(cb1);
             watchdog.subscribeToReorgs(cb2);
             watchdog.subscribeToReorgs(cb3);
-            expect((watchdog as any).reorgListeners).toHaveLength(3);
+            expect(Reflect.get(watchdog, 'reorgListeners') as unknown[]).toHaveLength(3);
         });
     });
 });

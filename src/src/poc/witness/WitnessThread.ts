@@ -98,7 +98,7 @@ export class WitnessThread extends Thread<ThreadTypes.WITNESS> {
 
                 if (!this.currentBlockSet) {
                     this.currentBlockSet = true;
-                    // Height is now set — replay any buffered peer witnesses
+                    // Height is now set, replay any buffered peer witnesses
                     this.flushPendingPeerMessages();
                 }
 

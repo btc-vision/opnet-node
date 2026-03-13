@@ -364,7 +364,7 @@ describe('Mempool Preservation During Reorg', () => {
             expect(mocks.contractRepository.deleteContractsInRange).toHaveBeenCalled();
             expect(mocks.blockRepository.deleteBlockHeadersInRange).toHaveBeenCalled();
             expect(mocks.targetEpochRepository.deleteAllTargetEpochs).toHaveBeenCalled();
-            // But mempool must be untouched — blockId=1 > 0
+            // But mempool must be untouched, blockId=1 > 0
             expect(mocks.mempoolRepository.deleteGreaterThanBlockHeight).not.toHaveBeenCalled();
         });
     });

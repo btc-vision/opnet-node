@@ -587,7 +587,7 @@ export class Mempool extends Logger {
             }
         }
 
-        // Sequential path — testMempoolAccept already passed, broadcast each tx.
+        // Sequential path, testMempoolAccept already passed, broadcast each tx.
         return await this.broadcastTransactionsAfterTest(transactions, rawHexes, testResults);
     }
 

@@ -342,6 +342,13 @@ export class ChainSynchronisation extends Logger {
 
     // TODO: Move fetching to an other thread.
     private async queryBlock(blockNumber: bigint): Promise<DeserializedBlock> {
+        // In resync mode, only download block headers, no transaction data needed.
+        // Transactions are preserved from the original sync; only headers/witnesses
+        // are re-generated.
+        if (Config.DEV.RESYNC_BLOCK_HEIGHTS) {
+            return this.queryBlockHeaderOnly(blockNumber);
+        }
+
         return new Promise<DeserializedBlock>(async (resolve, reject) => {
             try {
                 this.bestTip = blockNumber;
@@ -401,6 +408,42 @@ export class ChainSynchronisation extends Logger {
                 reject(e as Error);
             }
         });
+    }
+
+    /**
+     * Fetch only the block header (no transaction data) for resync mode.
+     * Uses getBlockInfoOnly which returns BlockData with tx as txid strings only,
+     * avoiding the heavy getBlockInfoWithTransactionData RPC call.
+     */
+    private async queryBlockHeaderOnly(blockNumber: bigint): Promise<DeserializedBlock> {
+        this.bestTip = blockNumber;
+
+        const blockHash = await this.rpcClient.getBlockHash(Number(blockNumber));
+        if (!blockHash) {
+            throw new Error(`Block hash not found for block ${blockNumber}`);
+        }
+
+        const blockData = await this.rpcClient.getBlockInfoOnly(blockHash);
+        if (!blockData) {
+            throw new Error(`Block header not found for block ${blockNumber}`);
+        }
+
+        const abortController = new AbortController();
+        this.abortControllers.set(blockNumber, abortController);
+
+        const block = new Block({
+            network: this.network,
+            abortController: abortController,
+            header: blockData,
+            processEverythingAsGeneric: true,
+        });
+
+        return {
+            header: block.header.toJSON(),
+            rawTransactionData: [],
+            transactionOrder: undefined,
+            addressCache: new Map<string, string>(),
+        };
     }
 
     /*private async deserializeBlockBatch(startBlock: bigint): Promise<ThreadData> {

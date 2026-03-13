@@ -277,7 +277,7 @@ export class VMMongoStorage extends VMStorage {
             );
         }
 
-        // Target epochs have no block range — delete once upfront
+        // Target epochs have no block range, delete once upfront
         this.log(`Purging target epochs...`);
         await this.targetEpochRepository.deleteAllTargetEpochs();
 

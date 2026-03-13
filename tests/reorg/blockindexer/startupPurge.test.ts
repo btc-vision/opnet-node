@@ -917,9 +917,9 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             await (indexer as any).init();
 
             // init() calls revertDataUntilBlock(purgeFromBlock) WITHOUT the override
-            // so UTXO purge is skipped per config — this is intentional for startup
+            // so UTXO purge is skipped per config, this is intentional for startup
             const calls = mockVmStorage.revertDataUntilBlock.mock.calls;
-            // First call is from init's normal purge — should have only 1 arg (no override)
+            // First call is from init's normal purge, should have only 1 arg (no override)
             expect(calls[0]).toEqual([100n]);
         });
 

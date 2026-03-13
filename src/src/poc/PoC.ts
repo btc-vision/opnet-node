@@ -108,19 +108,27 @@ export class PoC extends Logger {
 
     private async onBlockProcessed(m: BlockProcessedMessage): Promise<ThreadData> {
         // Wait for previous block to finish so height + proof are always in order.
-        await this.blockProcessedLock;
+        // Use catch so a failed broadcast doesn't permanently jam the lock.
+        await this.blockProcessedLock.catch(() => {});
 
         // Broadcast height to ALL witness instances
         this.blockProcessedLock = this.sendMessageToAllThreads(ThreadTypes.WITNESS, {
             type: MessageType.WITNESS_HEIGHT_UPDATE,
             data: { blockNumber: m.data.blockNumber },
         });
-        await this.blockProcessedLock;
+
+        try {
+            await this.blockProcessedLock;
+        } catch (e: unknown) {
+            this.error(`Failed to broadcast height update: ${(e as Error).stack}`);
+        }
 
         // Round-robin proof generation to ONE witness instance
         void this.sendMessageToThread(ThreadTypes.WITNESS, {
             type: MessageType.WITNESS_BLOCK_PROCESSED,
             data: m.data,
+        }).catch((e: unknown) => {
+            this.error(`Failed to dispatch WITNESS_BLOCK_PROCESSED: ${(e as Error).stack}`);
         });
 
         // Update consensus height on this thread

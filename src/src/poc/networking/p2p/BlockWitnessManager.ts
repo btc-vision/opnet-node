@@ -203,7 +203,7 @@ export class BlockWitnessManager extends Logger {
 
     /**
      * Queue a self-generated witness for async processing.
-     * Returns immediately — the P2P message handler is not blocked.
+     * Returns immediately, the P2P message handler is not blocked.
      * The queue drains concurrently with up to MAX_CONCURRENT_SELF_PROOFS
      * overlapping proof generations, allowing RPC I/O to interleave.
      */
@@ -241,6 +241,23 @@ export class BlockWitnessManager extends Logger {
         };
 
         await this.processBlockWitnesses(data.blockNumber, blockWitness);
+    }
+
+    public onBlockWitness(blockWitness: IBlockHeaderWitness): void {
+        if (this.currentBlock === -1n) {
+            return;
+        }
+
+        const blockNumber: bigint = BigInt(blockWitness.blockNumber.toString());
+        if (this.currentBlock < blockNumber) {
+            // note: if not initialized, this.currentBlock is 0n.
+            this.addToPendingWitnessesVerification(blockNumber, blockWitness);
+            return;
+        }
+
+        this.enqueueWitnessValidation(blockNumber, blockWitness);
+        this.processQueuedWitnesses();
+        this.drainWitnessQueue();
     }
 
     /**
@@ -329,23 +346,6 @@ export class BlockWitnessManager extends Logger {
         };
 
         await this.processBlockWitnesses(data.blockNumber, blockWitness);
-    }
-
-    public onBlockWitness(blockWitness: IBlockHeaderWitness): void {
-        if (this.currentBlock === -1n) {
-            return;
-        }
-
-        const blockNumber: bigint = BigInt(blockWitness.blockNumber.toString());
-        if (this.currentBlock < blockNumber) {
-            // note: if not initialized, this.currentBlock is 0n.
-            this.addToPendingWitnessesVerification(blockNumber, blockWitness);
-            return;
-        }
-
-        this.enqueueWitnessValidation(blockNumber, blockWitness);
-        this.processQueuedWitnesses();
-        this.drainWitnessQueue();
     }
 
     private revertKnownWitnessesReorg(toBlock: bigint): void {

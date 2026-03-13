@@ -118,6 +118,24 @@ export class ReorgWatchdog extends Logger {
 
         const chainReorged: boolean = await this.verifyChainReorg(task.block);
         if (!chainReorged) {
+            // Also verify that the block we're processing is still the canonical
+            // block at this height. Two competing blocks can share the same parent
+            // (passing the previousBlockHash check) but have different hashes.
+            // currentHeader comes from the RPC tip, if heights match, compare hashes.
+            if (
+                this.currentHeader.blockNumber === task.tip &&
+                this.currentHeader.blockHash !== task.block.hash
+            ) {
+                this.warn(
+                    `Block hash mismatch at height ${task.tip}: ` +
+                        `processing=${task.block.hash}, canonical=${this.currentHeader.blockHash}`,
+                );
+
+                await this.restoreBlockchain(task.tip);
+
+                return true;
+            }
+
             this.updateBlock(task.block);
 
             return false;
