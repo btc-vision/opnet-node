@@ -101,9 +101,7 @@ describe('VMMongoStorage.revertDataUntilBlock() - Basic Tests', () => {
         mocks.blockchainInfoRepository.getByNetwork.mockResolvedValue({ inProgressBlock: 0 });
     });
 
-    // =========================================================================
-    // Repository invocation with standard blockId
-    // =========================================================================
+    /** Repository invocation with standard blockId */
     describe('repository invocation with standard blockId', () => {
         it('should call all first-pass unbounded delete methods with upperBound', async () => {
             await storage.revertDataUntilBlock(500n);
@@ -217,9 +215,7 @@ describe('VMMongoStorage.revertDataUntilBlock() - Basic Tests', () => {
         });
     });
 
-    // =========================================================================
-    // purgeUtxos configuration
-    // =========================================================================
+    /** purgeUtxos configuration */
     describe('purgeUtxos configuration', () => {
         it('should gate UTXO first-pass and batched-pass deletes on purgeUtxos setting', async () => {
             mockConfig.OP_NET.REINDEX_PURGE_UTXOS = true;
@@ -279,9 +275,7 @@ describe('VMMongoStorage.revertDataUntilBlock() - Basic Tests', () => {
         });
     });
 
-    // =========================================================================
-    // DEV_MODE sequential vs parallel execution
-    // =========================================================================
+    /** DEV_MODE sequential vs parallel execution */
     describe('DEV_MODE sequential vs parallel execution', () => {
         it('should call repos in correct sequential order in DEV_MODE first pass (with utxos)', async () => {
             mockConfig.DEV_MODE = true;
@@ -514,9 +508,7 @@ describe('VMMongoStorage.revertDataUntilBlock() - Basic Tests', () => {
         });
     });
 
-    // =========================================================================
-    // blockId <= 0n triggers mempool purge
-    // =========================================================================
+    /** blockId <= 0n triggers mempool purge */
     describe('blockId <= 0n triggers mempool purge', () => {
         it('should call mempoolRepository.deleteGreaterThanBlockHeight when blockId is 0n', async () => {
             await storage.revertDataUntilBlock(0n);
@@ -555,9 +547,7 @@ describe('VMMongoStorage.revertDataUntilBlock() - Basic Tests', () => {
         });
     });
 
-    // =========================================================================
-    // blockId edge values
-    // =========================================================================
+    /** blockId edge values */
     describe('blockId edge values', () => {
         it('should handle blockId = 0n successfully', async () => {
             await expect(storage.revertDataUntilBlock(0n)).resolves.toBeUndefined();
@@ -595,9 +585,7 @@ describe('VMMongoStorage.revertDataUntilBlock() - Basic Tests', () => {
         });
     });
 
-    // =========================================================================
-    // target epochs always deleted
-    // =========================================================================
+    /** Target epochs always deleted */
     describe('target epochs always deleted', () => {
         it('should always call deleteAllTargetEpochs with no arguments before first pass repos', async () => {
             mockConfig.DEV_MODE = true;
@@ -632,9 +620,7 @@ describe('VMMongoStorage.revertDataUntilBlock() - Basic Tests', () => {
         });
     });
 
-    // =========================================================================
-    // method call order
-    // =========================================================================
+    /** Method call order */
     describe('method call order', () => {
         it('should call getLatestBlock and getByNetwork before any delete operations', async () => {
             mockConfig.DEV_MODE = true;
@@ -749,9 +735,7 @@ describe('VMMongoStorage.revertDataUntilBlock() - Basic Tests', () => {
         });
     });
 
-    // =========================================================================
-    // argument correctness
-    // =========================================================================
+    /** Argument correctness */
     describe('argument correctness', () => {
         it('should pass correct arguments to first-pass and batched methods based on upperBound', async () => {
             mocks.blockRepository.getLatestBlock.mockResolvedValue({
@@ -860,9 +844,7 @@ describe('VMMongoStorage.revertDataUntilBlock() - Basic Tests', () => {
         });
     });
 
-    // =========================================================================
-    // return value, side effects, error propagation
-    // =========================================================================
+    /** Return value, side effects, error propagation */
     describe('return value, side effects, error propagation', () => {
         it('should return undefined (void)', async () => {
             const result = await storage.revertDataUntilBlock(500n);

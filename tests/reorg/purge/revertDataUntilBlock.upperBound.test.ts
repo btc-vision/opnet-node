@@ -106,17 +106,13 @@ describe('revertDataUntilBlock - upper bound calculation', () => {
         opNet.REINDEX_BATCH_SIZE = 100_000_000;
     });
 
-    // ---------------------------------------------------------------
-    // Helper: extract the upperBound that was passed to first-pass deletes
-    // ---------------------------------------------------------------
+    /** Helper: extract the upperBound that was passed to first-pass deletes */
     function getFirstPassUpperBound(): bigint {
         const call = mocks.transactionRepository.deleteTransactionsFromBlockHeight.mock.calls[0];
         return call[0] as bigint;
     }
 
-    // ---------------------------------------------------------------
-    // Tests 181-188 (merged): derivedUpper = max(blockHeaderHeight, chainInfoHeight)
-    // ---------------------------------------------------------------
+    /** Tests 181-188 (merged): derivedUpper = max(blockHeaderHeight, chainInfoHeight) */
     describe('derivedUpper = max(blockHeaderHeight, chainInfoHeight)', () => {
         it('should pick the larger of blockHeaderHeight and chainInfoHeight', async () => {
             // Case 1: blockHeaderHeight > chainInfoHeight
@@ -210,9 +206,7 @@ describe('revertDataUntilBlock - upper bound calculation', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 189-195 (merged): upperBound = max(derivedUpper, blockId)
-    // ---------------------------------------------------------------
+    /** Tests 189-195 (merged): upperBound = max(derivedUpper, blockId) */
     describe('upperBound = max(derivedUpper, blockId)', () => {
         it('should pick the larger of derivedUpper and blockId', async () => {
             // derivedUpper > blockId => uses derivedUpper
@@ -294,9 +288,7 @@ describe('revertDataUntilBlock - upper bound calculation', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 196-199 (merged): getLatestBlock returns undefined
-    // ---------------------------------------------------------------
+    /** Tests 196-199 (merged): getLatestBlock returns undefined */
     describe('getLatestBlock returns undefined', () => {
         it('should fall back to blockId as blockHeaderHeight and compute upperBound correctly', async () => {
             // chainInfoHeight=0 => blockHeaderHeight=blockId=50, upperBound=50
@@ -336,9 +328,7 @@ describe('revertDataUntilBlock - upper bound calculation', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 200-202 (merged): getLatestBlock returns a block
-    // ---------------------------------------------------------------
+    /** Tests 200-202 (merged): getLatestBlock returns a block */
     describe('getLatestBlock returns a block', () => {
         it('should use latest block height as blockHeaderHeight in upperBound calculation', async () => {
             // blockHeaderHeight=300 dominates
@@ -375,9 +365,7 @@ describe('revertDataUntilBlock - upper bound calculation', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 203-207 (merged): getByNetwork returns chain info
-    // ---------------------------------------------------------------
+    /** Tests 203-207 (merged): getByNetwork returns chain info */
     describe('getByNetwork returns chain info', () => {
         it('should use inProgressBlock as chainInfoHeight', async () => {
             // inProgressBlock=500 dominates
@@ -429,10 +417,7 @@ describe('revertDataUntilBlock - upper bound calculation', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 208-215: upperBound used correctly in first pass and batched pass
-    // (KEEP as individual tests - different behaviors)
-    // ---------------------------------------------------------------
+    /** Tests 208-215: upperBound used correctly in first pass and batched pass (KEEP as individual tests - different behaviors) */
     describe('upperBound used correctly in first pass and batched pass', () => {
         it('208: all first-pass delete methods receive the same upperBound', async () => {
             mocks.blockRepository.getLatestBlock.mockResolvedValue({
@@ -629,9 +614,7 @@ describe('revertDataUntilBlock - upper bound calculation', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 216-225 (merged where trivially similar): combined scenarios
-    // ---------------------------------------------------------------
+    /** Tests 216-225 (merged where trivially similar): combined scenarios */
     describe('combined scenarios', () => {
         it('should pick the correct max when all three values are equal', async () => {
             mocks.blockRepository.getLatestBlock.mockResolvedValue({
@@ -745,9 +728,7 @@ describe('revertDataUntilBlock - upper bound calculation', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 226-230 (merged): height string parsing
-    // ---------------------------------------------------------------
+    /** Tests 226-230 (merged): height string parsing */
     describe('height string parsing', () => {
         it('should parse height.toString() numeric strings and custom toString correctly', async () => {
             // Standard numeric string
@@ -813,9 +794,7 @@ describe('revertDataUntilBlock - upper bound calculation', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 231-235: blockId edge values (KEEP as individual tests)
-    // ---------------------------------------------------------------
+    /** Tests 231-235: blockId edge values (KEEP as individual tests) */
     describe('blockId edge values', () => {
         it('231: blockId=0n with no data gives upperBound=0', async () => {
             mocks.blockRepository.getLatestBlock.mockResolvedValue(undefined);
@@ -883,9 +862,7 @@ describe('revertDataUntilBlock - upper bound calculation', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 236-240 (merged): getLatestBlock and getByNetwork call order
-    // ---------------------------------------------------------------
+    /** Tests 236-240 (merged): getLatestBlock and getByNetwork call order */
     describe('getLatestBlock and getByNetwork call order', () => {
         it('should call getLatestBlock and getByNetwork exactly once each, before any deletes', async () => {
             const callOrder: string[] = [];

@@ -98,12 +98,10 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         mocks.blockchainInfoRepository.getByNetwork.mockResolvedValue({ inProgressBlock: 0 });
     });
 
-    // ========================================================================
-    // Tests 291-302: repository null checks
-    // ========================================================================
+    /** Tests 291-302: repository null checks */
     describe('Tests 291-302: repository null checks', () => {
         it('291: throws when blockRepository is undefined', async () => {
-            (storage as any).blockRepository = undefined;
+            Reflect.set(storage, 'blockRepository', undefined);
 
             await expect(storage.revertDataUntilBlock(100n)).rejects.toThrow(
                 'Block header repository not initialized',
@@ -111,7 +109,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
 
         it('292: throws when transactionRepository is undefined', async () => {
-            (storage as any).transactionRepository = undefined;
+            Reflect.set(storage, 'transactionRepository', undefined);
 
             await expect(storage.revertDataUntilBlock(100n)).rejects.toThrow(
                 'Transaction repository not initialized',
@@ -119,7 +117,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
 
         it('293: throws when unspentTransactionRepository is undefined', async () => {
-            (storage as any).unspentTransactionRepository = undefined;
+            Reflect.set(storage, 'unspentTransactionRepository', undefined);
 
             await expect(storage.revertDataUntilBlock(100n)).rejects.toThrow(
                 'Unspent transaction repository not initialized',
@@ -127,7 +125,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
 
         it('294: throws when contractRepository is undefined', async () => {
-            (storage as any).contractRepository = undefined;
+            Reflect.set(storage, 'contractRepository', undefined);
 
             await expect(storage.revertDataUntilBlock(100n)).rejects.toThrow(
                 'Contract repository not initialized',
@@ -135,7 +133,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
 
         it('295: throws when pointerRepository is undefined', async () => {
-            (storage as any).pointerRepository = undefined;
+            Reflect.set(storage, 'pointerRepository', undefined);
 
             await expect(storage.revertDataUntilBlock(100n)).rejects.toThrow(
                 'Pointer repository not initialized',
@@ -143,7 +141,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
 
         it('296: throws when blockWitnessRepository is undefined', async () => {
-            (storage as any).blockWitnessRepository = undefined;
+            Reflect.set(storage, 'blockWitnessRepository', undefined);
 
             await expect(storage.revertDataUntilBlock(100n)).rejects.toThrow(
                 'Block witness repository not initialized',
@@ -151,7 +149,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
 
         it('297: throws when reorgRepository is undefined', async () => {
-            (storage as any).reorgRepository = undefined;
+            Reflect.set(storage, 'reorgRepository', undefined);
 
             await expect(storage.revertDataUntilBlock(100n)).rejects.toThrow(
                 'Reorg repository not initialized',
@@ -159,7 +157,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
 
         it('298: throws when mempoolRepository is undefined', async () => {
-            (storage as any).mempoolRepository = undefined;
+            Reflect.set(storage, 'mempoolRepository', undefined);
 
             await expect(storage.revertDataUntilBlock(100n)).rejects.toThrow(
                 'Mempool repository not initialized',
@@ -167,7 +165,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
 
         it('299: throws when epochRepository is undefined', async () => {
-            (storage as any).epochRepository = undefined;
+            Reflect.set(storage, 'epochRepository', undefined);
 
             await expect(storage.revertDataUntilBlock(100n)).rejects.toThrow(
                 'Epoch repository not initialized',
@@ -175,7 +173,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
 
         it('300: throws when epochSubmissionRepository is undefined (message says "Public key")', async () => {
-            (storage as any).epochSubmissionRepository = undefined;
+            Reflect.set(storage, 'epochSubmissionRepository', undefined);
 
             await expect(storage.revertDataUntilBlock(100n)).rejects.toThrow(
                 'Public key repository not initialized',
@@ -183,7 +181,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
 
         it('301: throws when targetEpochRepository is undefined', async () => {
-            (storage as any).targetEpochRepository = undefined;
+            Reflect.set(storage, 'targetEpochRepository', undefined);
 
             await expect(storage.revertDataUntilBlock(100n)).rejects.toThrow(
                 'Target epoch repository not initialized',
@@ -191,7 +189,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
 
         it('302: throws when mldsaPublicKeysRepository is undefined', async () => {
-            (storage as any).mldsaPublicKeysRepository = undefined;
+            Reflect.set(storage, 'mldsaPublicKeysRepository', undefined);
 
             await expect(storage.revertDataUntilBlock(100n)).rejects.toThrow(
                 'MLDSA Public Key repository not initialized',
@@ -199,9 +197,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
     });
 
-    // ========================================================================
-    // Tests 303-308: repository delete throws during first pass
-    // ========================================================================
+    /** Tests 303-308: repository delete throws during first pass */
     describe('Tests 303-308: repository delete throws during first pass', () => {
         it('303: transaction delete throws in first pass propagates error', async () => {
             mocks.transactionRepository.deleteTransactionsFromBlockHeight.mockRejectedValue(
@@ -258,9 +254,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
     });
 
-    // ========================================================================
-    // Tests 309-314: repository delete throws during batched pass
-    // ========================================================================
+    /** Tests 309-314: repository delete throws during batched pass */
     describe('Tests 309-314: repository delete throws during batched pass', () => {
         beforeEach(() => {
             // Set up a gap so the batched pass runs (upperBound=200, blockId=100, batchSize=1000)
@@ -329,9 +323,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
     });
 
-    // ========================================================================
-    // Tests 315-319: getLatestBlock/getByNetwork throws
-    // ========================================================================
+    /** Tests 315-319: getLatestBlock/getByNetwork throws */
     describe('Tests 315-319: getLatestBlock/getByNetwork throws', () => {
         it('315: getLatestBlock throwing propagates error', async () => {
             mocks.blockRepository.getLatestBlock.mockRejectedValue(
@@ -376,7 +368,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
 
         it('319: blockchainInfoRepository being undefined causes getByNetwork to throw via getter', async () => {
-            (storage as any).blockchainInfoRepository = undefined;
+            Reflect.set(storage, 'blockchainInfoRepository', undefined);
 
             await expect(storage.revertDataUntilBlock(100n)).rejects.toThrow(
                 'Blockchain info repository not initialized',
@@ -384,9 +376,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
     });
 
-    // ========================================================================
-    // Tests 320-321: mempool purge error
-    // ========================================================================
+    /** Tests 320-321: mempool purge error */
     describe('Tests 320-321: mempool purge error', () => {
         it('320: mempool deleteGreaterThanBlockHeight throwing propagates error when blockId <= 0', async () => {
             mocks.blockRepository.getLatestBlock.mockResolvedValue({ height: 0 });
@@ -410,9 +400,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
     });
 
-    // ========================================================================
-    // Tests 322-323: target epoch delete error
-    // ========================================================================
+    /** Tests 322-323: target epoch delete error */
     describe('Tests 322-323: target epoch delete error', () => {
         it('322: targetEpochRepository.deleteAllTargetEpochs throwing propagates error', async () => {
             mocks.targetEpochRepository.deleteAllTargetEpochs.mockRejectedValue(
@@ -438,9 +426,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
     });
 
-    // ========================================================================
-    // Tests 324-326: partial failure scenarios
-    // ========================================================================
+    /** Tests 324-326: partial failure scenarios */
     describe('Tests 324-326: partial failure scenarios', () => {
         it('324: in DEV_MODE, first repo failure stops subsequent sequential deletes', async () => {
             mockConfig.DEV_MODE = true;
@@ -485,24 +471,10 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
     });
 
-    // ========================================================================
-    // Tests 327-330: error message content
-    // ========================================================================
+    /** Tests 327-330: error message content */
     describe('Tests 327-330: error message content', () => {
-        it('327: blockRepository null check uses exact error message', async () => {
-            (storage as any).blockRepository = undefined;
-
-            try {
-                await storage.revertDataUntilBlock(100n);
-                expect.unreachable('Should have thrown');
-            } catch (e: any) {
-                expect(e).toBeInstanceOf(Error);
-                expect(e.message).toBe('Block header repository not initialized');
-            }
-        });
-
         it('328: epochSubmissionRepository null check says "Public key" not "Epoch submission"', async () => {
-            (storage as any).epochSubmissionRepository = undefined;
+            Reflect.set(storage, 'epochSubmissionRepository', undefined);
 
             try {
                 await storage.revertDataUntilBlock(100n);
@@ -515,7 +487,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
         });
 
         it('329: mldsaPublicKeysRepository null check uses exact error message with capitalization', async () => {
-            (storage as any).mldsaPublicKeysRepository = undefined;
+            Reflect.set(storage, 'mldsaPublicKeysRepository', undefined);
 
             try {
                 await storage.revertDataUntilBlock(100n);
@@ -551,7 +523,7 @@ describe('revertDataUntilBlock - Error Handling (Category 5)', () => {
                     inProgressBlock: 0,
                 });
 
-                (freshStorage as any)[field] = undefined;
+                Reflect.set(freshStorage, field, undefined);
 
                 try {
                     await freshStorage.revertDataUntilBlock(100n);

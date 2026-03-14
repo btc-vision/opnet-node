@@ -243,6 +243,27 @@ vi.mock('../../../src/src/config/interfaces/OPNetIndexerMode.js', () => ({
     OPNetIndexerMode: { ARCHIVE: 'ARCHIVE', FULL: 'FULL', LIGHT: 'LIGHT' },
 }));
 
+function callRevertChain(
+    indexer: BlockIndexer,
+    fromHeight: bigint,
+    toHeight: bigint,
+    newBest: string,
+    reorged: boolean,
+): Promise<void> {
+    const fn = Reflect.get(indexer, 'revertChain') as (
+        f: bigint,
+        t: bigint,
+        n: string,
+        r: boolean,
+    ) => Promise<void>;
+    return Reflect.apply(fn, indexer, [fromHeight, toHeight, newBest, reorged]);
+}
+
+function callStopAllTasks(indexer: BlockIndexer, reorged: boolean): Promise<void> {
+    const fn = Reflect.get(indexer, 'stopAllTasks') as (r: boolean) => Promise<void>;
+    return Reflect.apply(fn, indexer, [reorged]);
+}
+
 describe('revertChain - BlockIndexer (real class)', () => {
     let indexer: BlockIndexer;
 
@@ -261,12 +282,10 @@ describe('revertChain - BlockIndexer (real class)', () => {
         indexer.sendMessageToThread = vi.fn().mockResolvedValue(null);
 
         // Ensure the _blockFetcher is set (normally done in init)
-        (indexer as any)._blockFetcher = mockBlockFetcher;
+        Reflect.set(indexer, '_blockFetcher', mockBlockFetcher);
     });
 
-    // ========================================================================
-    // Execution sequence
-    // ========================================================================
+    /** Execution sequence */
     describe('execution sequence', () => {
         it('should call stopAllTasks before blockFetcher.onReorg', async () => {
             const callOrder: string[] = [];
@@ -275,12 +294,12 @@ describe('revertChain - BlockIndexer (real class)', () => {
                     callOrder.push('stopAllTasks');
                 }),
             };
-            (indexer as any).currentTask = task;
+            Reflect.set(indexer, 'currentTask', task);
             mockBlockFetcher.onReorg.mockImplementation(() => {
                 callOrder.push('blockFetcher.onReorg');
             });
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
 
             expect(callOrder.indexOf('stopAllTasks')).toBeLessThan(
                 callOrder.indexOf('blockFetcher.onReorg'),
@@ -298,7 +317,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
                 },
             );
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
 
             expect(callOrder.indexOf('blockFetcher.onReorg')).toBeLessThan(
                 callOrder.indexOf('notifyThreadReorg'),
@@ -316,7 +335,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
                 callOrder.push('killAllPendingWrites');
             });
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
 
             expect(callOrder.indexOf('notifyThreadReorg')).toBeLessThan(
                 callOrder.indexOf('killAllPendingWrites'),
@@ -332,7 +351,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
                 callOrder.push('revertDataUntilBlock');
             });
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
 
             expect(callOrder.indexOf('killAllPendingWrites')).toBeLessThan(
                 callOrder.indexOf('revertDataUntilBlock'),
@@ -348,7 +367,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
                 callOrder.push('onChainReorganisation');
             });
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
 
             expect(callOrder.indexOf('revertDataUntilBlock')).toBeLessThan(
                 callOrder.indexOf('onChainReorganisation'),
@@ -367,7 +386,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
                 },
             );
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
 
             expect(callOrder.indexOf('onChainReorganisation')).toBeLessThan(
                 callOrder.indexOf('notifyPluginsOfReorg'),
@@ -379,9 +398,9 @@ describe('revertChain - BlockIndexer (real class)', () => {
             const task = {
                 cancel: vi.fn().mockImplementation(async () => stopCallCount++),
             };
-            (indexer as any).currentTask = task;
+            Reflect.set(indexer, 'currentTask', task);
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
 
             // First stopAllTasks call processes currentTask, second has nothing (already cleared)
             expect(task.cancel).toHaveBeenCalledTimes(1);
@@ -389,7 +408,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
         });
 
         it('should call all operations in a complete revert with reorged=true', async () => {
-            await (indexer as any).revertChain(50n, 100n, 'newhash', true);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', true);
 
             expect(mockBlockFetcher.onReorg).toHaveBeenCalled();
             expect(indexer.sendMessageToAllThreads).toHaveBeenCalled();
@@ -413,7 +432,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
                 callOrder.push('setReorg');
             });
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', true);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', true);
 
             expect(callOrder.indexOf('onChainReorganisation')).toBeLessThan(
                 callOrder.indexOf('setReorg'),
@@ -432,7 +451,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
                 },
             );
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', true);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', true);
 
             expect(callOrder[callOrder.length - 1]).toBe('notifyPlugins');
         });
@@ -466,7 +485,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
                 },
             );
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', true);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', true);
 
             expect(callOrder).toEqual([
                 '1:onReorg',
@@ -480,109 +499,105 @@ describe('revertChain - BlockIndexer (real class)', () => {
         });
     });
 
-    // ========================================================================
-    // reorged = true vs false
-    // ========================================================================
+    /** reorged = true vs false */
     describe('reorged = true vs false', () => {
         it('should call setReorg when reorged is true', async () => {
-            await (indexer as any).revertChain(50n, 100n, 'newhash', true);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', true);
 
             expect(mockVmStorage.setReorg).toHaveBeenCalledTimes(1);
         });
 
         it('should not call setReorg when reorged is false', async () => {
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
 
             expect(mockVmStorage.setReorg).not.toHaveBeenCalled();
         });
 
         it('should call revertDataUntilBlock regardless of reorged flag', async () => {
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
             expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(50n, true);
 
             vi.clearAllMocks();
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', true);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', true);
             expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(50n, true);
         });
 
         it('should call killAllPendingWrites regardless of reorged flag', async () => {
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
             expect(mockVmStorage.killAllPendingWrites).toHaveBeenCalledTimes(1);
 
             vi.clearAllMocks();
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', true);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', true);
             expect(mockVmStorage.killAllPendingWrites).toHaveBeenCalledTimes(1);
         });
 
         it('should pass reorged=true flag to stopAllTasks (task.cancel)', async () => {
             const task = { cancel: vi.fn().mockResolvedValue(undefined) };
-            (indexer as any).currentTask = task;
+            Reflect.set(indexer, 'currentTask', task);
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', true);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', true);
 
             expect(task.cancel).toHaveBeenCalledWith(true);
         });
 
         it('should pass reorged=false flag to stopAllTasks (task.cancel)', async () => {
             const task = { cancel: vi.fn().mockResolvedValue(undefined) };
-            (indexer as any).currentTask = task;
+            Reflect.set(indexer, 'currentTask', task);
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
 
             expect(task.cancel).toHaveBeenCalledWith(false);
         });
     });
 
-    // ========================================================================
-    // chainReorged flag lifecycle
-    // ========================================================================
+    /** chainReorged flag lifecycle */
     describe('chainReorged flag lifecycle', () => {
         it('should set chainReorged to true at the start of revertChain', async () => {
             let flagDuringExecution = false;
             mockVmStorage.killAllPendingWrites.mockImplementation(async () => {
-                flagDuringExecution = (indexer as any).chainReorged;
+                flagDuringExecution = Reflect.get(indexer, 'chainReorged') as boolean;
             });
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
 
             expect(flagDuringExecution).toBe(true);
         });
 
         it('should set chainReorged to false after revertChain completes', async () => {
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
 
-            expect((indexer as any).chainReorged).toBe(false);
+            expect(Reflect.get(indexer, 'chainReorged') as boolean).toBe(false);
         });
 
         it('should set chainReorged to false even if revertDataUntilBlock throws', async () => {
             mockVmStorage.revertDataUntilBlock.mockRejectedValue(new Error('revert failed'));
 
-            await expect((indexer as any).revertChain(50n, 100n, 'newhash', false)).rejects.toThrow(
+            await expect(callRevertChain(indexer, 50n, 100n, 'newhash', false)).rejects.toThrow(
                 'revert failed',
             );
 
-            expect((indexer as any).chainReorged).toBe(false);
+            expect(Reflect.get(indexer, 'chainReorged') as boolean).toBe(false);
         });
 
         it('should set chainReorged to false even if killAllPendingWrites throws', async () => {
             mockVmStorage.killAllPendingWrites.mockRejectedValue(new Error('kill writes failed'));
 
-            await expect((indexer as any).revertChain(50n, 100n, 'newhash', false)).rejects.toThrow(
+            await expect(callRevertChain(indexer, 50n, 100n, 'newhash', false)).rejects.toThrow(
                 'kill writes failed',
             );
 
-            expect((indexer as any).chainReorged).toBe(false);
+            expect(Reflect.get(indexer, 'chainReorged') as boolean).toBe(false);
         });
 
         it('should be true during blockFetcher.onReorg call', async () => {
             let flagDuringOnReorg = false;
             mockBlockFetcher.onReorg.mockImplementation(() => {
-                flagDuringOnReorg = (indexer as any).chainReorged;
+                flagDuringOnReorg = Reflect.get(indexer, 'chainReorged') as boolean;
             });
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
 
             expect(flagDuringOnReorg).toBe(true);
         });
@@ -591,48 +606,49 @@ describe('revertChain - BlockIndexer (real class)', () => {
             let flagDuringPluginNotify = false;
             (indexer.sendMessageToThread as ReturnType<typeof vi.fn>).mockImplementation(
                 async () => {
-                    flagDuringPluginNotify = (indexer as any).chainReorged;
+                    flagDuringPluginNotify = Reflect.get(indexer, 'chainReorged') as boolean;
                     return null;
                 },
             );
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
 
             expect(flagDuringPluginNotify).toBe(true);
         });
 
-        it('should reset to false if reorgFromHeight throws (fromHeight <= 0)', async () => {
-            await expect((indexer as any).revertChain(0n, 100n, 'newhash', true)).rejects.toThrow(
+        it('should keep chainReorged=true if reorgFromHeight throws after storage was modified', async () => {
+            // With the storageModified fix: revertDataUntilBlock succeeds (storageModified=true),
+            // then reorgFromHeight throws. Since storage was already modified, the node must
+            // stay locked (chainReorged=true) to prevent silent state divergence.
+            await expect(callRevertChain(indexer, 0n, 100n, 'newhash', true)).rejects.toThrow(
                 'Block height must be greater than 0',
             );
 
-            expect((indexer as any).chainReorged).toBe(false);
+            expect(Reflect.get(indexer, 'chainReorged') as boolean).toBe(true);
         });
 
         it('should be true during every step of revertChain', async () => {
             const flagValues: boolean[] = [];
             mockVmStorage.revertDataUntilBlock.mockImplementation(async () => {
-                flagValues.push((indexer as any).chainReorged);
+                flagValues.push(Reflect.get(indexer, 'chainReorged') as boolean);
             });
             mockChainObserver.onChainReorganisation.mockImplementation(async () => {
-                flagValues.push((indexer as any).chainReorged);
+                flagValues.push(Reflect.get(indexer, 'chainReorged') as boolean);
             });
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
 
             expect(flagValues.every((v) => v === true)).toBe(true);
         });
     });
 
-    // ========================================================================
-    // stopAllTasks behavior
-    // ========================================================================
+    /** stopAllTasks behavior */
     describe('stopAllTasks behavior', () => {
         it('should cancel currentTask when it exists', async () => {
             const task = { cancel: vi.fn().mockResolvedValue(undefined) };
-            (indexer as any).currentTask = task;
+            Reflect.set(indexer, 'currentTask', task);
 
-            await (indexer as any).stopAllTasks(false);
+            await callStopAllTasks(indexer, false);
 
             expect(task.cancel).toHaveBeenCalledWith(false);
         });
@@ -641,9 +657,9 @@ describe('revertChain - BlockIndexer (real class)', () => {
             const task1 = { cancel: vi.fn().mockResolvedValue(undefined) };
             const task2 = { cancel: vi.fn().mockResolvedValue(undefined) };
             const task3 = { cancel: vi.fn().mockResolvedValue(undefined) };
-            (indexer as any).indexingTasks = [task1, task2, task3];
+            Reflect.set(indexer, 'indexingTasks', [task1, task2, task3]);
 
-            await (indexer as any).stopAllTasks(true);
+            await callStopAllTasks(indexer, true);
 
             expect(task1.cancel).toHaveBeenCalledWith(true);
             expect(task2.cancel).toHaveBeenCalledWith(true);
@@ -651,29 +667,29 @@ describe('revertChain - BlockIndexer (real class)', () => {
         });
 
         it('should clear currentTask after cancellation', async () => {
-            (indexer as any).currentTask = { cancel: vi.fn().mockResolvedValue(undefined) };
+            Reflect.set(indexer, 'currentTask', { cancel: vi.fn().mockResolvedValue(undefined) });
 
-            await (indexer as any).stopAllTasks(false);
+            await callStopAllTasks(indexer, false);
 
-            expect((indexer as any).currentTask).toBeUndefined();
+            expect(Reflect.get(indexer, 'currentTask')).toBeUndefined();
         });
 
         it('should clear indexingTasks array after cancellation', async () => {
-            (indexer as any).indexingTasks = [
+            Reflect.set(indexer, 'indexingTasks', [
                 { cancel: vi.fn().mockResolvedValue(undefined) },
                 { cancel: vi.fn().mockResolvedValue(undefined) },
-            ];
+            ]);
 
-            await (indexer as any).stopAllTasks(false);
+            await callStopAllTasks(indexer, false);
 
-            expect((indexer as any).indexingTasks).toEqual([]);
+            expect(Reflect.get(indexer, 'indexingTasks')).toEqual([]);
         });
 
         it('should not throw when no tasks exist', async () => {
-            (indexer as any).currentTask = undefined;
-            (indexer as any).indexingTasks = [];
+            Reflect.set(indexer, 'currentTask', undefined);
+            Reflect.set(indexer, 'indexingTasks', []);
 
-            await expect((indexer as any).stopAllTasks(false)).resolves.toBeUndefined();
+            await expect(callStopAllTasks(indexer, false)).resolves.toBeUndefined();
         });
 
         it('should cancel indexing tasks in order', async () => {
@@ -687,20 +703,18 @@ describe('revertChain - BlockIndexer (real class)', () => {
             const task3 = {
                 cancel: vi.fn().mockImplementation(async () => cancelOrder.push(3)),
             };
-            (indexer as any).indexingTasks = [task1, task2, task3];
+            Reflect.set(indexer, 'indexingTasks', [task1, task2, task3]);
 
-            await (indexer as any).stopAllTasks(false);
+            await callStopAllTasks(indexer, false);
 
             expect(cancelOrder).toEqual([1, 2, 3]);
         });
     });
 
-    // ========================================================================
-    // notifyThreadReorg
-    // ========================================================================
+    /** notifyThreadReorg */
     describe('notifyThreadReorg', () => {
         it('should send CHAIN_REORG message to SYNCHRONISATION threads', async () => {
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
 
             expect(indexer.sendMessageToAllThreads).toHaveBeenCalledWith(
                 ThreadTypes.SYNCHRONISATION,
@@ -711,7 +725,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
         });
 
         it('should include fromHeight, toHeight, and newBest in message data', async () => {
-            await (indexer as any).revertChain(42n, 99n, 'abc123', false);
+            await callRevertChain(indexer, 42n, 99n, 'abc123', false);
 
             expect(indexer.sendMessageToAllThreads).toHaveBeenCalledWith(
                 ThreadTypes.SYNCHRONISATION,
@@ -734,18 +748,16 @@ describe('revertChain - BlockIndexer (real class)', () => {
                 },
             );
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
 
             expect(resolved).toBe(true);
         });
     });
 
-    // ========================================================================
-    // notifyPluginsOfReorg (via revertChain)
-    // ========================================================================
+    /** notifyPluginsOfReorg (via revertChain) */
     describe('notifyPluginsOfReorg', () => {
         it('should send PLUGIN_REORG message to PLUGIN thread', async () => {
-            await (indexer as any).revertChain(50n, 100n, 'newhash', false);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', false);
 
             expect(indexer.sendMessageToThread).toHaveBeenCalledWith(
                 ThreadTypes.PLUGIN,
@@ -756,7 +768,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
         });
 
         it('should include fromBlock, toBlock, and reason in message data', async () => {
-            await (indexer as any).revertChain(42n, 99n, 'chain-reorg', false);
+            await callRevertChain(indexer, 42n, 99n, 'chain-reorg', false);
 
             expect(indexer.sendMessageToThread).toHaveBeenCalledWith(ThreadTypes.PLUGIN, {
                 type: MessageType.PLUGIN_REORG,
@@ -768,30 +780,16 @@ describe('revertChain - BlockIndexer (real class)', () => {
             });
         });
 
-        it('should forward newBest as the reason field in plugin notification', async () => {
-            await (indexer as any).revertChain(50n, 100n, 'my-new-best-hash', false);
-
-            expect(indexer.sendMessageToThread).toHaveBeenCalledWith(
-                ThreadTypes.PLUGIN,
-                expect.objectContaining({
-                    data: expect.objectContaining({
-                        reason: 'my-new-best-hash',
-                    }),
-                }),
-            );
-        });
     });
 
-    // ========================================================================
-    // error propagation
-    // ========================================================================
+    /** error propagation */
     describe('error propagation', () => {
         it('should propagate error from stopAllTasks (task.cancel throws)', async () => {
-            (indexer as any).currentTask = {
+            Reflect.set(indexer, 'currentTask', {
                 cancel: vi.fn().mockRejectedValue(new Error('cancel failed')),
-            };
+            });
 
-            await expect((indexer as any).revertChain(50n, 100n, 'newhash', false)).rejects.toThrow(
+            await expect(callRevertChain(indexer, 50n, 100n, 'newhash', false)).rejects.toThrow(
                 'cancel failed',
             );
         });
@@ -799,7 +797,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
         it('should propagate error from vmStorage.killAllPendingWrites', async () => {
             mockVmStorage.killAllPendingWrites.mockRejectedValue(new Error('kill pending failed'));
 
-            await expect((indexer as any).revertChain(50n, 100n, 'newhash', false)).rejects.toThrow(
+            await expect(callRevertChain(indexer, 50n, 100n, 'newhash', false)).rejects.toThrow(
                 'kill pending failed',
             );
         });
@@ -807,7 +805,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
         it('should propagate error from vmStorage.revertDataUntilBlock', async () => {
             mockVmStorage.revertDataUntilBlock.mockRejectedValue(new Error('revert data failed'));
 
-            await expect((indexer as any).revertChain(50n, 100n, 'newhash', false)).rejects.toThrow(
+            await expect(callRevertChain(indexer, 50n, 100n, 'newhash', false)).rejects.toThrow(
                 'revert data failed',
             );
         });
@@ -815,7 +813,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
         it('should propagate error from chainObserver.onChainReorganisation', async () => {
             mockChainObserver.onChainReorganisation.mockRejectedValue(new Error('observer failed'));
 
-            await expect((indexer as any).revertChain(50n, 100n, 'newhash', false)).rejects.toThrow(
+            await expect(callRevertChain(indexer, 50n, 100n, 'newhash', false)).rejects.toThrow(
                 'observer failed',
             );
         });
@@ -825,7 +823,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
                 new Error('thread notify failed'),
             );
 
-            await expect((indexer as any).revertChain(50n, 100n, 'newhash', false)).rejects.toThrow(
+            await expect(callRevertChain(indexer, 50n, 100n, 'newhash', false)).rejects.toThrow(
                 'thread notify failed',
             );
         });
@@ -835,24 +833,22 @@ describe('revertChain - BlockIndexer (real class)', () => {
                 new Error('plugin send failed'),
             );
 
-            await expect((indexer as any).revertChain(50n, 100n, 'newhash', false)).rejects.toThrow(
+            await expect(callRevertChain(indexer, 50n, 100n, 'newhash', false)).rejects.toThrow(
                 'plugin send failed',
             );
         });
     });
 
-    // ========================================================================
-    // argument forwarding
-    // ========================================================================
+    /** argument forwarding */
     describe('argument forwarding', () => {
         it('should forward fromHeight to revertDataUntilBlock', async () => {
-            await (indexer as any).revertChain(777n, 1000n, 'hash999', false);
+            await callRevertChain(indexer, 777n, 1000n, 'hash999', false);
 
             expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(777n, true);
         });
 
         it('should forward all three arguments to onChainReorganisation', async () => {
-            await (indexer as any).revertChain(42n, 84n, 'bestblock', false);
+            await callRevertChain(indexer, 42n, 84n, 'bestblock', false);
 
             expect(mockChainObserver.onChainReorganisation).toHaveBeenCalledWith(
                 42n,
@@ -862,7 +858,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
         });
 
         it('should forward fromHeight and toHeight to reorgFromHeight when reorged=true', async () => {
-            await (indexer as any).revertChain(50n, 150n, 'hash', true);
+            await callRevertChain(indexer, 50n, 150n, 'hash', true);
 
             expect(mockVmStorage.setReorg).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -872,39 +868,25 @@ describe('revertChain - BlockIndexer (real class)', () => {
             );
         });
 
-        it('should forward newBest as reason to notifyPluginsOfReorg', async () => {
-            await (indexer as any).revertChain(50n, 100n, 'my-new-best-hash', false);
-
-            expect(indexer.sendMessageToThread).toHaveBeenCalledWith(
-                ThreadTypes.PLUGIN,
-                expect.objectContaining({
-                    data: expect.objectContaining({
-                        reason: 'my-new-best-hash',
-                    }),
-                }),
-            );
-        });
     });
 
-    // ========================================================================
-    // processing-error interaction
-    // ========================================================================
+    /** processing-error interaction */
     describe('interaction with processNextTask error path', () => {
         it('should handle revert triggered from processing error (reorged=false)', async () => {
-            await (indexer as any).revertChain(99n, 100n, 'processing-error', false);
+            await callRevertChain(indexer, 99n, 100n, 'processing-error', false);
 
             expect(mockVmStorage.setReorg).not.toHaveBeenCalled();
             expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(99n, true);
         });
 
         it('should not skip killAllPendingWrites even on processing-error reverts', async () => {
-            await (indexer as any).revertChain(99n, 100n, 'processing-error', false);
+            await callRevertChain(indexer, 99n, 100n, 'processing-error', false);
 
             expect(mockVmStorage.killAllPendingWrites).toHaveBeenCalledTimes(1);
         });
 
         it('should not skip notifyPluginsOfReorg on processing-error reverts', async () => {
-            await (indexer as any).revertChain(99n, 100n, 'processing-error', false);
+            await callRevertChain(indexer, 99n, 100n, 'processing-error', false);
 
             expect(indexer.sendMessageToThread).toHaveBeenCalledWith(
                 ThreadTypes.PLUGIN,
@@ -921,7 +903,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
             const pendingHeight = 100n;
             const newHeight = pendingHeight - 1n;
 
-            await (indexer as any).revertChain(pendingHeight, newHeight, 'processing-error', false);
+            await callRevertChain(indexer, pendingHeight, newHeight, 'processing-error', false);
 
             expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(pendingHeight, true);
             expect(mockChainObserver.onChainReorganisation).toHaveBeenCalledWith(
@@ -932,39 +914,37 @@ describe('revertChain - BlockIndexer (real class)', () => {
         });
     });
 
-    // ========================================================================
-    // concurrent revert protection and edge cases
-    // ========================================================================
+    /** concurrent revert protection and edge cases */
     describe('concurrent revert protection and edge cases', () => {
         it('should complete normally with minimum valid fromHeight (1n) when reorged=true', async () => {
             await expect(
-                (indexer as any).revertChain(1n, 100n, 'newhash', true),
+                callRevertChain(indexer, 1n, 100n, 'newhash', true),
             ).resolves.toBeUndefined();
 
             expect(mockVmStorage.setReorg).toHaveBeenCalled();
         });
 
         it('should throw for fromHeight=0n when reorged=true', async () => {
-            await expect((indexer as any).revertChain(0n, 100n, 'newhash', true)).rejects.toThrow(
+            await expect(callRevertChain(indexer, 0n, 100n, 'newhash', true)).rejects.toThrow(
                 'Block height must be greater than 0. Was 0.',
             );
         });
 
         it('should throw for negative fromHeight when reorged=true', async () => {
-            await expect((indexer as any).revertChain(-5n, 100n, 'newhash', true)).rejects.toThrow(
+            await expect(callRevertChain(indexer, -5n, 100n, 'newhash', true)).rejects.toThrow(
                 'Block height must be greater than 0. Was -5.',
             );
         });
 
         it('should not throw for fromHeight=0n when reorged=false (reorgFromHeight not called)', async () => {
             await expect(
-                (indexer as any).revertChain(0n, 100n, 'newhash', false),
+                callRevertChain(indexer, 0n, 100n, 'newhash', false),
             ).resolves.toBeUndefined();
         });
 
         it('should handle very large block heights', async () => {
             const largeHeight = 999999999n;
-            await (indexer as any).revertChain(largeHeight, largeHeight + 1000n, 'hash', true);
+            await callRevertChain(indexer, largeHeight, largeHeight + 1000n, 'hash', true);
 
             expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(largeHeight, true);
             expect(mockVmStorage.setReorg).toHaveBeenCalledWith(
@@ -976,7 +956,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
         });
 
         it('should include a Date timestamp in reorg data when reorged=true', async () => {
-            await (indexer as any).revertChain(50n, 100n, 'newhash', true);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', true);
 
             expect(mockVmStorage.setReorg).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -988,7 +968,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
         it('should not call any operations after revertDataUntilBlock if it throws', async () => {
             mockVmStorage.revertDataUntilBlock.mockRejectedValue(new Error('revert boom'));
 
-            await expect((indexer as any).revertChain(50n, 100n, 'newhash', true)).rejects.toThrow(
+            await expect(callRevertChain(indexer, 50n, 100n, 'newhash', true)).rejects.toThrow(
                 'revert boom',
             );
 
@@ -1002,10 +982,10 @@ describe('revertChain - BlockIndexer (real class)', () => {
             const indexingTask1 = { cancel: vi.fn().mockResolvedValue(undefined) };
             const indexingTask2 = { cancel: vi.fn().mockResolvedValue(undefined) };
 
-            (indexer as any).currentTask = currentTask;
-            (indexer as any).indexingTasks = [indexingTask1, indexingTask2];
+            Reflect.set(indexer, 'currentTask', currentTask);
+            Reflect.set(indexer, 'indexingTasks', [indexingTask1, indexingTask2]);
 
-            await (indexer as any).revertChain(50n, 100n, 'newhash', true);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', true);
 
             expect(currentTask.cancel).toHaveBeenCalledWith(true);
             expect(indexingTask1.cancel).toHaveBeenCalledWith(true);
@@ -1013,7 +993,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
         });
 
         it('should handle fromHeight equal to toHeight', async () => {
-            await (indexer as any).revertChain(50n, 50n, 'newhash', true);
+            await callRevertChain(indexer, 50n, 50n, 'newhash', true);
 
             expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(50n, true);
             expect(mockVmStorage.setReorg).toHaveBeenCalledWith(
@@ -1025,7 +1005,7 @@ describe('revertChain - BlockIndexer (real class)', () => {
         });
 
         it('should handle empty string as newBest', async () => {
-            await (indexer as any).revertChain(50n, 100n, '', false);
+            await callRevertChain(indexer, 50n, 100n, '', false);
 
             expect(indexer.sendMessageToAllThreads).toHaveBeenCalledWith(
                 ThreadTypes.SYNCHRONISATION,

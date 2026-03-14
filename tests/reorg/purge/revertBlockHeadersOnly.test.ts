@@ -93,9 +93,7 @@ describe('VMMongoStorage.revertBlockHeadersOnly', () => {
         mocks.blockRepository.getLatestBlock.mockResolvedValue({ height: '100' });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 331-343 (merged): Basic functionality
-    // ---------------------------------------------------------------
+    /** Tests 331-343 (merged): Basic functionality */
 
     describe('basic functionality', () => {
         it('should call blockRepository.deleteBlockHeadersInRange', async () => {
@@ -167,9 +165,7 @@ describe('VMMongoStorage.revertBlockHeadersOnly', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 344-348: Batch direction (walks UP from blockId to upperBound)
-    // ---------------------------------------------------------------
+    /** Tests 344-348: Batch direction (walks UP from blockId to upperBound) */
 
     describe('batch direction', () => {
         it('344: should walk UP from blockId when blockId < upperBound', async () => {
@@ -245,9 +241,7 @@ describe('VMMongoStorage.revertBlockHeadersOnly', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 349-352 (merged): Upper bound calculation
-    // ---------------------------------------------------------------
+    /** Tests 349-352 (merged): Upper bound calculation */
 
     describe('upper bound calculation', () => {
         it('should use latestBlock.height as upperBound when latestBlock exists', async () => {
@@ -293,9 +287,7 @@ describe('VMMongoStorage.revertBlockHeadersOnly', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 353-357: Batch sizes
-    // ---------------------------------------------------------------
+    /** Tests 353-357: Batch sizes */
 
     describe('batch sizes', () => {
         it('353: should use REINDEX_BATCH_SIZE from config', async () => {
@@ -363,9 +355,7 @@ describe('VMMongoStorage.revertBlockHeadersOnly', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 358-362: Edge cases
-    // ---------------------------------------------------------------
+    /** Tests 358-362: Edge cases */
 
     describe('edge cases', () => {
         it('358: should handle blockId equal to upperBound (single batch)', async () => {
@@ -425,9 +415,7 @@ describe('VMMongoStorage.revertBlockHeadersOnly', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 363-367: Error handling
-    // ---------------------------------------------------------------
+    /** Tests 363-367: Error handling */
 
     describe('error handling', () => {
         it('363: should throw when blockRepository is not initialized', async () => {
@@ -476,9 +464,7 @@ describe('VMMongoStorage.revertBlockHeadersOnly', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 368-370 (merged): Logging
-    // ---------------------------------------------------------------
+    /** Tests 368-370 (merged): Logging */
 
     describe('logging', () => {
         it('should log warning at start, progress per batch, and info after completion', async () => {

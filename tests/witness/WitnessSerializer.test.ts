@@ -8,9 +8,7 @@ import {
 import { IBlockHeaderWitness } from '../../src/src/poc/networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { ISyncBlockHeaderResponse } from '../../src/src/poc/networking/protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+/** Helpers */
 
 /**
  * Builds a minimal IBlockHeaderWitness with defaults that can be overridden.
@@ -57,14 +55,10 @@ function degradeLong(long: Long): { low: number; high: number; unsigned: boolean
     return { low: long.low, high: long.high, unsigned: long.unsigned };
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+/** Tests */
 
 describe('WitnessSerializer', () => {
-    // ======================================================================
-    // reconstructBlockWitness
-    // ======================================================================
+    /** reconstructBlockWitness */
     describe('reconstructBlockWitness', () => {
         it('should reconstruct blockNumber Long from degraded {low, high, unsigned} object', () => {
             const original = Long.fromString('12345', true);
@@ -327,9 +321,7 @@ describe('WitnessSerializer', () => {
         });
     });
 
-    // ======================================================================
-    // reconstructSyncResponse
-    // ======================================================================
+    /** reconstructSyncResponse */
     describe('reconstructSyncResponse', () => {
         it('should reconstruct blockNumber Long from degraded object', () => {
             const original = Long.fromString('67890', true);

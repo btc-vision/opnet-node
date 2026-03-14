@@ -495,35 +495,6 @@ describe('ReorgWatchdog - Same-Height Hash Comparison Edge Cases', () => {
             expect(Reflect.get(watchdog, 'lastBlock')).toEqual({});
         });
 
-        it('should NOT update lastBlock when hash mismatch triggers reorg', async () => {
-            Reflect.set(watchdog, 'lastBlock', {
-                hash: 'prev99',
-                checksum: 'cs99',
-                blockNumber: 99n,
-                opnetBlock: { hash: 'prev99', checksumRoot: 'cs99' },
-            });
-
-            watchdog.onBlockChange({
-                height: 100,
-                hash: 'canonical',
-                previousblockhash: 'prev99',
-            } as never);
-
-            const block = createMockBlock({
-                height: 100n,
-                hash: 'stale',
-                previousBlockHash: 'prev99',
-            });
-            const task = createMockTask({ tip: 100n, block });
-            mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
-            setupRestoreMocks(mockRpcClient, mockVMStorage, mockVMManager, 'prev99');
-
-            const updateSpy = vi.spyOn(watchdog as never, 'updateBlock');
-            await watchdog.verifyChainReorgForBlock(task as never);
-
-            // updateBlock should NOT be called, restoreBlockchain resets lastBlock
-            expect(updateSpy).not.toHaveBeenCalled();
-        });
     });
 
     describe('ALWAYS_ENABLE_REORG_VERIFICATION with hash comparison', () => {

@@ -26,12 +26,6 @@ describe('PluginLoader', () => {
         }
     });
 
-    describe('constructor', () => {
-        it('should create loader with plugins directory', () => {
-            expect(loader).toBeInstanceOf(PluginLoader);
-        });
-    });
-
     describe('discoverPlugins', () => {
         it('should return empty array for non-existent directory', () => {
             const nonExistentDir = path.join(tempDir, 'non-existent');

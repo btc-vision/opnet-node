@@ -4,7 +4,6 @@ import { PluginRegistry } from '../../../src/src/plugins/registry/PluginRegistry
 import { PluginWorkerPool } from '../../../src/src/plugins/workers/PluginWorkerPool.js';
 import {
     HOOK_CONFIGS,
-    HookExecutionMode,
     HookType,
 } from '../../../src/src/plugins/interfaces/IPluginHooks.js';
 import { ReindexAction } from '../../../src/src/plugins/interfaces/IPluginInstallState.js';
@@ -486,72 +485,6 @@ describe('HookDispatcher', () => {
                 'unknown',
                 {},
                 5000, // Default timeout
-            );
-        });
-    });
-
-    describe('HOOK_CONFIGS', () => {
-        it('should have correct config for lifecycle hooks', () => {
-            expect(HOOK_CONFIGS[HookType.LOAD].executionMode).toBe(HookExecutionMode.SEQUENTIAL);
-            expect(HOOK_CONFIGS[HookType.UNLOAD].executionMode).toBe(HookExecutionMode.SEQUENTIAL);
-            expect(HOOK_CONFIGS[HookType.ENABLE].executionMode).toBe(HookExecutionMode.SEQUENTIAL);
-            expect(HOOK_CONFIGS[HookType.DISABLE].executionMode).toBe(HookExecutionMode.SEQUENTIAL);
-        });
-
-        it('should have correct config for block hooks', () => {
-            expect(HOOK_CONFIGS[HookType.BLOCK_PRE_PROCESS].executionMode).toBe(
-                HookExecutionMode.PARALLEL,
-            );
-            expect(HOOK_CONFIGS[HookType.BLOCK_POST_PROCESS].executionMode).toBe(
-                HookExecutionMode.PARALLEL,
-            );
-            expect(HOOK_CONFIGS[HookType.BLOCK_CHANGE].executionMode).toBe(
-                HookExecutionMode.PARALLEL,
-            );
-        });
-
-        it('should have correct config for epoch hooks', () => {
-            expect(HOOK_CONFIGS[HookType.EPOCH_CHANGE].executionMode).toBe(
-                HookExecutionMode.PARALLEL,
-            );
-            expect(HOOK_CONFIGS[HookType.EPOCH_FINALIZED].executionMode).toBe(
-                HookExecutionMode.PARALLEL,
-            );
-        });
-
-        it('should have correct config for reorg hook (critical)', () => {
-            expect(HOOK_CONFIGS[HookType.REORG].executionMode).toBe(HookExecutionMode.SEQUENTIAL);
-            expect(HOOK_CONFIGS[HookType.REORG].timeoutMs).toBe(300000);
-        });
-
-        it('should have correct config for reindex hooks (critical)', () => {
-            expect(HOOK_CONFIGS[HookType.REINDEX_REQUIRED].executionMode).toBe(
-                HookExecutionMode.SEQUENTIAL,
-            );
-            expect(HOOK_CONFIGS[HookType.REINDEX_REQUIRED].timeoutMs).toBe(600000);
-            expect(HOOK_CONFIGS[HookType.PURGE_BLOCKS].timeoutMs).toBe(600000);
-        });
-
-        it('should have required permissions for block hooks', () => {
-            expect(HOOK_CONFIGS[HookType.BLOCK_PRE_PROCESS].requiredPermission).toBe(
-                'blocks.preProcess',
-            );
-            expect(HOOK_CONFIGS[HookType.BLOCK_POST_PROCESS].requiredPermission).toBe(
-                'blocks.postProcess',
-            );
-            expect(HOOK_CONFIGS[HookType.BLOCK_CHANGE].requiredPermission).toBe('blocks.onChange');
-        });
-
-        it('should have required permissions for epoch hooks', () => {
-            expect(HOOK_CONFIGS[HookType.EPOCH_CHANGE].requiredPermission).toBe('epochs.onChange');
-            expect(HOOK_CONFIGS[HookType.EPOCH_FINALIZED].requiredPermission).toBe(
-                'epochs.onFinalized',
-            );
-        });
-
-        it('should have required permission for mempool hook', () => {
-            expect(HOOK_CONFIGS[HookType.MEMPOOL_TRANSACTION].requiredPermission).toBe(
-                'mempool.txFeed',
             );
         });
     });

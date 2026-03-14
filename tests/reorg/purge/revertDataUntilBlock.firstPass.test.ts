@@ -99,9 +99,7 @@ describe('revertDataUntilBlock - First Pass (Category 4)', () => {
         mocks.blockchainInfoRepository.getByNetwork.mockResolvedValue({ inProgressBlock: 0 });
     });
 
-    // ========================================================================
-    // All unbounded deletes called with upperBound
-    // ========================================================================
+    /** All unbounded deletes called with upperBound */
     describe('all unbounded deletes called with upperBound', () => {
         it('should call all first-pass unbounded delete methods with upperBound', async () => {
             await storage.revertDataUntilBlock(100n);
@@ -135,9 +133,7 @@ describe('revertDataUntilBlock - First Pass (Category 4)', () => {
         });
     });
 
-    // ========================================================================
-    // purgeUtxos gating
-    // ========================================================================
+    /** purgeUtxos gating */
     describe('purgeUtxos gating', () => {
         it('should gate UTXO delete on purgeUtxos=true and call it in both modes', async () => {
             // purgeUtxos = true, non-DEV_MODE
@@ -193,9 +189,7 @@ describe('revertDataUntilBlock - First Pass (Category 4)', () => {
         });
     });
 
-    // ========================================================================
-    // DEV_MODE sequential first pass
-    // ========================================================================
+    /** DEV_MODE sequential first pass */
     describe('DEV_MODE sequential first pass', () => {
         beforeEach(() => {
             mockConfig.DEV_MODE = true;
@@ -293,9 +287,7 @@ describe('revertDataUntilBlock - First Pass (Category 4)', () => {
         });
     });
 
-    // ========================================================================
-    // Parallel first pass (non-DEV_MODE)
-    // ========================================================================
+    /** Parallel first pass (non-DEV_MODE) */
     describe('parallel first pass (non-DEV_MODE)', () => {
         beforeEach(() => {
             mockConfig.DEV_MODE = false;
@@ -363,9 +355,7 @@ describe('revertDataUntilBlock - First Pass (Category 4)', () => {
         });
     });
 
-    // ========================================================================
-    // upperBound == blockId
-    // ========================================================================
+    /** upperBound == blockId */
     describe('upperBound == blockId', () => {
         it('when latestBlock.height == blockId and chainInfo == 0, upperBound == blockId', async () => {
             mocks.blockRepository.getLatestBlock.mockResolvedValue({ height: 50 });
@@ -425,9 +415,7 @@ describe('revertDataUntilBlock - First Pass (Category 4)', () => {
         });
     });
 
-    // ========================================================================
-    // upperBound >> blockId
-    // ========================================================================
+    /** upperBound >> blockId */
     describe('upperBound >> blockId', () => {
         it('when latestBlock.height >> blockId, first pass uses the higher upperBound', async () => {
             mocks.blockRepository.getLatestBlock.mockResolvedValue({ height: 10000 });
@@ -504,9 +492,7 @@ describe('revertDataUntilBlock - First Pass (Category 4)', () => {
         });
     });
 
-    // ========================================================================
-    // First pass argument values for various upperBound sources
-    // ========================================================================
+    /** First pass argument values for various upperBound sources */
     describe('first pass argument values for various upperBound sources', () => {
         it('should derive upperBound correctly from various latestBlock/chainInfo/blockId combinations', async () => {
             // blockId=0, latestBlock=null => upperBound=0n
@@ -608,9 +594,7 @@ describe('revertDataUntilBlock - First Pass (Category 4)', () => {
         });
     });
 
-    // ========================================================================
-    // First pass called exactly once
-    // ========================================================================
+    /** First pass called exactly once */
     describe('first pass called exactly once', () => {
         it('each first-pass delete is called exactly once in both modes', async () => {
             // non-DEV_MODE
@@ -678,9 +662,7 @@ describe('revertDataUntilBlock - First Pass (Category 4)', () => {
         });
     });
 
-    // ========================================================================
-    // First pass timing relative to target epoch delete
-    // ========================================================================
+    /** First pass timing relative to target epoch delete */
     describe('first pass timing relative to target epoch delete', () => {
         it('target epoch deleteAllTargetEpochs is called before first pass', async () => {
             const callOrder: string[] = [];
@@ -721,9 +703,7 @@ describe('revertDataUntilBlock - First Pass (Category 4)', () => {
         });
     });
 
-    // ========================================================================
-    // Metadata queries
-    // ========================================================================
+    /** Metadata queries */
     describe('metadata queries', () => {
         it('getLatestBlock is called exactly once during the method', async () => {
             await storage.revertDataUntilBlock(100n);

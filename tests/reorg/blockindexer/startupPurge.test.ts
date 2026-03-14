@@ -246,6 +246,27 @@ vi.mock('../../../src/src/config/interfaces/OPNetIndexerMode.js', () => ({
     OPNetIndexerMode: { ARCHIVE: 'ARCHIVE', FULL: 'FULL', LIGHT: 'LIGHT' },
 }));
 
+function callInit(indexer: BlockIndexer): Promise<void> {
+    const fn = Reflect.get(indexer, 'init') as () => Promise<void>;
+    return Reflect.apply(fn, indexer, []);
+}
+
+function callRevertChain(
+    indexer: BlockIndexer,
+    fromHeight: bigint,
+    toHeight: bigint,
+    newBest: string,
+    reorged: boolean,
+): Promise<void> {
+    const fn = Reflect.get(indexer, 'revertChain') as (
+        f: bigint,
+        t: bigint,
+        n: string,
+        r: boolean,
+    ) => Promise<void>;
+    return Reflect.apply(fn, indexer, [fromHeight, toHeight, newBest, reorged]);
+}
+
 describe('startupPurge - BlockIndexer.init() (real class)', () => {
     let indexer: BlockIndexer;
 
@@ -296,9 +317,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
         indexer.sendMessageToThread = vi.fn().mockResolvedValue(null);
     });
 
-    // ========================================================================
-    // REINDEX mode
-    // ========================================================================
+    /** REINDEX mode */
     describe('REINDEX mode', () => {
         beforeEach(() => {
             mockConfig.OP_NET.REINDEX = true;
@@ -306,19 +325,19 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
         });
 
         it('should use REINDEX_FROM_BLOCK as purgeFromBlock when REINDEX is true', async () => {
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(500n);
         });
 
         it('should call setNewHeight with REINDEX_FROM_BLOCK', async () => {
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockChainObserver.setNewHeight).toHaveBeenCalledWith(500n);
         });
 
         it('should use revertDataUntilBlock (not revertBlockHeadersOnly) in REINDEX mode', async () => {
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(500n);
             expect(mockVmStorage.revertBlockHeadersOnly).not.toHaveBeenCalled();
@@ -327,21 +346,19 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
         it('should use REINDEX_FROM_BLOCK=0 resulting in purge from block 0', async () => {
             mockConfig.OP_NET.REINDEX_FROM_BLOCK = 0;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(0n);
         });
 
         it('should still call killAllPendingWrites via verifyCommitConflicts in REINDEX mode', async () => {
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockVmStorage.killAllPendingWrites).toHaveBeenCalled();
         });
     });
 
-    // ========================================================================
-    // RESYNC mode
-    // ========================================================================
+    /** RESYNC mode */
     describe('RESYNC mode', () => {
         beforeEach(() => {
             mockConfig.DEV.RESYNC_BLOCK_HEIGHTS = true;
@@ -350,7 +367,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
         });
 
         it('should call revertBlockHeadersOnly (not revertDataUntilBlock) in RESYNC mode', async () => {
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockVmStorage.revertBlockHeadersOnly).toHaveBeenCalledWith(
                 mockChainObserver.pendingBlockHeight,
@@ -361,7 +378,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
         it('should use pendingBlockHeight as purgeFromBlock in RESYNC (non-REINDEX) mode', async () => {
             mockChainObserver.pendingBlockHeight = 75n;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockVmStorage.revertBlockHeadersOnly).toHaveBeenCalledWith(75n);
         });
@@ -369,26 +386,24 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
         it('should call setNewHeight with pendingBlockHeight in RESYNC mode', async () => {
             mockChainObserver.pendingBlockHeight = 75n;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockChainObserver.setNewHeight).toHaveBeenCalledWith(75n);
         });
     });
 
-    // ========================================================================
-    // normal startup (no REINDEX, no RESYNC)
-    // ========================================================================
+    /** normal startup (no REINDEX, no RESYNC) */
     describe('normal startup', () => {
         it('should use pendingBlockHeight as purgeFromBlock in normal mode', async () => {
             mockChainObserver.pendingBlockHeight = 200n;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(200n);
         });
 
         it('should call revertDataUntilBlock (not revertBlockHeadersOnly) in normal mode', async () => {
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalled();
             expect(mockVmStorage.revertBlockHeadersOnly).not.toHaveBeenCalled();
@@ -397,20 +412,18 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
         it('should call setNewHeight with pendingBlockHeight in normal mode', async () => {
             mockChainObserver.pendingBlockHeight = 200n;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockChainObserver.setNewHeight).toHaveBeenCalledWith(200n);
         });
     });
 
-    // ========================================================================
-    // EPOCH_REINDEX mode
-    // ========================================================================
+    /** EPOCH_REINDEX mode */
     describe('EPOCH_REINDEX mode', () => {
         it('should call epochReindexer.reindexEpochs when EPOCH_REINDEX is true', async () => {
             mockConfig.OP_NET.EPOCH_REINDEX = true;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockEpochReindexer.reindexEpochs).toHaveBeenCalled();
         });
@@ -419,7 +432,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockConfig.OP_NET.EPOCH_REINDEX = true;
             mockConfig.OP_NET.REINDEX = true;
 
-            await expect((indexer as any).init()).rejects.toThrow(
+            await expect(callInit(indexer)).rejects.toThrow(
                 'Cannot use EPOCH_REINDEX and REINDEX at the same time',
             );
         });
@@ -429,7 +442,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockConfig.OP_NET.EPOCH_REINDEX_FROM_EPOCH = 5;
             mockChainObserver.pendingBlockHeight = 500n;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockEpochReindexer.reindexEpochs).toHaveBeenCalledWith(5n, 500n);
         });
@@ -438,7 +451,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockConfig.OP_NET.EPOCH_REINDEX = true;
             mockEpochReindexer.reindexEpochs.mockResolvedValue(false);
 
-            await expect((indexer as any).init()).rejects.toThrow(
+            await expect(callInit(indexer)).rejects.toThrow(
                 'Epoch reindex failed or was aborted',
             );
         });
@@ -447,23 +460,21 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockConfig.OP_NET.EPOCH_REINDEX = true;
             mockEpochReindexer.reindexEpochs.mockResolvedValue(true);
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalled();
             expect(mockChainObserver.setNewHeight).toHaveBeenCalled();
         });
     });
 
-    // ========================================================================
-    // RESYNC validation
-    // ========================================================================
+    /** RESYNC validation */
     describe('RESYNC validation', () => {
         it('should throw when OPNet enabled from block 0 and RESYNC requested', async () => {
             mockConfig.DEV.RESYNC_BLOCK_HEIGHTS = true;
             mockConfig.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL = 50;
             mockOPNetConsensus.opnetEnabled = { ENABLED: true, BLOCK: 0n };
 
-            await expect((indexer as any).init()).rejects.toThrow(
+            await expect(callInit(indexer)).rejects.toThrow(
                 'RESYNC_BLOCK_HEIGHTS cannot be used on this network',
             );
         });
@@ -473,7 +484,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockConfig.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL = 1000;
             mockOPNetConsensus.opnetEnabled = { ENABLED: true, BLOCK: 500n };
 
-            await expect((indexer as any).init()).rejects.toThrow(
+            await expect(callInit(indexer)).rejects.toThrow(
                 'RESYNC_BLOCK_HEIGHTS_UNTIL (1000) must be less than OPNet activation block (500)',
             );
         });
@@ -484,7 +495,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockOPNetConsensus.opnetEnabled = { ENABLED: true, BLOCK: 500n };
             mockVmStorage.getLatestBlock.mockResolvedValue({ height: 600 });
 
-            await expect((indexer as any).init()).resolves.toBeUndefined();
+            await expect(callInit(indexer)).resolves.toBeUndefined();
         });
 
         it('should throw when RESYNC_BLOCK_HEIGHTS_UNTIL exceeds latest indexed block', async () => {
@@ -492,7 +503,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockConfig.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL = 200;
             mockVmStorage.getLatestBlock.mockResolvedValue({ height: 50 });
 
-            await expect((indexer as any).init()).rejects.toThrow(
+            await expect(callInit(indexer)).rejects.toThrow(
                 'RESYNC_BLOCK_HEIGHTS_UNTIL (200) exceeds the highest indexed block (50)',
             );
         });
@@ -502,7 +513,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockConfig.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL = 50;
             mockVmStorage.getLatestBlock.mockResolvedValue(null);
 
-            await expect((indexer as any).init()).rejects.toThrow(
+            await expect(callInit(indexer)).rejects.toThrow(
                 'RESYNC_BLOCK_HEIGHTS_UNTIL (50) exceeds the highest indexed block (-1)',
             );
         });
@@ -512,7 +523,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockConfig.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL = 10;
             mockVmStorage.getLatestBlock.mockRejectedValue(new Error('DB error'));
 
-            await expect((indexer as any).init()).rejects.toThrow(
+            await expect(callInit(indexer)).rejects.toThrow(
                 'RESYNC_BLOCK_HEIGHTS_UNTIL (10) exceeds the highest indexed block (-1)',
             );
         });
@@ -522,26 +533,24 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockConfig.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL = 100;
             mockVmStorage.getLatestBlock.mockResolvedValue({ height: 100 });
 
-            await expect((indexer as any).init()).resolves.toBeUndefined();
+            await expect(callInit(indexer)).resolves.toBeUndefined();
         });
 
         it('should skip RESYNC validation when RESYNC_BLOCK_HEIGHTS is false', async () => {
             mockConfig.DEV.RESYNC_BLOCK_HEIGHTS = false;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockVmStorage.revertBlockHeadersOnly).not.toHaveBeenCalled();
         });
     });
 
-    // ========================================================================
-    // plugin notification during startup
-    // ========================================================================
+    /** plugin notification during startup */
     describe('plugin notification during startup', () => {
         it('should notify plugins when PLUGINS_ENABLED is true', async () => {
             mockConfig.PLUGINS.PLUGINS_ENABLED = true;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(indexer.sendMessageToThread).toHaveBeenCalledWith(
                 ThreadTypes.PLUGIN,
@@ -554,7 +563,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
         it('should not notify plugins when PLUGINS_ENABLED is false', async () => {
             mockConfig.PLUGINS.PLUGINS_ENABLED = false;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(indexer.sendMessageToThread).not.toHaveBeenCalled();
         });
@@ -564,7 +573,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockConfig.OP_NET.REINDEX = true;
             mockConfig.OP_NET.REINDEX_FROM_BLOCK = 50;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(indexer.sendMessageToThread).toHaveBeenCalledWith(
                 ThreadTypes.PLUGIN,
@@ -579,7 +588,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
         it('should use reason "startup-purge" when REINDEX is false', async () => {
             mockConfig.PLUGINS.PLUGINS_ENABLED = true;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(indexer.sendMessageToThread).toHaveBeenCalledWith(
                 ThreadTypes.PLUGIN,
@@ -596,7 +605,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockConfig.OP_NET.REINDEX = true;
             mockConfig.OP_NET.REINDEX_FROM_BLOCK = 42;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(indexer.sendMessageToThread).toHaveBeenCalledWith(
                 ThreadTypes.PLUGIN,
@@ -612,7 +621,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockConfig.PLUGINS.PLUGINS_ENABLED = true;
             mockChainObserver.pendingBlockHeight = 200n;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(indexer.sendMessageToThread).toHaveBeenCalledWith(
                 ThreadTypes.PLUGIN,
@@ -631,7 +640,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             );
 
             // Should not throw - error is caught internally
-            await (indexer as any).init();
+            await callInit(indexer);
 
             // The init method catches the error and continues
             // Verify it still proceeded to call watchdog init
@@ -639,14 +648,12 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
         });
     });
 
-    // ========================================================================
-    // watchdog init after purge
-    // ========================================================================
+    /** watchdog init after purge */
     describe('watchdog init after purge', () => {
         it('should call reorgWatchdog.init with originalHeight', async () => {
             mockChainObserver.pendingBlockHeight = 150n;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockReorgWatchdog.init).toHaveBeenCalledWith(150n);
         });
@@ -660,7 +667,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
                 callOrder.push('watchdog.init');
             });
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(callOrder.indexOf('purge')).toBeLessThan(callOrder.indexOf('watchdog.init'));
         });
@@ -669,7 +676,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockChainObserver.pendingBlockHeight = 100n;
             mockReorgWatchdog.pendingBlockHeight = 90n;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             // revertChain should have been called via onHeightMismatch, calling revertDataUntilBlock with the watchdog height
             // revertChain always passes purgeUtxos=true for live reorgs
@@ -680,7 +687,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockChainObserver.pendingBlockHeight = 100n;
             mockReorgWatchdog.pendingBlockHeight = 100n;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             // revertDataUntilBlock is called once for the normal purge, not a second time
             expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledTimes(1);
@@ -690,7 +697,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockChainObserver.pendingBlockHeight = 100n;
             mockReorgWatchdog.pendingBlockHeight = -1n;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             // Only the initial purge call, no mismatch-triggered revert
             expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledTimes(1);
@@ -700,7 +707,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockChainObserver.pendingBlockHeight = 100n;
             mockReorgWatchdog.pendingBlockHeight = 90n;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             // The revertChain call should send CHAIN_REORG with newBest='database-corrupted'
             expect(indexer.sendMessageToAllThreads).toHaveBeenCalledWith(
@@ -715,28 +722,26 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
         });
     });
 
-    // ========================================================================
-    // READONLY_MODE
-    // ========================================================================
+    /** READONLY_MODE */
     describe('READONLY_MODE', () => {
         beforeEach(() => {
             mockConfig.INDEXER.READONLY_MODE = true;
         });
 
         it('should call watchBlockchain and return early in READONLY_MODE', async () => {
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockChainObserver.watchBlockchain).toHaveBeenCalled();
         });
 
         it('should not call killAllPendingWrites (verifyCommitConflicts) in READONLY_MODE', async () => {
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockVmStorage.killAllPendingWrites).not.toHaveBeenCalled();
         });
 
         it('should not purge any data in READONLY_MODE', async () => {
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockVmStorage.revertDataUntilBlock).not.toHaveBeenCalled();
             expect(mockVmStorage.revertBlockHeadersOnly).not.toHaveBeenCalled();
@@ -744,19 +749,17 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
         });
 
         it('should still call vmStorage.init and chainObserver.init in READONLY_MODE', async () => {
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockVmStorage.init).toHaveBeenCalled();
             expect(mockChainObserver.init).toHaveBeenCalled();
         });
     });
 
-    // ========================================================================
-    // verifyCommitConflicts
-    // ========================================================================
+    /** verifyCommitConflicts */
     describe('verifyCommitConflicts', () => {
         it('should call killAllPendingWrites during verifyCommitConflicts', async () => {
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockVmStorage.killAllPendingWrites).toHaveBeenCalled();
         });
@@ -764,7 +767,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
         it('should throw when verifyCommitConflicts returns false (killAllPendingWrites fails)', async () => {
             mockVmStorage.killAllPendingWrites.mockRejectedValue(new Error('database locked'));
 
-            await expect((indexer as any).init()).rejects.toThrow(
+            await expect(callInit(indexer)).rejects.toThrow(
                 'Database is locked or corrupted.',
             );
         });
@@ -778,7 +781,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
                 callOrder.push('revertDataUntilBlock');
             });
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(callOrder.indexOf('killAllPendingWrites')).toBeLessThan(
                 callOrder.indexOf('revertDataUntilBlock'),
@@ -786,9 +789,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
         });
     });
 
-    // ========================================================================
-    // sequence verification
-    // ========================================================================
+    /** sequence verification */
     describe('sequence verification', () => {
         it('should call vmStorage.init before chainObserver.init', async () => {
             const callOrder: string[] = [];
@@ -799,7 +800,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
                 callOrder.push('chainObserver.init');
             });
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(callOrder.indexOf('vmStorage.init')).toBeLessThan(
                 callOrder.indexOf('chainObserver.init'),
@@ -815,7 +816,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
                 callOrder.push('verifyCommitConflicts');
             });
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(callOrder.indexOf('chainObserver.init')).toBeLessThan(
                 callOrder.indexOf('verifyCommitConflicts'),
@@ -831,7 +832,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
                 callOrder.push('setNewHeight');
             });
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(callOrder.indexOf('purge')).toBeLessThan(callOrder.indexOf('setNewHeight'));
         });
@@ -845,7 +846,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
                 callOrder.push('watchdog.init');
             });
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(callOrder.indexOf('setNewHeight')).toBeLessThan(
                 callOrder.indexOf('watchdog.init'),
@@ -861,7 +862,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
                 callOrder.push('registerEvents');
             });
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(callOrder.indexOf('watchdog.init')).toBeLessThan(
                 callOrder.indexOf('registerEvents'),
@@ -893,7 +894,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
                 callOrder.push('7:registerEvents');
             });
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(callOrder).toEqual([
                 '1:vmStorage.init',
@@ -907,14 +908,12 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
         });
     });
 
-    // ========================================================================
-    // purgeUtxosOverride: startup vs live reorg
-    // ========================================================================
+    /** purgeUtxosOverride: startup vs live reorg */
     describe('purgeUtxosOverride behavior', () => {
         it('should NOT pass purgeUtxos override during startup purge (uses config default)', async () => {
             mockConfig.OP_NET.REINDEX_PURGE_UTXOS = false;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             // init() calls revertDataUntilBlock(purgeFromBlock) WITHOUT the override
             // so UTXO purge is skipped per config, this is intentional for startup
@@ -927,7 +926,7 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockChainObserver.pendingBlockHeight = 100n;
             mockReorgWatchdog.pendingBlockHeight = 90n;
 
-            await (indexer as any).init();
+            await callInit(indexer);
 
             // Second revertDataUntilBlock call is from revertChain (height mismatch)
             // revertChain always passes true to ensure UTXO consistency
@@ -940,43 +939,39 @@ describe('startupPurge - BlockIndexer.init() (real class)', () => {
             mockConfig.OP_NET.REINDEX_PURGE_UTXOS = false;
 
             // Directly call revertChain (simulating a live reorg)
-            (indexer as any)._blockFetcher = mockBlockFetcher;
-            await (indexer as any).revertChain(50n, 100n, 'newhash', true);
+            Reflect.set(indexer, '_blockFetcher', mockBlockFetcher);
+            await callRevertChain(indexer, 50n, 100n, 'newhash', true);
 
             // revertChain passes purgeUtxos=true regardless of config
             expect(mockVmStorage.revertDataUntilBlock).toHaveBeenCalledWith(50n, true);
         });
     });
 
-    // ========================================================================
-    // epochManager messaging wiring
-    // ========================================================================
+    /** epochManager messaging wiring */
     describe('epochManager messaging wiring', () => {
         it('should wire epochManager.sendMessageToThread during init', async () => {
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockEpochManager.sendMessageToThread).toBe(indexer.sendMessageToThread);
         });
     });
 
-    // ========================================================================
-    // registerEvents behavior
-    // ========================================================================
+    /** registerEvents behavior */
     describe('registerEvents', () => {
         it('should subscribe to block changes on block fetcher', async () => {
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockBlockFetcher.subscribeToBlockChanges).toHaveBeenCalled();
         });
 
         it('should subscribe to reorgs on the watchdog', async () => {
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockReorgWatchdog.subscribeToReorgs).toHaveBeenCalled();
         });
 
         it('should call watchBlockChanges with true on the block fetcher', async () => {
-            await (indexer as any).init();
+            await callInit(indexer);
 
             expect(mockBlockFetcher.watchBlockChanges).toHaveBeenCalledWith(true);
         });

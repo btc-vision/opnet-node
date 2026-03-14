@@ -293,25 +293,7 @@ describe('BlockIndexer - Height Regression Revert Flow', () => {
             expect(revertSpy).toHaveBeenCalledWith(5755n, 5757n, 'hash_5755', true);
         });
 
-        it('should pass reorged=true to revertChain', async () => {
-            mockChainObserver.pendingBlockHeight = 100n;
-
-            const revertSpy = vi.spyOn(indexer as never, 'revertChain');
-
-            callOnBlockChange(indexer, {
-                height: 99,
-                hash: 'reorg_hash',
-                previousblockhash: 'prev98',
-            });
-
-            await vi.waitFor(() => {
-                expect(revertSpy).toHaveBeenCalled();
-            });
-
-            // Fourth argument must be true (this IS a reorg)
-            expect(revertSpy).toHaveBeenCalledWith(99n, 100n, 'reorg_hash', true);
-        });
-    });
+});
 
     describe('revertChain triggers the full revert pipeline', () => {
         it('should purge data via revertDataUntilBlock with the incoming height', async () => {

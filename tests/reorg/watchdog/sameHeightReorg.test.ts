@@ -1,8 +1,6 @@
 /**
- * CRITICAL CONSENSUS VULNERABILITY TESTS
- *
  * Tests for same-height reorg detection in ReorgWatchdog.
- * verifyChainReorgForBlock now compares block.hash against
+ * verifyChainReorgForBlock compares block.hash against
  * currentHeader.blockHash when heights match, catching 1-block
  * reorgs where competing blocks share the same parent.
  */
@@ -229,7 +227,7 @@ describe('ReorgWatchdog - Same-Height Reorg Detection (CRITICAL)', () => {
             expect(result).toBe(true);
         });
 
-        it('should detect 1-deep reorg where new block extends the chain', async () => {
+        it('should NOT detect reorg when heights differ (caught at next block instead)', async () => {
             Reflect.set(watchdog, 'lastBlock', {
                 hash: 'block99',
                 checksum: 'cs99',

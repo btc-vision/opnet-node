@@ -96,9 +96,7 @@ describe('Mempool Preservation During Reorg', () => {
         });
     });
 
-    // -------------------------------------------------------------------
-    // revertDataUntilBlock mempool behavior
-    // -------------------------------------------------------------------
+    /** revertDataUntilBlock mempool behavior */
 
     describe('revertDataUntilBlock mempool behavior', () => {
         it('should NOT touch mempool when reverting to blockId > 0 (normal reorg)', async () => {
@@ -109,12 +107,6 @@ describe('Mempool Preservation During Reorg', () => {
 
         it('should NOT touch mempool when reverting to blockId = 1n', async () => {
             await storage.revertDataUntilBlock(1n);
-
-            expect(mocks.mempoolRepository.deleteGreaterThanBlockHeight).not.toHaveBeenCalled();
-        });
-
-        it('should NOT touch mempool when reverting to blockId = 100n', async () => {
-            await storage.revertDataUntilBlock(100n);
 
             expect(mocks.mempoolRepository.deleteGreaterThanBlockHeight).not.toHaveBeenCalled();
         });
@@ -141,18 +133,6 @@ describe('Mempool Preservation During Reorg', () => {
             await storage.revertDataUntilBlock(-1n);
 
             expect(mocks.mempoolRepository.deleteGreaterThanBlockHeight).toHaveBeenCalledOnce();
-            expect(mocks.mempoolRepository.deleteGreaterThanBlockHeight).toHaveBeenCalledWith(-1n);
-        });
-
-        it('should call deleteGreaterThanBlockHeight(0n) when blockId = 0n', async () => {
-            await storage.revertDataUntilBlock(0n);
-
-            expect(mocks.mempoolRepository.deleteGreaterThanBlockHeight).toHaveBeenCalledWith(0n);
-        });
-
-        it('should call deleteGreaterThanBlockHeight(-1n) when blockId = -1n', async () => {
-            await storage.revertDataUntilBlock(-1n);
-
             expect(mocks.mempoolRepository.deleteGreaterThanBlockHeight).toHaveBeenCalledWith(-1n);
         });
 
@@ -201,9 +181,7 @@ describe('Mempool Preservation During Reorg', () => {
         });
     });
 
-    // -------------------------------------------------------------------
-    // mempool isolation during batched pass
-    // -------------------------------------------------------------------
+    /** mempool isolation during batched pass */
 
     describe('mempool isolation during batched pass', () => {
         it('should complete all batch iterations without touching mempool when blockId > 0', async () => {
@@ -292,9 +270,7 @@ describe('Mempool Preservation During Reorg', () => {
         });
     });
 
-    // -------------------------------------------------------------------
-    // revertBlockHeadersOnly never touches mempool
-    // -------------------------------------------------------------------
+    /** revertBlockHeadersOnly never touches mempool */
 
     describe('revertBlockHeadersOnly never touches mempool', () => {
         it('should not call mempoolRepository for any operation', async () => {
@@ -303,17 +279,9 @@ describe('Mempool Preservation During Reorg', () => {
             expect(mocks.mempoolRepository.deleteGreaterThanBlockHeight).not.toHaveBeenCalled();
         });
 
-        it('should not call deleteGreaterThanBlockHeight', async () => {
-            // Even with blockId = 0, revertBlockHeadersOnly should never touch mempool
-            await storage.revertBlockHeadersOnly(0n);
-
-            expect(mocks.mempoolRepository.deleteGreaterThanBlockHeight).not.toHaveBeenCalled();
-        });
     });
 
-    // -------------------------------------------------------------------
-    // mempool state preservation across reorg scenarios
-    // -------------------------------------------------------------------
+    /** mempool state preservation across reorg scenarios */
 
     describe('mempool state preservation across reorg scenarios', () => {
         it('should preserve mempool when reverting 1 block (blockId = latestBlock - 1)', async () => {
@@ -369,9 +337,7 @@ describe('Mempool Preservation During Reorg', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // purgeUtxosOverride parameter (live reorg always purges UTXOs)
-    // ---------------------------------------------------------------
+    /** purgeUtxosOverride parameter (live reorg always purges UTXOs) */
     describe('purgeUtxosOverride parameter', () => {
         it('should purge UTXOs when purgeUtxosOverride=true even if config says false', async () => {
             mockConfig.OP_NET.REINDEX_PURGE_UTXOS = false;

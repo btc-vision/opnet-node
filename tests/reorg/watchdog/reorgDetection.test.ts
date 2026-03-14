@@ -100,7 +100,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
         );
     });
 
-    // ── Tests 481-488: verifyChainReorgForBlock sync gap skip ──
+    /** Tests 481-488: verifyChainReorgForBlock sync gap skip */
 
     describe('verifyChainReorgForBlock - sync gap skip', () => {
         it('test 481: should skip reorg verification when sync gap is exactly 100', async () => {
@@ -221,7 +221,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
         });
     });
 
-    // ── Tests 489-494: verifyChainReorgForBlock no reorg / reorg detected ──
+    /** Tests 489-494: verifyChainReorgForBlock no reorg / reorg detected */
 
     describe('verifyChainReorgForBlock - reorg result path', () => {
         it('test 489: should return false and update block when no reorg detected', async () => {
@@ -357,7 +357,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
         });
     });
 
-    // ── Tests 495-503: verifyChainReorg Bitcoin and OPNet reorg detection ──
+    /** Tests 495-503: verifyChainReorg Bitcoin and OPNet reorg detection */
 
     describe('verifyChainReorg - Bitcoin and OPNet reorg detection', () => {
         it('test 495: should return true when Bitcoin previousBlockHash does not match', async () => {
@@ -489,7 +489,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
         });
     });
 
-    // ── Tests 504-505: genesis block handling ──
+    /** Tests 504-505: genesis block handling */
 
     describe('verifyChainReorg - genesis block handling', () => {
         it('test 504: should return false for block at height 1 (previousBlock = 0)', async () => {
@@ -505,7 +505,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
         });
     });
 
-    // ── Tests 506-510: getLastBlockHash behavior ──
+    /** Tests 506-510: getLastBlockHash behavior */
 
     describe('getLastBlockHash', () => {
         it('test 506: should return undefined for height -1', async () => {
@@ -565,7 +565,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
         });
     });
 
-    // ── Tests 511-514: checksum comparison logic ──
+    /** Tests 511-514: checksum comparison logic */
 
     describe('verifyChainReorg - checksum comparison logic', () => {
         it('test 511: should return false when no previousBlockChecksum and proofs pass', async () => {
@@ -629,7 +629,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
         });
     });
 
-    // ── Tests 515-518: verifyChainReorg error handling ──
+    /** Tests 515-518: verifyChainReorg error handling */
 
     describe('verifyChainReorg - error handling', () => {
         it('test 515: should return true when validateBlockChecksum throws', async () => {
@@ -694,7 +694,7 @@ describe('ReorgWatchdog - Reorg Detection (Category 9)', () => {
         });
     });
 
-    // ── Tests 519-530: onBlockChange, updateBlock, pendingBlockHeight, subscribeToReorgs ──
+    /** Tests 519-530: onBlockChange, updateBlock, pendingBlockHeight, subscribeToReorgs */
 
     describe('onBlockChange', () => {
         it('test 519: should set currentHeader from block header info', () => {

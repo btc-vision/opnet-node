@@ -18,17 +18,6 @@ describe('PluginValidator', () => {
         validator = new PluginValidator(networks.testnet, '1.0.0');
     });
 
-    describe('constructor', () => {
-        it('should create validator with network and version', () => {
-            expect(validator).toBeInstanceOf(PluginValidator);
-        });
-
-        it('should work with different networks', () => {
-            const mainnetValidator = new PluginValidator(networks.bitcoin, '2.0.0');
-            expect(mainnetValidator).toBeInstanceOf(PluginValidator);
-        });
-    });
-
     describe('validateMetadata', () => {
         describe('name validation', () => {
             it('should accept valid plugin name', () => {

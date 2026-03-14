@@ -14,6 +14,11 @@ const mockConfig = vi.hoisted(() => ({
 }));
 vi.mock('../../../src/src/config/Config.js', () => ({ Config: mockConfig }));
 
+function callRevertToLastGoodBlock(watchdog: ReorgWatchdog, height: bigint): Promise<bigint> {
+    const fn = Reflect.get(watchdog, 'revertToLastGoodBlock') as (h: bigint) => Promise<bigint>;
+    return Reflect.apply(fn, watchdog, [height]);
+}
+
 function createMockVMStorage() {
     return {
         getBlockHeader: vi.fn().mockResolvedValue(undefined),
@@ -55,7 +60,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
         );
     });
 
-    // ── Tests 531-538: Bitcoin phase hash matching ──
+    /** Tests 531-538: Bitcoin phase hash matching */
 
     describe('Bitcoin phase - hash matching', () => {
         it('test 531: should find matching block on first check (1 block back)', async () => {
@@ -67,7 +72,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            const result = await (watchdog as any).revertToLastGoodBlock(10n);
+            const result = await callRevertToLastGoodBlock(watchdog,10n);
             expect(result).toBe(9n);
         });
 
@@ -82,7 +87,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 .mockResolvedValueOnce({ hash: 'rpchash8', checksumRoot: 'cs8' }); // block 8 phase 2
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            const result = await (watchdog as any).revertToLastGoodBlock(10n);
+            const result = await callRevertToLastGoodBlock(watchdog,10n);
             expect(result).toBe(8n);
         });
 
@@ -94,7 +99,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            await (watchdog as any).revertToLastGoodBlock(5n);
+            await callRevertToLastGoodBlock(watchdog,5n);
             expect(mockRpcClient.getBlockHash).toHaveBeenCalledWith(4);
         });
 
@@ -111,7 +116,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 .mockResolvedValueOnce({ hash: 'rpch2', checksumRoot: 'cs2' }); // block 2 phase 2
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            const result = await (watchdog as any).revertToLastGoodBlock(5n);
+            const result = await callRevertToLastGoodBlock(watchdog,5n);
             expect(result).toBe(2n);
             expect(mockRpcClient.getBlockHash).toHaveBeenCalledTimes(3);
         });
@@ -125,7 +130,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            await (watchdog as any).revertToLastGoodBlock(10n);
+            await callRevertToLastGoodBlock(watchdog,10n);
             // Only called once for block 9
             expect(mockRpcClient.getBlockHash).toHaveBeenCalledTimes(1);
         });
@@ -137,7 +142,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 checksumRoot: 'cs',
             });
 
-            await expect((watchdog as any).revertToLastGoodBlock(10n)).rejects.toThrow(
+            await expect(callRevertToLastGoodBlock(watchdog,10n)).rejects.toThrow(
                 'Error fetching block hash',
             );
         });
@@ -146,7 +151,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
             mockRpcClient.getBlockHash.mockResolvedValue('rpchash');
             mockVMStorage.getBlockHeader.mockResolvedValue(undefined);
 
-            await expect((watchdog as any).revertToLastGoodBlock(10n)).rejects.toThrow(
+            await expect(callRevertToLastGoodBlock(watchdog,10n)).rejects.toThrow(
                 'Error fetching block header',
             );
         });
@@ -159,14 +164,14 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            await (watchdog as any).revertToLastGoodBlock(6n);
+            await callRevertToLastGoodBlock(watchdog,6n);
             // Block 5 is checked: getBlockHash(5) and getBlockHeader(5n)
             expect(mockRpcClient.getBlockHash).toHaveBeenCalledWith(5);
             expect(mockVMStorage.getBlockHeader).toHaveBeenCalledWith(5n);
         });
     });
 
-    // ── Tests 539-540: simple 1-block reorg ──
+    /** Tests 539-540: simple 1-block reorg */
 
     describe('simple 1-block reorg', () => {
         it('test 539: should return height-1 when only the immediate predecessor is good', async () => {
@@ -177,7 +182,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            const result = await (watchdog as any).revertToLastGoodBlock(100n);
+            const result = await callRevertToLastGoodBlock(watchdog,100n);
             expect(result).toBe(99n);
         });
 
@@ -189,7 +194,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            await (watchdog as any).revertToLastGoodBlock(100n);
+            await callRevertToLastGoodBlock(watchdog,100n);
             expect(mockVMManager.blockHeaderValidator.validateBlockChecksum).toHaveBeenCalledWith({
                 hash: 'goodhash',
                 checksumRoot: 'goodcs',
@@ -197,7 +202,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
         });
     });
 
-    // ── Tests 541-543: deep reorg ──
+    /** Tests 541-543: deep reorg */
 
     describe('deep reorg', () => {
         it('test 541: should walk back multiple blocks to find good block', async () => {
@@ -215,7 +220,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 .mockResolvedValueOnce({ hash: 'rpchash6', checksumRoot: 'cs6' }); // phase 2
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            const result = await (watchdog as any).revertToLastGoodBlock(10n);
+            const result = await callRevertToLastGoodBlock(watchdog,10n);
             expect(result).toBe(6n);
         });
 
@@ -232,7 +237,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 .mockResolvedValueOnce({ hash: 'rpch2', checksumRoot: 'cs2' }); // phase 2
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            await (watchdog as any).revertToLastGoodBlock(5n);
+            await callRevertToLastGoodBlock(watchdog,5n);
             expect(mockRpcClient.getBlockHash).toHaveBeenCalledTimes(3);
             expect(mockRpcClient.getBlockHash).toHaveBeenCalledWith(4);
             expect(mockRpcClient.getBlockHash).toHaveBeenCalledWith(3);
@@ -253,12 +258,12 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 .mockResolvedValueOnce({ hash: 'rpch0', checksumRoot: 'cs0' }); // phase 2
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            const result = await (watchdog as any).revertToLastGoodBlock(3n);
+            const result = await callRevertToLastGoodBlock(watchdog,3n);
             expect(result).toBe(0n);
         });
     });
 
-    // ── Tests 544-546: all blocks bad (genesis reached) ──
+    /** Tests 544-546: all blocks bad (genesis reached) */
 
     describe('all blocks bad - genesis reached', () => {
         it('test 544: should return 0n when all blocks are bad and genesis is reached', async () => {
@@ -271,14 +276,14 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 checksumRoot: 'cs',
             });
 
-            const result = await (watchdog as any).revertToLastGoodBlock(1n);
+            const result = await callRevertToLastGoodBlock(watchdog,1n);
             // Checks block 0 (bad), previousBlock goes to -1, which is < 0 => return 0n
             expect(result).toBe(0n);
         });
 
         it('test 545: should return 0n when starting from height 0', async () => {
             // height=0: previousBlock = -1 which is < 0 => return 0n
-            const result = await (watchdog as any).revertToLastGoodBlock(0n);
+            const result = await callRevertToLastGoodBlock(watchdog,0n);
             expect(result).toBe(0n);
         });
 
@@ -289,11 +294,11 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 checksumRoot: 'cs',
             });
 
-            await expect((watchdog as any).revertToLastGoodBlock(2n)).resolves.toBe(0n);
+            await expect(callRevertToLastGoodBlock(watchdog,2n)).resolves.toBe(0n);
         });
     });
 
-    // ── Tests 547-554: OPNet phase checksum validation ──
+    /** Tests 547-554: OPNet phase checksum validation */
 
     describe('OPNet phase - checksum validation', () => {
         it('test 547: should validate checksums starting from the Bitcoin-matched block', async () => {
@@ -305,7 +310,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            await (watchdog as any).revertToLastGoodBlock(10n);
+            await callRevertToLastGoodBlock(watchdog,10n);
             expect(mockVMManager.blockHeaderValidator.validateBlockChecksum).toHaveBeenCalledWith({
                 hash: 'matchhash',
                 checksumRoot: 'csroot',
@@ -334,7 +339,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 },
             );
 
-            const result = await (watchdog as any).revertToLastGoodBlock(10n);
+            const result = await callRevertToLastGoodBlock(watchdog,10n);
             expect(result).toBe(8n);
         });
 
@@ -346,7 +351,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            await (watchdog as any).revertToLastGoodBlock(10n);
+            await callRevertToLastGoodBlock(watchdog,10n);
             // Should only validate once since it passes on first try
             expect(mockVMManager.blockHeaderValidator.validateBlockChecksum).toHaveBeenCalledTimes(
                 1,
@@ -361,7 +366,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 .mockResolvedValueOnce(undefined); // phase 2, block 9 - no headers
             // Since getBlockHeader returns undefined in phase 2, it should break
 
-            const result = await (watchdog as any).revertToLastGoodBlock(10n);
+            const result = await callRevertToLastGoodBlock(watchdog,10n);
             expect(result).toBe(9n);
             expect(mockVMManager.blockHeaderValidator.validateBlockChecksum).not.toHaveBeenCalled();
         });
@@ -387,7 +392,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 return Promise.resolve(true);
             });
 
-            const result = await (watchdog as any).revertToLastGoodBlock(10n);
+            const result = await callRevertToLastGoodBlock(watchdog,10n);
             expect(result).toBe(8n);
         });
 
@@ -406,7 +411,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 .mockRejectedValueOnce(new Error('crash'))
                 .mockResolvedValueOnce(true);
 
-            const result = await (watchdog as any).revertToLastGoodBlock(10n);
+            const result = await callRevertToLastGoodBlock(watchdog,10n);
             // Block 9 throws (bad), block 8 passes (good)
             expect(result).toBe(8n);
         });
@@ -428,7 +433,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 return Promise.resolve(callIdx >= 3);
             });
 
-            const result = await (watchdog as any).revertToLastGoodBlock(5n);
+            const result = await callRevertToLastGoodBlock(watchdog,5n);
             expect(result).toBe(2n);
         });
 
@@ -447,7 +452,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
             // Phase 2: block 1 fails, block 0 fails => while(previousBlock-- > 0) ends
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(false);
 
-            const result = await (watchdog as any).revertToLastGoodBlock(2n);
+            const result = await callRevertToLastGoodBlock(watchdog,2n);
             // previousBlock starts at 1, fails, decrements to 0, fails, decrements to -1
             // while(-1 > 0) is false, so loop ends. previousBlock is now -1 but...
             // Actually let's trace: previousBlock=1, check, fail, while(1-- > 0) => while(true), previousBlock=0
@@ -459,7 +464,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
         });
     });
 
-    // ── Tests 555-557: combined Bitcoin + OPNet phase ──
+    /** Tests 555-557: combined Bitcoin + OPNet phase */
 
     describe('combined Bitcoin + OPNet phase', () => {
         it('test 555: should find Bitcoin-good block and then validate OPNet checksums', async () => {
@@ -473,7 +478,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 .mockResolvedValueOnce({ hash: 'rpch8', checksumRoot: 'cs8' }); // phase 2 block 8
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            const result = await (watchdog as any).revertToLastGoodBlock(10n);
+            const result = await callRevertToLastGoodBlock(watchdog,10n);
             expect(result).toBe(8n);
             expect(mockVMManager.blockHeaderValidator.validateBlockChecksum).toHaveBeenCalledTimes(
                 1,
@@ -494,7 +499,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 .mockResolvedValueOnce(false) // block 8 fails
                 .mockResolvedValueOnce(true); // block 7 passes
 
-            const result = await (watchdog as any).revertToLastGoodBlock(10n);
+            const result = await callRevertToLastGoodBlock(watchdog,10n);
             expect(result).toBe(7n);
         });
 
@@ -515,12 +520,12 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 .mockResolvedValueOnce({ hash: 'rpch15', checksumRoot: 'cs15' }); // phase 2
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            const result = await (watchdog as any).revertToLastGoodBlock(20n);
+            const result = await callRevertToLastGoodBlock(watchdog,20n);
             expect(result).toBe(15n);
         });
     });
 
-    // ── Tests 558-559: RPC interaction ──
+    /** Tests 558-559: RPC interaction */
 
     describe('RPC interaction', () => {
         it('test 558: should call getBlockHash with Number-converted block height', async () => {
@@ -531,7 +536,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            await (watchdog as any).revertToLastGoodBlock(1000n);
+            await callRevertToLastGoodBlock(watchdog,1000n);
             expect(mockRpcClient.getBlockHash).toHaveBeenCalledWith(999);
         });
 
@@ -543,12 +548,12 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            await (watchdog as any).revertToLastGoodBlock(500n);
+            await callRevertToLastGoodBlock(watchdog,500n);
             expect(mockVMStorage.getBlockHeader).toHaveBeenCalledWith(499n);
         });
     });
 
-    // ── Tests 560-570: return values, edge cases, logging ──
+    /** Tests 560-570: return values, edge cases, logging */
 
     describe('return values, edge cases, and logging', () => {
         it('test 560: should return the block number where both phases pass', async () => {
@@ -559,12 +564,12 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            const result = await (watchdog as any).revertToLastGoodBlock(50n);
+            const result = await callRevertToLastGoodBlock(watchdog,50n);
             expect(result).toBe(49n);
         });
 
         it('test 561: should return 0n for height=0 without calling any RPC or storage', async () => {
-            const result = await (watchdog as any).revertToLastGoodBlock(0n);
+            const result = await callRevertToLastGoodBlock(watchdog,0n);
             expect(result).toBe(0n);
             // previousBlock becomes -1 which is < 0, returns 0n before any RPC calls
             expect(mockRpcClient.getBlockHash).not.toHaveBeenCalled();
@@ -575,7 +580,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
             mockVMStorage.getBlockHeader.mockResolvedValue({ hash: 'h', checksumRoot: 'c' });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            const result = await (watchdog as any).revertToLastGoodBlock(10n);
+            const result = await callRevertToLastGoodBlock(watchdog,10n);
             expect(typeof result).toBe('bigint');
         });
 
@@ -588,7 +593,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            const result = await (watchdog as any).revertToLastGoodBlock(1n);
+            const result = await callRevertToLastGoodBlock(watchdog,1n);
             expect(result).toBe(0n);
         });
 
@@ -600,7 +605,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            const result = await (watchdog as any).revertToLastGoodBlock(1000000n);
+            const result = await callRevertToLastGoodBlock(watchdog,1000000n);
             expect(result).toBe(999999n);
         });
 
@@ -613,7 +618,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            await (watchdog as any).revertToLastGoodBlock(100n);
+            await callRevertToLastGoodBlock(watchdog,100n);
             expect(mockRpcClient.getBlockHash).toHaveBeenCalledWith(99);
             expect(mockVMStorage.getBlockHeader).toHaveBeenCalledWith(99n);
         });
@@ -625,14 +630,14 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 checksumRoot: 'cs',
             });
 
-            await expect((watchdog as any).revertToLastGoodBlock(10n)).rejects.toThrow('RPC down');
+            await expect(callRevertToLastGoodBlock(watchdog,10n)).rejects.toThrow('RPC down');
         });
 
         it('test 567: should propagate errors from vmStorage.getBlockHeader in phase 1', async () => {
             mockRpcClient.getBlockHash.mockResolvedValue('hash');
             mockVMStorage.getBlockHeader.mockRejectedValue(new Error('DB crashed'));
 
-            await expect((watchdog as any).revertToLastGoodBlock(10n)).rejects.toThrow(
+            await expect(callRevertToLastGoodBlock(watchdog,10n)).rejects.toThrow(
                 'DB crashed',
             );
         });
@@ -653,7 +658,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 return Promise.resolve(phase2Calls >= 3);
             });
 
-            const result = await (watchdog as any).revertToLastGoodBlock(10n);
+            const result = await callRevertToLastGoodBlock(watchdog,10n);
             expect(result).toBe(7n);
         });
 
@@ -670,7 +675,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 .mockResolvedValueOnce(false) // block 9 fails
                 .mockResolvedValueOnce(true); // block 8 passes
 
-            await (watchdog as any).revertToLastGoodBlock(10n);
+            await callRevertToLastGoodBlock(watchdog,10n);
             // getBlockHash should only be called once (phase 1)
             expect(mockRpcClient.getBlockHash).toHaveBeenCalledTimes(1);
         });
@@ -683,7 +688,7 @@ describe('ReorgWatchdog - revertToLastGoodBlock (Category 10)', () => {
                 .mockResolvedValueOnce({ hash: 'matchhash', checksumRoot: 'cs' }) // phase 1
                 .mockResolvedValueOnce(undefined); // phase 2
 
-            const result = await (watchdog as any).revertToLastGoodBlock(10n);
+            const result = await callRevertToLastGoodBlock(watchdog,10n);
             // Should break out of phase 2 and return 9n
             expect(result).toBe(9n);
         });
