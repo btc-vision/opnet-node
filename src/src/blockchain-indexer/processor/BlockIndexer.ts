@@ -525,6 +525,7 @@ export class BlockIndexer extends Logger {
         // Lock tasks.
         this.chainReorged = true;
 
+        let storageModified = false;
         try {
             // Stop all tasks.
             await this.stopAllTasks(reorged);
@@ -544,6 +545,8 @@ export class BlockIndexer extends Logger {
             // Revert block data FIRST - main thread work must complete before plugins
             // Always purge UTXOs during live reorg to restore spent/unspent state correctly
             await this.vmStorage.revertDataUntilBlock(fromHeight, true);
+            storageModified = true;
+
             await this.chainObserver.onChainReorganisation(fromHeight, toHeight, newBest);
 
             // Revert data.
@@ -552,10 +555,25 @@ export class BlockIndexer extends Logger {
             // AFTER main thread completes reorg, notify plugins
             // This is BLOCKING - we wait for all plugins to complete their reorg handling
             await this.notifyPluginsOfReorg(fromHeight, toHeight, newBest);
-        } finally {
-            // Unlock tasks.
+        } catch (e) {
+            if (storageModified) {
+                const err = e instanceof Error ? e.stack || e.message : String(e);
+                this.panic(
+                    `CRITICAL: Partial revert detected. Storage reverted to ${fromHeight} but subsequent steps failed: ${err}. ` +
+                        `Node is in an inconsistent state and must not continue. Manual intervention required.`,
+                );
+
+                // Do NOT reset chainReorged. Keep the node locked.
+                throw e;
+            }
+
+            // Storage was not modified, safe to unlock and propagate
             this.chainReorged = false;
+            throw e;
         }
+
+        // Success path: unlock
+        this.chainReorged = false;
     }
 
     /**

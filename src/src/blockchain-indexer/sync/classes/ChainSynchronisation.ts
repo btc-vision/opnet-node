@@ -25,6 +25,8 @@ import { ChallengeSolution } from '../../processor/interfaces/TransactionPreimag
 import { AddressMap } from '@btc-vision/transaction';
 import { getMongodbMajorVersion } from '../../../vm/storage/databases/MongoUtils.js';
 
+const MAX_BLOCK_NUMBER: bigint = BigInt(Number.MAX_SAFE_INTEGER);
+
 export class ChainSynchronisation extends Logger {
     public readonly logColor: string = '#00ffe1';
 
@@ -418,6 +420,10 @@ export class ChainSynchronisation extends Logger {
     private async queryBlockHeaderOnly(blockNumber: bigint): Promise<DeserializedBlock> {
         this.bestTip = blockNumber;
 
+        if (blockNumber > MAX_BLOCK_NUMBER) {
+            throw new Error(`Block number ${blockNumber} exceeds safe integer range for RPC call`);
+        }
+
         const blockHash = await this.rpcClient.getBlockHash(Number(blockNumber));
         if (!blockHash) {
             throw new Error(`Block hash not found for block ${blockNumber}`);
@@ -426,6 +432,13 @@ export class ChainSynchronisation extends Logger {
         const blockData = await this.rpcClient.getBlockInfoOnly(blockHash);
         if (!blockData) {
             throw new Error(`Block header not found for block ${blockNumber}`);
+        }
+
+        if (blockData.hash !== blockHash) {
+            throw new Error(
+                `Block hash mismatch during resync at height ${blockNumber}: ` +
+                    `requested=${blockHash}, received=${blockData.hash}. Chain may have reorged during fetch.`,
+            );
         }
 
         const abortController = new AbortController();

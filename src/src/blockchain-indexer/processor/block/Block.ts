@@ -812,7 +812,9 @@ export class Block {
 
             if (!validationResult.valid) {
                 if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
-                    sharedBlockLogger.warn(`Invalid epoch submission in tx ${data.transactionId}`);
+                    sharedBlockLogger.warn(
+                        `Invalid epoch submission in tx ${data.transactionId} (${validationResult.reason})`,
+                    );
                 }
 
                 keysToRemove.push(key);
