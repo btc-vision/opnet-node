@@ -82,9 +82,7 @@ vi.mock('../../../src/src/config/Config.js', () => ({
     Config: mockConfig,
 }));
 
-// ---------------------------------------------------------------------------
-// Helpers: lightweight mocks for multi-component interaction tests
-// ---------------------------------------------------------------------------
+/** Helpers: lightweight mocks for multi-component interaction tests */
 
 function createMockRpcClient() {
     return {
@@ -162,7 +160,7 @@ function createOrchestrator() {
             await vmStorage.revertDataUntilBlock(fromHeight);
             await observer.onChainReorganisation(fromHeight, toHeight, newBest);
             if (reorged) {
-                // Simulated reorgFromHeight — just track the call
+                // Simulated reorgFromHeight, just track the call
             }
             await pluginNotifier(fromHeight, toHeight, newBest);
         } finally {
@@ -196,9 +194,7 @@ describe('Integration: reorg edge-cases', () => {
         mockConfig.INDEXER.READONLY_MODE = false;
     });
 
-    // ---------------------------------------------------------------
-    // Tests 631-635: Rapid successive reorgs
-    // ---------------------------------------------------------------
+    /** Tests 631-635: Rapid successive reorgs */
 
     describe('rapid successive reorgs', () => {
         it('631: should handle two sequential reorgs updating state correctly', async () => {
@@ -261,9 +257,7 @@ describe('Integration: reorg edge-cases', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 636-640: Reorg during processing error handling
-    // ---------------------------------------------------------------
+    /** Tests 636-640: Reorg during processing error handling */
 
     describe('reorg during processing error handling', () => {
         it('636: should propagate RPC error from fetchChainHeight during reorg', async () => {
@@ -327,9 +321,7 @@ describe('Integration: reorg edge-cases', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 641-648: BATCH_SIZE edge cases (VMMongoStorage.revertDataUntilBlock)
-    // ---------------------------------------------------------------
+    /** Tests 641-648: BATCH_SIZE edge cases (VMMongoStorage.revertDataUntilBlock) */
 
     describe('BATCH_SIZE edge cases', () => {
         let storage: VMMongoStorage;
@@ -354,7 +346,7 @@ describe('Integration: reorg edge-cases', () => {
 
             await storage.revertDataUntilBlock(3n);
 
-            // upperBound=5, batched pass: to=5 > 3 (from=4), to=4 > 3 (from=3) — 2 batches
+            // upperBound=5, batched pass: to=5 > 3 (from=4), to=4 > 3 (from=3), 2 batches
             const calls = mocks.transactionRepository.deleteTransactionsInRange.mock.calls;
             expect(calls.length).toBe(2);
         });
@@ -415,7 +407,7 @@ describe('Integration: reorg edge-cases', () => {
 
             await storage.revertDataUntilBlock(100n);
 
-            // Default BATCH_SIZE = 1000, range 100..1500 -> 2 batches: to=1500 (from=500), to=500 (from=100) — but actually walking down
+            // Default BATCH_SIZE = 1000, range 100..1500 -> 2 batches: to=1500 (from=500), to=500 (from=100), but actually walking down
             // Batched pass: to=1500 > 100, from=max(1500-1000, 100)=500; to=500 > 100, from=max(500-1000, 100)=100; to=100 == 100 stop
             const calls = mocks.transactionRepository.deleteTransactionsInRange.mock.calls;
             expect(calls.length).toBe(2);
@@ -475,9 +467,7 @@ describe('Integration: reorg edge-cases', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 649-656: Empty database, single block scenarios
-    // ---------------------------------------------------------------
+    /** Tests 649-656: Empty database, single block scenarios */
 
     describe('empty database and single block scenarios', () => {
         let storage: VMMongoStorage;
@@ -590,9 +580,7 @@ describe('Integration: reorg edge-cases', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 657-659: Very large blockId
-    // ---------------------------------------------------------------
+    /** Tests 657-659: Very large blockId */
 
     describe('very large blockId', () => {
         let storage: VMMongoStorage;
@@ -646,12 +634,12 @@ describe('Integration: reorg edge-cases', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 660-665: Orchestration pattern test (mock BlockIndexer.revertChain flow)
-    // Uses a lightweight orchestrator mock that simulates the revert sequence
-    // without constructing the real BlockIndexer. Tests verify call ordering
-    // and argument passing between components, not individual component logic.
-    // ---------------------------------------------------------------
+    /**
+     * Tests 660-665: Orchestration pattern test (mock BlockIndexer.revertChain flow)
+     * Uses a lightweight orchestrator mock that simulates the revert sequence
+     * without constructing the real BlockIndexer. Tests verify call ordering
+     * and argument passing between components, not individual component logic.
+     */
 
     describe('orchestration pattern: revert flow call ordering', () => {
         it('660: should execute revert flow in correct order: cleanup -> revertData -> chainObserver -> plugins', async () => {
@@ -742,9 +730,7 @@ describe('Integration: reorg edge-cases', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 666-670: Full startup purge flow
-    // ---------------------------------------------------------------
+    /** Tests 666-670: Full startup purge flow */
 
     describe('full startup purge flow', () => {
         it('666: should call revertDataUntilBlock with pendingBlockHeight during startup purge', async () => {
@@ -857,9 +843,7 @@ describe('Integration: reorg edge-cases', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 671-676: Height mismatch reorg via orchestrator and real VMMongoStorage
-    // ---------------------------------------------------------------
+    /** Tests 671-676: Height mismatch reorg via orchestrator and real VMMongoStorage */
 
     describe('height mismatch reorg via orchestrator and real storage', () => {
         it('671: should revert real VMMongoStorage when height mismatch triggers revertChain', async () => {
@@ -979,9 +963,7 @@ describe('Integration: reorg edge-cases', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 677-678: Concurrent call protection
-    // ---------------------------------------------------------------
+    /** Tests 677-678: Concurrent call protection */
 
     describe('concurrent call protection', () => {
         it('677: should set chainReorged=true during revertChain and reset to false after', async () => {
@@ -1012,9 +994,7 @@ describe('Integration: reorg edge-cases', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 679-682: Config interaction verification
-    // ---------------------------------------------------------------
+    /** Tests 679-682: Config interaction verification */
 
     describe('Config interaction verification', () => {
         let storage: VMMongoStorage;

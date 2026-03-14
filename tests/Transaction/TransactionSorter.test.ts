@@ -1,3 +1,4 @@
+import '../utils/mockConfig.js';
 import { beforeAll, describe, expect, test } from 'vitest';
 import { TransactionSorter } from '../../src/src/blockchain-indexer/processor/transaction/transaction-sorter/TransactionSorter.js';
 import { Transaction } from '../../src/src/blockchain-indexer/processor/transaction/Transaction.js';

@@ -74,9 +74,7 @@ describe('ChainObserver.onChainReorganisation', () => {
         consensusTracker = ctx.consensusTracker;
     });
 
-    // ---------------------------------------------------------------
-    // Tests 601-604: State mutations
-    // ---------------------------------------------------------------
+    /** Tests 601-604: State mutations */
 
     describe('state mutations', () => {
         it('601: should set isReorging to true immediately', async () => {
@@ -110,9 +108,7 @@ describe('ChainObserver.onChainReorganisation', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 605-606: setNewHeight
-    // ---------------------------------------------------------------
+    /** Tests 605-606: setNewHeight */
 
     describe('setNewHeight', () => {
         it('605: should set pendingBlockHeight to fromHeight via setNewHeight', async () => {
@@ -149,9 +145,7 @@ describe('ChainObserver.onChainReorganisation', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 608-609: Consensus tracker
-    // ---------------------------------------------------------------
+    /** Tests 608-609: Consensus tracker */
 
     describe('consensus tracker', () => {
         it('608: should call setConsensusBlockHeight with fromHeight', async () => {
@@ -169,9 +163,7 @@ describe('ChainObserver.onChainReorganisation', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 610-612: fetchChainHeight
-    // ---------------------------------------------------------------
+    /** Tests 610-612: fetchChainHeight */
 
     describe('fetchChainHeight', () => {
         it('610: should call rpcClient.getBlockCount', async () => {
@@ -197,9 +189,7 @@ describe('ChainObserver.onChainReorganisation', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 613-615: Argument validation
-    // ---------------------------------------------------------------
+    /** Tests 613-615: Argument validation */
 
     describe('argument validation', () => {
         it('613: should throw when fromHeight is 0n', async () => {
@@ -223,9 +213,7 @@ describe('ChainObserver.onChainReorganisation', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 616-617: Parallel execution (fetchChainHeight + setNewHeight)
-    // ---------------------------------------------------------------
+    /** Tests 616-617: Parallel execution (fetchChainHeight + setNewHeight) */
 
     describe('parallel execution', () => {
         it('616: should run fetchChainHeight and setNewHeight concurrently via Promise.safeAll', async () => {
@@ -267,9 +255,7 @@ describe('ChainObserver.onChainReorganisation', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 618-621: updateStatus
-    // ---------------------------------------------------------------
+    /** Tests 618-621: updateStatus */
 
     describe('updateStatus', () => {
         it('618: should set isDownloading=true when pendingBlockHeight < targetBlockHeight', async () => {
@@ -308,9 +294,7 @@ describe('ChainObserver.onChainReorganisation', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 622-625: Various parameter values
-    // ---------------------------------------------------------------
+    /** Tests 622-625: Various parameter values */
 
     describe('various parameter values', () => {
         it('622: should handle very large fromHeight', async () => {
@@ -344,9 +328,7 @@ describe('ChainObserver.onChainReorganisation', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 626-628: onBlockChange
-    // ---------------------------------------------------------------
+    /** Tests 626-628: onBlockChange */
 
     describe('onBlockChange', () => {
         it('626: should set targetBlockHeight from blockInfo.height', () => {
@@ -373,9 +355,7 @@ describe('ChainObserver.onChainReorganisation', () => {
         });
     });
 
-    // ---------------------------------------------------------------
-    // Tests 629-630: pendingBlockHeight and pendingTaskHeight getters/setters
-    // ---------------------------------------------------------------
+    /** Tests 629-630: pendingBlockHeight and pendingTaskHeight getters/setters */
 
     describe('pendingBlockHeight and pendingTaskHeight', () => {
         it('629: should read and write pendingBlockHeight through the sync status', () => {

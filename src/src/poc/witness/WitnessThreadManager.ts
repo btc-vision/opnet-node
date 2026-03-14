@@ -59,6 +59,7 @@ export class WitnessThreadManager extends ThreadManager<ThreadTypes.WITNESS> {
     protected async createLinkBetweenThreads(): Promise<void> {
         // Link to P2P: receives forwarded BLOCK_PROCESSED and peer witness data
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.P2P);
+        // RPC link is established from BitcoinRPCThreadManager side (same pattern as P2P→RPC)
 
         // No INDEXER link is needed. The WitnessThread never calls
         // getCurrentBlock() (which would require an INDEXER link); instead,

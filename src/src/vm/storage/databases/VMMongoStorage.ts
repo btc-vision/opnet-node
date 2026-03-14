@@ -260,8 +260,8 @@ export class VMMongoStorage extends VMStorage {
 
         const derivedUpper =
             blockHeaderHeight > chainInfoHeight ? blockHeaderHeight : chainInfoHeight;
-        const upperBound = derivedUpper > blockId ? derivedUpper : blockId;
 
+        const upperBound = derivedUpper > blockId ? derivedUpper : blockId;
         const purgeUtxos = purgeUtxosOverride ?? Config.OP_NET.REINDEX_PURGE_UTXOS;
 
         this.info(`Purging data from block ${blockId} to ${upperBound}...`);
@@ -277,7 +277,7 @@ export class VMMongoStorage extends VMStorage {
             );
         }
 
-        // Target epochs have no block range — delete once upfront
+        // Target epochs have no block range, delete once upfront
         this.log(`Purging target epochs...`);
         await this.targetEpochRepository.deleteAllTargetEpochs();
 

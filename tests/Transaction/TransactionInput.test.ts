@@ -1,3 +1,4 @@
+import '../utils/mockConfig.js';
 import { beforeAll, describe, expect, test } from 'vitest';
 import { TransactionInput } from '../../src/src/blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import { VIn } from '@btc-vision/bitcoin-rpc';
@@ -27,7 +28,7 @@ describe('TransactionInput', () => {
         OPNetConsensus.setBlockHeight(1n);
     });
 
-    // ==================== CONSTRUCTOR TESTS ====================
+    /** Constructor tests */
     describe('constructor', () => {
         test('should parse valid txid', () => {
             const vin: VIn = {
@@ -201,7 +202,7 @@ describe('TransactionInput', () => {
         });
     });
 
-    // ==================== DECODE PUBKEY TESTS ====================
+    /** Decode pubkey tests */
     describe('decodePubKey', () => {
         describe('P2WPKH (Native SegWit)', () => {
             test('should decode compressed public key (33 bytes) from witness', () => {
@@ -684,7 +685,7 @@ describe('TransactionInput', () => {
         });
     });
 
-    // ==================== DECODE PUBKEY HASH TESTS ====================
+    /** Decode pubkey hash tests */
     describe('decodePubKeyHash', () => {
         test('should decode 20-byte hash from witness[0] if present', () => {
             // This is an edge case - normally witness[0] is a signature
@@ -792,7 +793,7 @@ describe('TransactionInput', () => {
         });
     });
 
-    // ==================== TO DOCUMENT TESTS ====================
+    /** toDocument tests */
     describe('toDocument', () => {
         test('should return document with all fields', () => {
             const vin: VIn = {
@@ -856,7 +857,7 @@ describe('TransactionInput', () => {
         });
     });
 
-    // ==================== TO STRIPPED TESTS ====================
+    /** toStripped tests */
     describe('toStripped', () => {
         test('should return stripped input with basic fields', () => {
             const vin: VIn = {
@@ -1007,7 +1008,7 @@ describe('TransactionInput', () => {
         });
     });
 
-    // ==================== WITNESS DATA HANDLING TESTS ====================
+    /** Witness data handling tests */
     describe('witness data handling', () => {
         test('witnesses should be Uint8Arrays not strings', () => {
             const vin: VIn = {
@@ -1065,7 +1066,7 @@ describe('TransactionInput', () => {
         });
     });
 
-    // ==================== RAW TRANSACTION TESTS ====================
+    /** Raw transaction tests */
     describe('raw transaction hex parsing', () => {
         test('should correctly identify raw tx hex structure', () => {
             // Raw tx: 02000000000101167b7289f84cd45ea867c518a1f84c57857e4142e08a5a970b192dc0d3a212306b00000000ffffffff03...
@@ -1131,7 +1132,7 @@ describe('TransactionInput', () => {
         });
     });
 
-    // ==================== COMBINED SCENARIOS ====================
+    /** Combined scenarios */
     describe('combined scenarios', () => {
         test('coinbase transaction should have empty txid and special vout', () => {
             const vin: VIn = {

@@ -12,6 +12,11 @@ const mockConfig = vi.hoisted(() => ({
 }));
 vi.mock('../../../src/src/config/Config.js', () => ({ Config: mockConfig }));
 
+function callRestoreBlockchain(watchdog: ReorgWatchdog, tip: bigint): Promise<void> {
+    const fn = Reflect.get(watchdog, 'restoreBlockchain') as (t: bigint) => Promise<void>;
+    return Reflect.apply(fn, watchdog, [tip]);
+}
+
 function createMockVMStorage() {
     return {
         getBlockHeader: vi.fn().mockResolvedValue(undefined),
@@ -64,21 +69,21 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
         mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
     }
 
-    // ── Tests 571-574: basic flow ──
+    /** Tests 571-574: basic flow */
 
     describe('basic flow', () => {
         it('test 571: should call revertToLastGoodBlock with the provided tip', async () => {
             setupRevertScenario(99n, 'goodhash99');
-            const revertSpy = vi.spyOn(watchdog as any, 'revertToLastGoodBlock');
+            const revertSpy = vi.spyOn(watchdog as never, 'revertToLastGoodBlock');
 
-            await (watchdog as any).restoreBlockchain(100n);
+            await callRestoreBlockchain(watchdog,100n);
             expect(revertSpy).toHaveBeenCalledWith(100n);
         });
 
         it('test 572: should fetch the last good block header from vmStorage', async () => {
             setupRevertScenario(99n, 'goodhash99');
 
-            await (watchdog as any).restoreBlockchain(100n);
+            await callRestoreBlockchain(watchdog,100n);
             // getBlockHeader is called during revertToLastGoodBlock and then again
             // for the lastGoodBlockHeader fetch in restoreBlockchain
             expect(mockVMStorage.getBlockHeader).toHaveBeenCalledWith(99n);
@@ -94,22 +99,22 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
                 .mockResolvedValueOnce(undefined); // restoreBlockchain's getBlockHeader call
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            await expect((watchdog as any).restoreBlockchain(100n)).rejects.toThrow(
+            await expect(callRestoreBlockchain(watchdog,100n)).rejects.toThrow(
                 'Error fetching last good block header',
             );
         });
 
         it('test 574: should call notifyReorgListeners with correct parameters', async () => {
             setupRevertScenario(99n, 'goodhash99');
-            const notifySpy = vi.spyOn(watchdog as any, 'notifyReorgListeners');
+            const notifySpy = vi.spyOn(watchdog as never, 'notifyReorgListeners');
 
-            await (watchdog as any).restoreBlockchain(100n);
+            await callRestoreBlockchain(watchdog,100n);
             // lastGoodBlock=99, so from=100, to=100 (tip), newBest=goodhash99
             expect(notifySpy).toHaveBeenCalledWith(100n, 100n, 'goodhash99');
         });
     });
 
-    // ── Tests 575-583: listener notification ──
+    /** Tests 575-583: listener notification */
 
     describe('listener notification', () => {
         it('test 575: should call all registered reorg listeners', async () => {
@@ -119,7 +124,7 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
             watchdog.subscribeToReorgs(listener1);
             watchdog.subscribeToReorgs(listener2);
 
-            await (watchdog as any).restoreBlockchain(100n);
+            await callRestoreBlockchain(watchdog,100n);
             expect(listener1).toHaveBeenCalled();
             expect(listener2).toHaveBeenCalled();
         });
@@ -129,7 +134,7 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
             const listener = vi.fn().mockResolvedValue(undefined);
             watchdog.subscribeToReorgs(listener);
 
-            await (watchdog as any).restoreBlockchain(50n);
+            await callRestoreBlockchain(watchdog,50n);
             expect(listener).toHaveBeenCalledWith(50n, 50n, 'hash49');
         });
 
@@ -138,7 +143,7 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
             const listener = vi.fn().mockResolvedValue(undefined);
             watchdog.subscribeToReorgs(listener);
 
-            await (watchdog as any).restoreBlockchain(95n);
+            await callRestoreBlockchain(watchdog,95n);
             expect(listener.mock.calls[0][1]).toBe(95n);
         });
 
@@ -147,7 +152,7 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
             const listener = vi.fn().mockResolvedValue(undefined);
             watchdog.subscribeToReorgs(listener);
 
-            await (watchdog as any).restoreBlockchain(80n);
+            await callRestoreBlockchain(watchdog,80n);
             expect(listener.mock.calls[0][2]).toBe('bestblockhash');
         });
 
@@ -163,14 +168,14 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
             watchdog.subscribeToReorgs(listener1);
             watchdog.subscribeToReorgs(listener2);
 
-            await (watchdog as any).restoreBlockchain(100n);
+            await callRestoreBlockchain(watchdog,100n);
             expect(callOrder).toEqual([1, 2]);
         });
 
         it('test 580: should work with zero listeners', async () => {
             setupRevertScenario(99n, 'hash99');
             // No listeners subscribed
-            await expect((watchdog as any).restoreBlockchain(100n)).resolves.toBeUndefined();
+            await expect(callRestoreBlockchain(watchdog,100n)).resolves.toBeUndefined();
         });
 
         it('test 581: should propagate listener errors', async () => {
@@ -178,7 +183,7 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
             const failingListener = vi.fn().mockRejectedValue(new Error('listener failed'));
             watchdog.subscribeToReorgs(failingListener);
 
-            await expect((watchdog as any).restoreBlockchain(100n)).rejects.toThrow(
+            await expect(callRestoreBlockchain(watchdog,100n)).rejects.toThrow(
                 'listener failed',
             );
         });
@@ -196,7 +201,7 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
             const listener = vi.fn().mockResolvedValue(undefined);
             watchdog.subscribeToReorgs(listener);
 
-            await (watchdog as any).restoreBlockchain(10n);
+            await callRestoreBlockchain(watchdog,10n);
             // revertToLastGoodBlock(10n) => checks block 9, matches => returns 9n
             // notifyReorgListeners(10n, 10n, 'hashmatch')
             expect(listener).toHaveBeenCalledWith(10n, 10n, 'hashmatch');
@@ -219,13 +224,13 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
             const listener = vi.fn().mockResolvedValue(undefined);
             watchdog.subscribeToReorgs(listener);
 
-            await (watchdog as any).restoreBlockchain(10n);
+            await callRestoreBlockchain(watchdog,10n);
             // lastGoodBlock=7, so from=8, to=10
             expect(listener).toHaveBeenCalledWith(8n, 10n, 'rpch7');
         });
     });
 
-    // ── Tests 584-587: error handling ──
+    /** Tests 584-587: error handling */
 
     describe('error handling', () => {
         it('test 584: should propagate errors from revertToLastGoodBlock', async () => {
@@ -235,7 +240,7 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
                 checksumRoot: 'cs',
             });
 
-            await expect((watchdog as any).restoreBlockchain(10n)).rejects.toThrow(
+            await expect(callRestoreBlockchain(watchdog,10n)).rejects.toThrow(
                 'Error fetching block hash',
             );
         });
@@ -249,7 +254,7 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
                 .mockResolvedValueOnce(undefined);
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            await expect((watchdog as any).restoreBlockchain(10n)).rejects.toThrow(
+            await expect(callRestoreBlockchain(watchdog,10n)).rejects.toThrow(
                 'Error fetching last good block header',
             );
         });
@@ -259,7 +264,7 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
             const listener = vi.fn().mockResolvedValue(undefined);
             watchdog.subscribeToReorgs(listener);
 
-            await expect((watchdog as any).restoreBlockchain(10n)).rejects.toThrow('RPC failure');
+            await expect(callRestoreBlockchain(watchdog,10n)).rejects.toThrow('RPC failure');
             expect(listener).not.toHaveBeenCalled();
         });
 
@@ -274,66 +279,42 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
             const listener = vi.fn().mockResolvedValue(undefined);
             watchdog.subscribeToReorgs(listener);
 
-            await expect((watchdog as any).restoreBlockchain(10n)).rejects.toThrow(
+            await expect(callRestoreBlockchain(watchdog,10n)).rejects.toThrow(
                 'Error fetching last good block header',
             );
             expect(listener).not.toHaveBeenCalled();
         });
     });
 
-    // ── Tests 588-592: state management ──
+    /** Tests 588-592: state management */
 
     describe('state management', () => {
         it('test 588: should reset lastBlock to empty object after restoreBlockchain', async () => {
-            (watchdog as any).lastBlock = {
+            Reflect.set(watchdog, 'lastBlock', {
                 hash: 'oldhash',
                 checksum: 'oldcs',
                 blockNumber: 50n,
-            };
+            });
             setupRevertScenario(99n, 'goodhash');
 
-            await (watchdog as any).restoreBlockchain(100n);
-            expect((watchdog as any).lastBlock).toEqual({});
-        });
-
-        it('test 589: should clear lastBlock hash after restoreBlockchain', async () => {
-            (watchdog as any).lastBlock = { hash: 'oldhash', blockNumber: 50n };
-            setupRevertScenario(99n, 'goodhash');
-
-            await (watchdog as any).restoreBlockchain(100n);
-            expect((watchdog as any).lastBlock.hash).toBeUndefined();
-        });
-
-        it('test 590: should clear lastBlock blockNumber after restoreBlockchain', async () => {
-            (watchdog as any).lastBlock = { blockNumber: 50n };
-            setupRevertScenario(99n, 'goodhash');
-
-            await (watchdog as any).restoreBlockchain(100n);
-            expect((watchdog as any).lastBlock.blockNumber).toBeUndefined();
-        });
-
-        it('test 591: should clear lastBlock checksum after restoreBlockchain', async () => {
-            (watchdog as any).lastBlock = { checksum: 'oldcs' };
-            setupRevertScenario(99n, 'goodhash');
-
-            await (watchdog as any).restoreBlockchain(100n);
-            expect((watchdog as any).lastBlock.checksum).toBeUndefined();
+            await callRestoreBlockchain(watchdog,100n);
+            expect(Reflect.get(watchdog, 'lastBlock')).toEqual({});
         });
 
         it('test 592: should clear lastBlock before notifying listeners', async () => {
             setupRevertScenario(99n, 'goodhash');
             let lastBlockDuringNotification: Record<string, unknown> | undefined;
             const listener = vi.fn().mockImplementation(async () => {
-                lastBlockDuringNotification = { ...(watchdog as any).lastBlock };
+                lastBlockDuringNotification = { ...(Reflect.get(watchdog, 'lastBlock') as Record<string, unknown>) };
             });
             watchdog.subscribeToReorgs(listener);
 
-            await (watchdog as any).restoreBlockchain(100n);
+            await callRestoreBlockchain(watchdog,100n);
             expect(lastBlockDuringNotification).toEqual({});
         });
     });
 
-    // ── Tests 593-600: init method ──
+    /** Tests 593-600: init method */
 
     describe('init method', () => {
         it('test 593: should set currentHeader from RPC data', async () => {
@@ -345,7 +326,7 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
             });
 
             await watchdog.init(10n);
-            expect((watchdog as any)._currentHeader).toEqual({
+            expect(Reflect.get(watchdog, '_currentHeader')).toEqual({
                 blockNumber: 10n,
                 blockHash: 'hash10',
                 previousBlockHash: 'hash9',
@@ -360,7 +341,7 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
             });
 
             await watchdog.init(0n);
-            expect((watchdog as any).lastBlock.blockNumber).toBe(-1n);
+            expect((Reflect.get(watchdog, 'lastBlock') as { blockNumber: bigint }).blockNumber).toBe(-1n);
         });
 
         it('test 595: should throw when getBlockHash returns falsy', async () => {
@@ -389,7 +370,7 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
             });
 
             await watchdog.init(10n);
-            expect((watchdog as any).lastBlock).toEqual({
+            expect(Reflect.get(watchdog, 'lastBlock')).toEqual({
                 blockNumber: 10n,
                 hash: 'hash9stored',
                 checksum: 'cs9stored',
@@ -409,7 +390,7 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
             await watchdog.init(10n);
             // Should have been called twice for RPC
             expect(mockRpcClient.getBlockHash).toHaveBeenCalledTimes(2);
-            expect((watchdog as any).lastBlock.hash).toBe('hash8');
+            expect((Reflect.get(watchdog, 'lastBlock') as { hash: string }).hash).toBe('hash8');
         });
 
         it('test 599: should call getBlockHash with Number(currentHeight)', async () => {
@@ -431,7 +412,7 @@ describe('ReorgWatchdog - restoreBlockchain (Category 11)', () => {
             await watchdog.init(0n);
             // currentHeight - 1n = -1n, so lastBlock = { blockNumber: -1n } and return
             expect(mockVMStorage.getBlockHeader).not.toHaveBeenCalled();
-            expect((watchdog as any).lastBlock).toEqual({ blockNumber: -1n });
+            expect(Reflect.get(watchdog, 'lastBlock')).toEqual({ blockNumber: -1n });
         });
     });
 });

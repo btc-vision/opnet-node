@@ -5,9 +5,7 @@ import { MessageType } from '../../threading/enum/MessageType.js';
 import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { Config } from '../../config/Config.js';
 import { RPCBlockFetcher } from '../fetcher/RPCBlockFetcher.js';
-import {
-    CurrentIndexerBlockResponseData
-} from '../../threading/interfaces/thread-messages/messages/indexer/CurrentIndexerBlock.js';
+import { CurrentIndexerBlockResponseData } from '../../threading/interfaces/thread-messages/messages/indexer/CurrentIndexerBlock.js';
 import { ChainObserver } from './observer/ChainObserver.js';
 import { IndexingTask } from './tasks/IndexingTask.js';
 import { BlockFetcher } from '../fetcher/abstract/BlockFetcher.js';
@@ -184,10 +182,10 @@ export class BlockIndexer extends Logger {
             const opnetEnabled = OPNetConsensus.opnetEnabled;
             if (opnetEnabled.ENABLED) {
                 if (opnetEnabled.BLOCK === 0n) {
-                    // OPNet active from genesis — resync not allowed at all
+                    // OPNet active from genesis, resync not allowed at all
                     throw new Error(
                         `RESYNC_BLOCK_HEIGHTS cannot be used on this network. ` +
-                            `OPNet is enabled from block 0 — all blocks are OPNet blocks.`,
+                            `OPNet is enabled from block 0, all blocks are OPNet blocks.`,
                     );
                 }
 
@@ -443,6 +441,21 @@ export class BlockIndexer extends Logger {
             }
         }
 
+        // watchBlockChanges only fires when the block hash changes.
+        // If the incoming height is at or below what we've already processed,
+        // the block at that height was replaced, this is a chain reorganization.
+        const incomingHeight = BigInt(header.height);
+        if (
+            this.started &&
+            !this.chainReorged &&
+            incomingHeight > 0n &&
+            incomingHeight <= this.chainObserver.pendingBlockHeight
+        ) {
+            void this.onHeightRegressionDetected(incomingHeight, header.hash);
+
+            return;
+        }
+
         if (!this.started) {
             this.startTasks();
             this.started = true;
@@ -453,6 +466,29 @@ export class BlockIndexer extends Logger {
         }
 
         this.startTasks();
+    }
+
+    /**
+     * Called when onBlockChange receives a height at or below what the node
+     * has already processed. Since watchBlockChanges only fires on hash
+     * changes, this means a chain reorganization occurred.
+     */
+    private async onHeightRegressionDetected(
+        incomingHeight: bigint,
+        newBest: string,
+    ): Promise<void> {
+        const pendingHeight = this.chainObserver.pendingBlockHeight;
+        this.warn(
+            `Height regression detected: tip=${incomingHeight}, processed=${pendingHeight}. Reverting.`,
+        );
+
+        try {
+            await this.revertChain(incomingHeight, pendingHeight, newBest, true);
+
+            this.startTasks();
+        } catch (e) {
+            this.panic(`Height regression reorg failed: ${e}`);
+        }
     }
 
     private async notifyThreadReorg(
@@ -489,6 +525,7 @@ export class BlockIndexer extends Logger {
         // Lock tasks.
         this.chainReorged = true;
 
+        let storageModified = false;
         try {
             // Stop all tasks.
             await this.stopAllTasks(reorged);
@@ -508,6 +545,8 @@ export class BlockIndexer extends Logger {
             // Revert block data FIRST - main thread work must complete before plugins
             // Always purge UTXOs during live reorg to restore spent/unspent state correctly
             await this.vmStorage.revertDataUntilBlock(fromHeight, true);
+            storageModified = true;
+
             await this.chainObserver.onChainReorganisation(fromHeight, toHeight, newBest);
 
             // Revert data.
@@ -516,10 +555,25 @@ export class BlockIndexer extends Logger {
             // AFTER main thread completes reorg, notify plugins
             // This is BLOCKING - we wait for all plugins to complete their reorg handling
             await this.notifyPluginsOfReorg(fromHeight, toHeight, newBest);
-        } finally {
-            // Unlock tasks.
+        } catch (e) {
+            if (storageModified) {
+                const err = e instanceof Error ? e.stack || e.message : String(e);
+                this.panic(
+                    `CRITICAL: Partial revert detected. Storage reverted to ${fromHeight} but subsequent steps failed: ${err}. ` +
+                        `Node is in an inconsistent state and must not continue. Manual intervention required.`,
+                );
+
+                // Do NOT reset chainReorged. Keep the node locked.
+                throw e;
+            }
+
+            // Storage was not modified, safe to unlock and propagate
             this.chainReorged = false;
+            throw e;
         }
+
+        // Success path: unlock
+        this.chainReorged = false;
     }
 
     /**

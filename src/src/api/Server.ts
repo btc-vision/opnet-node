@@ -127,6 +127,7 @@ export class Server extends Logger {
                 methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
                 preflightContinue: false,
                 optionsSuccessStatus: 204,
+                maxAge: 86400,
             }),
         );
 

@@ -3,7 +3,9 @@ import {
     IBlockHeaderWitness,
     OPNetBlockWitness,
 } from '../networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
-import { ISyncBlockHeaderResponse } from '../networking/protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
+import {
+    ISyncBlockHeaderResponse
+} from '../networking/protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 
 /**
  * Reconstruct a Long value from a structured-clone-degraded plain object.
@@ -54,9 +56,7 @@ export function reconstructBlockWitness(data: IBlockHeaderWitness): IBlockHeader
 /**
  * Reconstruct Long values in an ISyncBlockHeaderResponse after structured clone.
  */
-export function reconstructSyncResponse(
-    data: ISyncBlockHeaderResponse,
-): ISyncBlockHeaderResponse {
+export function reconstructSyncResponse(data: ISyncBlockHeaderResponse): ISyncBlockHeaderResponse {
     return {
         ...data,
         blockNumber: toLong(data.blockNumber),

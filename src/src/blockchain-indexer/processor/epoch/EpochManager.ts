@@ -34,6 +34,7 @@ export interface ValidatedSolutionResult {
     readonly valid: boolean;
     readonly matchingBits: number;
     readonly hash: Uint8Array;
+    readonly reason?: string;
 }
 
 interface AttestationEpoch {
@@ -131,6 +132,7 @@ export class EpochManager extends Logger {
         if (currentEpoch === 0n) {
             return {
                 valid: false,
+                reason: 'Epoch is 0',
                 matchingBits: 0,
                 hash: new Uint8Array(0),
             };
@@ -139,6 +141,7 @@ export class EpochManager extends Logger {
         if (pendingTarget.nextEpochNumber !== currentEpoch) {
             return {
                 valid: false,
+                reason: 'Submission epoch does not match pending target epoch',
                 matchingBits: 0,
                 hash: new Uint8Array(0),
             };
@@ -162,6 +165,7 @@ export class EpochManager extends Logger {
         if (matchingBits < minDifficulty) {
             return {
                 valid: false,
+                reason: `Matching bits below minimum difficulty (${matchingBits} < ${minDifficulty})`,
                 matchingBits,
                 hash,
             };
@@ -171,6 +175,7 @@ export class EpochManager extends Logger {
         if (submission.salt.length !== 32) {
             return {
                 valid: false,
+                reason: 'Salt is not 32 bytes.',
                 matchingBits,
                 hash,
             };
@@ -183,6 +188,7 @@ export class EpochManager extends Logger {
         ) {
             return {
                 valid: false,
+                reason: `Graffiti is ${submission.graffiti.length} bytes. Max is ${OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH} bytes.`,
                 matchingBits,
                 hash,
             };

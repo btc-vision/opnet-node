@@ -109,7 +109,9 @@ export class ReorgWatchdog extends Logger {
     }
 
     public async verifyChainReorgForBlock(task: IndexingTask): Promise<boolean> {
-        const syncBlockDiff = this.currentHeader.blockNumber - task.tip;
+        // Snapshot currentHeader to prevent TOCTOU race with onBlockChange
+        const header = this.currentHeader;
+        const syncBlockDiff = header.blockNumber - task.tip;
         if (syncBlockDiff >= 100 && !Config.DEV.ALWAYS_ENABLE_REORG_VERIFICATION) {
             this.updateBlock(task.block);
 
@@ -118,12 +120,39 @@ export class ReorgWatchdog extends Logger {
 
         const chainReorged: boolean = await this.verifyChainReorg(task.block);
         if (!chainReorged) {
+            // Also verify that the block we're processing is still the canonical
+            // block at this height. Two competing blocks can share the same parent
+            // (passing the previousBlockHash check) but have different hashes.
+            // header comes from the RPC tip, if heights match, compare hashes.
+            if (header.blockNumber === task.tip && header.blockHash !== task.block.hash) {
+                this.warn(
+                    `Block hash mismatch at height ${task.tip}: ` +
+                        `processing=${task.block.hash}, canonical=${header.blockHash}`,
+                );
+
+                try {
+                    await this.restoreBlockchain(task.tip);
+                } catch (e) {
+                    const err = e instanceof Error ? e.stack || e.message : String(e);
+                    this.error(`restoreBlockchain failed after hash mismatch: ${err}`);
+                    throw e;
+                }
+
+                return true;
+            }
+
             this.updateBlock(task.block);
 
             return false;
         }
 
-        await this.restoreBlockchain(task.tip);
+        try {
+            await this.restoreBlockchain(task.tip);
+        } catch (e) {
+            const err = e instanceof Error ? e.stack || e.message : String(e);
+            this.error(`restoreBlockchain failed after chain reorg: ${err}`);
+            throw e;
+        }
 
         return true;
     }
