@@ -210,12 +210,12 @@ export class BlockIndexer extends Logger {
                 // No blocks in DB
             }
 
-            if (latestBlockHeight < BigInt(Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL)) {
+            /*if (latestBlockHeight < BigInt(Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL)) {
                 throw new Error(
                     `RESYNC_BLOCK_HEIGHTS_UNTIL (${Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL}) exceeds the highest indexed block (${latestBlockHeight}). ` +
                         `The node must be fully synced to at least block ${Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL} before resyncing.`,
                 );
-            }
+            }*/
         }
 
         // Always purge, in case of bad indexing of the last block.
