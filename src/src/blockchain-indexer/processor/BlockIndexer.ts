@@ -5,7 +5,9 @@ import { MessageType } from '../../threading/enum/MessageType.js';
 import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { Config } from '../../config/Config.js';
 import { RPCBlockFetcher } from '../fetcher/RPCBlockFetcher.js';
-import { CurrentIndexerBlockResponseData } from '../../threading/interfaces/thread-messages/messages/indexer/CurrentIndexerBlock.js';
+import {
+    CurrentIndexerBlockResponseData
+} from '../../threading/interfaces/thread-messages/messages/indexer/CurrentIndexerBlock.js';
 import { ChainObserver } from './observer/ChainObserver.js';
 import { IndexingTask } from './tasks/IndexingTask.js';
 import { BlockFetcher } from '../fetcher/abstract/BlockFetcher.js';
@@ -210,12 +212,12 @@ export class BlockIndexer extends Logger {
                 // No blocks in DB
             }
 
-            /*if (latestBlockHeight < BigInt(Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL)) {
+            if (latestBlockHeight < BigInt(Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL)) {
                 throw new Error(
                     `RESYNC_BLOCK_HEIGHTS_UNTIL (${Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL}) exceeds the highest indexed block (${latestBlockHeight}). ` +
                         `The node must be fully synced to at least block ${Config.DEV.RESYNC_BLOCK_HEIGHTS_UNTIL} before resyncing.`,
                 );
-            }*/
+            }
         }
 
         // Always purge, in case of bad indexing of the last block.
