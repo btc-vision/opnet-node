@@ -175,6 +175,7 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         const transactions: TransactionDocumentForAPI<OPNetTransactionTypes>[] = [];
         const blockId = BigInt(data.block.height);
 
+        let blockTxCount: number = data.block.txCount;
         let deployments: string[] = [];
         if (data.transactions) {
             for (const transaction of data.transactions) {
@@ -190,10 +191,15 @@ export abstract class BlockRoute<T extends Routes> extends Route<
             }
 
             deployments = data.deployments;
+
+            if (!blockTxCount) {
+                blockTxCount = transactions.length;
+            }
         }
 
         return {
             ...data.block,
+            txCount: blockTxCount,
             transactions,
             deployments,
         };
