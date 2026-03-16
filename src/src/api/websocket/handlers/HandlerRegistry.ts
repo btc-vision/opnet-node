@@ -364,7 +364,6 @@ export class HandlerRegistry extends Logger {
                 const route = DefinedRoutes[Routes.BLOCK_WITNESS] as OPNetWitnessRoute;
                 const result = await route.getData({
                     height: BigInt(request.height),
-                    trusted: request.trusted,
                     limit: request.limit,
                     page: request.page,
                 });

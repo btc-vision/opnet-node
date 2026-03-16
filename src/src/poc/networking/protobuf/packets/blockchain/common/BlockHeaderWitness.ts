@@ -33,7 +33,6 @@ export interface IBlockHeaderWitness extends PackedMessage {
     readonly txCount: number;
 
     readonly validatorWitnesses: OPNetBlockWitness[];
-    readonly trustedWitnesses: OPNetBlockWitness[];
 }
 
 /** Broadcast goes both ways */

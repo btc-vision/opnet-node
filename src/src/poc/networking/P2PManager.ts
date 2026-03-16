@@ -58,8 +58,7 @@ import { MempoolTransactionNotificationMessage } from '../../threading/interface
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
-import { shuffleArray, TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
-import { AuthorityManager } from '../configurations/manager/AuthorityManager.js';
+import { shuffleArray } from '../../utils/shuffleArray.js';
 import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
 import { Components } from 'libp2p/components.js';
 import { noise } from '@chainsafe/libp2p-noise';
@@ -123,7 +122,6 @@ export class P2PManager extends Logger {
     private startedIndexer: boolean = false;
 
     private readonly blockWitnessManager: BlockWitnessManager;
-    private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
 
     constructor(private readonly config: BtcIndexerConfig) {
         super();
@@ -133,7 +131,7 @@ export class P2PManager extends Logger {
             : (this.config.P2P.EXTERNAL_ADDRESS_THRESHOLD ?? 3);
 
         this.p2pConfigurations = new P2PConfigurations(this.config);
-        this.identity = new OPNetIdentity(this.config, this.currentAuthority);
+        this.identity = new OPNetIdentity(this.config);
 
         this.blockWitnessManager = new BlockWitnessManager(this.config, this.identity);
         this.blockWitnessManager.broadcastBlockWitness = this.broadcastBlockWitness.bind(this);
@@ -261,8 +259,7 @@ export class P2PManager extends Logger {
 
             // Check how many witnesses we got from DB
             const witnesses = await this.blockWitnessManager.requestBlockWitnesses(blockNumber);
-            const witnessCount =
-                witnesses.trustedWitnesses.length + witnesses.validatorWitnesses.length;
+            const witnessCount = witnesses.validatorWitnesses.length;
 
             return {
                 witnessCount,
@@ -340,7 +337,6 @@ export class P2PManager extends Logger {
 
             if (!peer.hasAuthenticated) continue;
             if (peer.clientVersion === undefined) continue;
-            if (peer.clientChecksum === undefined) continue;
             if (peer.clientIdentity === undefined) continue;
             if (peer.clientIndexerMode === undefined) continue;
             if (peer.clientChainId === undefined) continue;
@@ -1162,7 +1158,6 @@ export class P2PManager extends Logger {
                 `\n\n\nPoC enabled. At least one peer was found! You are now connected to,\n\n\n\n\n`,
                 `\nThis node bitcoin address is ${this.identity.pubKey} or ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
                 `Your OPNet identity is ${this.identity.opnetAddress}.\n`,
-                `Your OPNet trusted certificate is\n${this.identity.trustedPublicKey}\n`,
                 `Looking for peers...\n\n`,
             );
 
@@ -1228,7 +1223,6 @@ export class P2PManager extends Logger {
                 `\n\nThis node is running in bootstrap mode. This means it will not connect to other peers automatically. It will only accept incoming connections.\n`,
                 `This node bitcoin address is ${this.identity.pubKey} or ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
                 `Your OPNet identity is ${this.identity.opnetAddress}.\n`,
-                `Your OPNet trusted certificate is\n${this.identity.trustedPublicKey}\n\n`,
             );
 
             this.startIndexing();

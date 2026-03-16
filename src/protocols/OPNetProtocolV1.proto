@@ -28,7 +28,7 @@ enum BitcoinNetworks {
 message Authentication {
     string version = 1;
     bytes clientAuthCipher = 2;
-    string trustedChecksum = 3;
+    string protocolChecksum = 3;
     PeerType type = 4;
     BitcoinNetworks network = 5;
     ChainIds chainId = 6;
@@ -88,7 +88,7 @@ message DiscoveryResponse {
 
 message Discover {
     string version = 1;
-    string trustedChecksum = 2;
+    string protocolChecksum = 2;
 }
 
 /*
@@ -128,7 +128,6 @@ message BlockHeaderWitness {
     uint32 txCount = 10;
 
     repeated OPNetBlockWitness validatorWitnesses = 11;
-    repeated OPNetBlockWitness trustedWitnesses = 12;
 }
 
 /* SYNC */
@@ -140,5 +139,4 @@ message SyncBlockHeadersResponse {
     uint64 blockNumber = 1;
 
     repeated OPNetBlockWitness validatorWitnesses = 2;
-    repeated OPNetBlockWitness trustedWitnesses = 3;
 }

@@ -63,12 +63,6 @@ export class Server extends Logger {
 
     #blockchainInformationRepository: BlockchainInfoRepository | undefined;
 
-    //private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
-    /*private readonly opnetIdentity: OPNetIdentity = new OPNetIdentity(
-        Config,
-        this.currentAuthority,
-    );*/
-
     private lastMiningEpoch: bigint = 0n;
     private lastFinalizedEpoch: bigint = -1n;
 

@@ -14,9 +14,6 @@ import { Config } from '../config/Config.js';
 import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
 import { OPNetConsensus } from '../poc/configurations/OPNetConsensus.js';
 import { OPNetIdentity } from '../poc/identity/OPNetIdentity.js';
-import { AuthorityManager } from '../poc/configurations/manager/AuthorityManager.js';
-import { P2PVersion } from '../poc/configurations/P2PVersion.js';
-import { TrustedAuthority } from '../poc/configurations/manager/TrustedAuthority.js';
 import fs from 'fs';
 import { SendMessageToThreadFunction } from '../threading/thread/Thread.js';
 import { MongoDBConfigurationDefaults } from '../vm/storage/databases/MongoDBConfigurationDefaults.js';
@@ -39,8 +36,6 @@ export class SSH extends Logger {
     private readonly identity: OPNetIdentity;
     private hostKey: string | undefined;
 
-    private readonly currentAuthority: TrustedAuthority = AuthorityManager.getAuthority(P2PVersion);
-
     #blockchainInformationRepository: BlockchainInfoRepository | undefined;
 
     constructor(
@@ -49,7 +44,7 @@ export class SSH extends Logger {
     ) {
         super();
 
-        this.identity = new OPNetIdentity(this.config, this.currentAuthority);
+        this.identity = new OPNetIdentity(this.config);
         this.generateHostKey();
     }
 

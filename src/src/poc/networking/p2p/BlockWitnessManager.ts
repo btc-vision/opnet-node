@@ -33,11 +33,6 @@ import { ZERO_HASH } from '../../../blockchain-indexer/processor/block/types/Zer
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { getMongodbMajorVersion } from '../../../vm/storage/databases/MongoUtils.js';
 
-interface ValidWitnesses {
-    validTrustedWitnesses: OPNetBlockWitness[];
-    opnetWitnesses: OPNetBlockWitness[];
-}
-
 /** TODO: We should move this class in it's own thread in the future for better performance */
 export class BlockWitnessManager extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -52,7 +47,7 @@ export class BlockWitnessManager extends Logger {
     private blockWitnessRepository: BlockWitnessRepository | undefined;
     private mempoolRepository: MempoolRepository | undefined;
     private blockHeaderRepository: BlockRepository | undefined;
-    private knownTrustedWitnesses: Map<bigint, string[]> = new Map();
+    private knownWitnessIdentities: Map<bigint, string[]> = new Map();
 
     private MAXIMUM_WITNESSES_PER_MESSAGE: number = 20;
 
@@ -117,7 +112,6 @@ export class BlockWitnessManager extends Logger {
             throw new Error('BlockHeaderRepository not initialized.');
         }
 
-        const trustedWitnesses = packet.trustedWitnesses;
         const validatorsWitnesses = packet.validatorWitnesses;
         const blockNumber: bigint = BigInt(packet.blockNumber.toString());
 
@@ -132,7 +126,6 @@ export class BlockWitnessManager extends Logger {
         const blockWitness: IBlockHeaderWitness = {
             blockHash: blockHeader.hash,
             blockNumber: BigInt(blockHeader.height.toString()),
-            trustedWitnesses: trustedWitnesses,
             validatorWitnesses: validatorsWitnesses,
             checksumHash: blockHeader.checksumRoot,
             previousBlockChecksum: blockHeader.previousBlockChecksum,
@@ -157,29 +150,18 @@ export class BlockWitnessManager extends Logger {
             throw new Error('BlockWitnessRepository not initialized.');
         }
 
-        const witnesses: [
-            Promise<IParsedBlockWitnessDocument[] | undefined>,
-            Promise<IParsedBlockWitnessDocument[] | undefined>,
-        ] = [
-            this.blockWitnessRepository.getBlockWitnesses(blockNumber),
-            this.blockWitnessRepository.getBlockWitnesses(blockNumber, true),
-        ];
-
-        const [opnetWitnesses, trustedWitnesses] = await Promise.safeAll(witnesses);
-        if (!opnetWitnesses || !trustedWitnesses) {
+        const opnetWitnesses = await this.blockWitnessRepository.getBlockWitnesses(blockNumber);
+        if (!opnetWitnesses) {
             return {
                 blockNumber: Long.fromString(blockNumber.toString()),
-                trustedWitnesses: [],
                 validatorWitnesses: [],
             };
         }
 
         const witnessesData = this.convertKnownWitnessesToOPNetWitness(opnetWitnesses);
-        const trustedWitnessData = this.convertKnownWitnessesToOPNetWitness(trustedWitnesses);
 
         return {
             blockNumber: Long.fromString(blockNumber.toString()),
-            trustedWitnesses: trustedWitnessData,
             validatorWitnesses: witnessesData,
         };
     }
@@ -221,7 +203,6 @@ export class BlockWitnessManager extends Logger {
         isSelf: boolean,
     ): Promise<void> {
         if (isSelf) {
-            // if the current block is higher or equal than the block number, this mean a reorg happened. We have to purge the known trusted witnesses.
             if (this.currentBlock >= data.blockNumber) {
                 this.revertKnownWitnessesReorg(data.blockNumber);
             }
@@ -231,13 +212,11 @@ export class BlockWitnessManager extends Logger {
 
         const blockChecksumHash = this.generateBlockHeaderChecksumHash(data);
         const signedWitness = this.identity.acknowledgeData(blockChecksumHash);
-        const trustedWitness = this.identity.acknowledgeTrustedData(blockChecksumHash);
 
         const blockWitness: IBlockHeaderWitness = {
             ...data,
             blockNumber: Long.fromString(data.blockNumber.toString()),
             validatorWitnesses: [signedWitness],
-            trustedWitnesses: [trustedWitness],
         };
 
         await this.processBlockWitnesses(data.blockNumber, blockWitness);
@@ -336,35 +315,33 @@ export class BlockWitnessManager extends Logger {
     private async generateSelfProof(data: BlockProcessedData): Promise<void> {
         const blockChecksumHash = this.generateBlockHeaderChecksumHash(data);
         const signedWitness = this.identity.acknowledgeData(blockChecksumHash);
-        const trustedWitness = this.identity.acknowledgeTrustedData(blockChecksumHash);
 
         const blockWitness: IBlockHeaderWitness = {
             ...data,
             blockNumber: Long.fromString(data.blockNumber.toString()),
             validatorWitnesses: [signedWitness],
-            trustedWitnesses: [trustedWitness],
         };
 
         await this.processBlockWitnesses(data.blockNumber, blockWitness);
     }
 
     private revertKnownWitnessesReorg(toBlock: bigint): void {
-        const blocks: bigint[] = Array.from(this.knownTrustedWitnesses.keys());
+        const blocks: bigint[] = Array.from(this.knownWitnessIdentities.keys());
 
         for (const blockNumber of blocks) {
             if (blockNumber >= toBlock) {
-                this.knownTrustedWitnesses.delete(blockNumber);
+                this.knownWitnessIdentities.delete(blockNumber);
                 this.blockValidationCount.delete(blockNumber);
             }
         }
     }
 
     private purgeOldWitnesses(): void {
-        const blocks = Array.from(this.knownTrustedWitnesses.keys());
+        const blocks = Array.from(this.knownWitnessIdentities.keys());
 
         for (const block of blocks) {
             if (this.currentBlock - block > this.pendingBlockThreshold) {
-                this.knownTrustedWitnesses.delete(block);
+                this.knownWitnessIdentities.delete(block);
             }
         }
 
@@ -455,21 +432,16 @@ export class BlockWitnessManager extends Logger {
         blockNumber: bigint,
         blockWitness: IBlockHeaderWitness,
     ): IBlockHeaderWitness {
-        const trusted = this.knownTrustedWitnesses.get(blockNumber);
-        if (!trusted) return blockWitness;
-
-        const trustedWitnesses = blockWitness.trustedWitnesses.filter((w) => {
-            return !trusted.includes(w.identity || '');
-        });
+        const known = this.knownWitnessIdentities.get(blockNumber);
+        if (!known) return blockWitness;
 
         const opnetWitnesses = blockWitness.validatorWitnesses.filter((w) => {
-            return !trusted.includes(w.identity || '');
+            return !known.includes(w.identity || '');
         });
 
         return {
             ...blockWitness,
             validatorWitnesses: opnetWitnesses,
-            trustedWitnesses: trustedWitnesses,
         };
     }
 
@@ -527,7 +499,7 @@ export class BlockWitnessManager extends Logger {
         }
 
         const validWitnesses = this.validateBlockHeaderSignatures(blockWitness);
-        if (!validWitnesses) {
+        if (!validWitnesses || validWitnesses.length === 0) {
             if (
                 this.config.DEBUG_LEVEL >= DebugLevel.DEBUG &&
                 this.config.DEV.DISPLAY_INVALID_BLOCK_WITNESS
@@ -539,116 +511,27 @@ export class BlockWitnessManager extends Logger {
             return;
         }
 
-        const opnetWitnesses: OPNetBlockWitness[] = validWitnesses.opnetWitnesses;
-        const trustedWitnesses: OPNetBlockWitness[] = validWitnesses.validTrustedWitnesses;
-
-        if (opnetWitnesses.length + trustedWitnesses.length < 1) {
-            if (
-                this.config.DEBUG_LEVEL >= DebugLevel.DEBUG &&
-                this.config.DEV.DISPLAY_INVALID_BLOCK_WITNESS
-            ) {
-                this.fail(
-                    `Received an INVALID block witness(es) for block ${blockWitness.blockNumber.toString()} (NO VALID WITNESSES)`,
-                );
-            }
-            return;
-        }
-
         if (this.config.DEV.DISPLAY_VALID_BLOCK_WITNESS) {
             this.success(
-                `BLOCK (${blockNumber}) VALIDATION SUCCESSFUL. Received ${opnetWitnesses.length} validation witness(es) and ${trustedWitnesses.length} trusted witness(es). Data integrity is maintained.`,
+                `BLOCK (${blockNumber}) VALIDATION SUCCESSFUL. Received ${validWitnesses.length} validation witness(es). Data integrity is maintained.`,
             );
         }
 
-        this.addKnownTrustedWitnesses(blockNumber, opnetWitnesses);
-        await this.broadcastTrustedWitnesses(blockNumber, trustedWitnesses, blockWitness);
+        this.addKnownWitnessIdentities(blockNumber, validWitnesses);
 
         /** We can store the witnesses in the database after validating their data */
-        await this.writeBlockWitnessesToDatabase(blockNumber, opnetWitnesses, trustedWitnesses);
+        await this.writeBlockWitnessesToDatabase(blockNumber, validWitnesses);
     }
 
-    private async broadcastTrustedWitnesses(
-        blockNumber: bigint,
-        trustedWitnesses: OPNetBlockWitness[],
-        witnessData: IBlockHeaderWitness,
-    ): Promise<void> {
-        if (!this.blockWitnessRepository) {
-            throw new Error('BlockWitnessRepository not initialized.');
-        }
-
-        const trustedWitnessIdentities = trustedWitnesses
-            .map((w) => w.identity)
-            .filter((i) => !!i) as string[];
-
-        const rawWitnesses =
-            (await this.blockWitnessRepository.getBlockWitnesses(
-                blockNumber,
-                true,
-                trustedWitnessIdentities,
-            )) || [];
-
-        const newTrustedWitnesses = trustedWitnesses.filter((w) => {
-            /**
-             * We should not broadcast the generated witness by this trusted node twice. This would leak our identity.
-             */
-            return (
-                w.identity !== this.identity.trustedOPNetIdentity &&
-                !rawWitnesses.find((witness) => witness.identity === w.identity)
-            );
-        });
-
-        if (newTrustedWitnesses.length > 0) {
-            const knownWitnesses: OPNetBlockWitness[] = this.convertKnownWitnessesToOPNetWitness(
-                rawWitnesses || [],
-            );
-
-            const trustedWitness: OPNetBlockWitness[] = this.mergeAndDedupeTrustedWitnesses(
-                newTrustedWitnesses,
-                knownWitnesses,
-            );
-
-            this.addKnownTrustedWitnesses(blockNumber, trustedWitness);
-
-            if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-                this.log(
-                    `Broadcasting block witness for block ${blockNumber.toString()} to OPNet network.`,
-                );
-            }
-
-            const blockChecksumHash: Uint8Array = this.generateBlockHeaderChecksumHash(witnessData);
-            const selfSignedWitness = this.identity.acknowledgeData(blockChecksumHash);
-
-            /**
-             * We spoof the validatorWitnesses to include the self-signed witness. This way, the identity of the trusted validators is not revealed.
-             */
-            await this.broadcastBlockWitness({
-                ...witnessData,
-                trustedWitnesses: trustedWitness,
-                validatorWitnesses: [selfSignedWitness],
-            });
-        }
-    }
-
-    private addKnownTrustedWitnesses(blockNumber: bigint, witnesses: OPNetBlockWitness[]): void {
-        const knownWitnesses = this.knownTrustedWitnesses.get(blockNumber);
-        const trustedWitnessIdentity: string[] = witnesses.map((w) => w.identity) as string[];
+    private addKnownWitnessIdentities(blockNumber: bigint, witnesses: OPNetBlockWitness[]): void {
+        const knownWitnesses = this.knownWitnessIdentities.get(blockNumber);
+        const witnessIdentities: string[] = witnesses.map((w) => w.identity) as string[];
 
         if (knownWitnesses) {
-            knownWitnesses.push(...trustedWitnessIdentity);
+            knownWitnesses.push(...witnessIdentities);
         } else {
-            this.knownTrustedWitnesses.set(blockNumber, trustedWitnessIdentity);
+            this.knownWitnessIdentities.set(blockNumber, witnessIdentities);
         }
-    }
-
-    private mergeAndDedupeTrustedWitnesses(
-        newTrustedWitnesses: OPNetBlockWitness[],
-        knownWitnesses: OPNetBlockWitness[],
-    ): OPNetBlockWitness[] {
-        const newWitnesses = newTrustedWitnesses.filter((w) => {
-            return !knownWitnesses.find((kw) => kw.identity === w.identity);
-        });
-
-        return [...newWitnesses, ...knownWitnesses];
     }
 
     private convertKnownWitnessesToOPNetWitness(
@@ -676,15 +559,12 @@ export class BlockWitnessManager extends Logger {
     private async writeBlockWitnessesToDatabase(
         blockNumber: bigint,
         opnetWitnesses: OPNetBlockWitness[],
-        trustedWitnesses: OPNetBlockWitness[],
     ): Promise<void> {
         if (!this.blockWitnessRepository)
             throw new Error('BlockWitnessRepository not initialized.');
 
-        const finalWitnesses: OPNetBlockWitness[] = [...opnetWitnesses, ...trustedWitnesses];
-
         // Save OPNet witnesses
-        await this.blockWitnessRepository.setBlockWitnesses(blockNumber, finalWitnesses);
+        await this.blockWitnessRepository.setBlockWitnesses(blockNumber, opnetWitnesses);
     }
 
     private async requestRPCData(
@@ -705,52 +585,15 @@ export class BlockWitnessManager extends Logger {
 
     private validateBlockHeaderSignatures(
         blockWitness: IBlockHeaderWitness,
-    ): ValidWitnesses | undefined {
+    ): OPNetBlockWitness[] | undefined {
         const blockChecksumHash: Uint8Array = this.generateBlockHeaderChecksumHash(blockWitness);
         const validatorWitnesses: OPNetBlockWitness[] = blockWitness.validatorWitnesses;
-        const trustedWitnesses: OPNetBlockWitness[] = blockWitness.trustedWitnesses;
 
-        if (
-            (validatorWitnesses.length <= 0 && trustedWitnesses.length <= 0) ||
-            !blockChecksumHash
-        ) {
+        if (validatorWitnesses.length <= 0 || !blockChecksumHash) {
             return;
         }
 
-        const validTrustedWitnesses: OPNetBlockWitness[] = this.getValidTrustedWitnesses(
-            blockChecksumHash,
-            trustedWitnesses,
-        );
-
-        const validOPNetWitnesses: OPNetBlockWitness[] = this.validateOPNetWitnesses(
-            blockChecksumHash,
-            validatorWitnesses,
-        );
-
-        return {
-            validTrustedWitnesses: validTrustedWitnesses,
-            opnetWitnesses: validOPNetWitnesses,
-        };
-    }
-
-    private getValidTrustedWitnesses(
-        blockChecksumHash: Uint8Array,
-        witnesses: OPNetBlockWitness[],
-    ): OPNetBlockWitness[] {
-        if (witnesses.length === 0) return [];
-        if (witnesses.length > this.MAXIMUM_WITNESSES_PER_MESSAGE) {
-            // reduce the number of trusted witnesses to MAXIMUM_WITNESSES_PER_MESSAGE.
-
-            witnesses = witnesses.slice(0, this.MAXIMUM_WITNESSES_PER_MESSAGE);
-        }
-
-        return witnesses.filter((witness) => {
-            return this.identity.verifyTrustedAcknowledgment(
-                this.identity.mergeDataAndWitness(blockChecksumHash, witness.timestamp.toBigInt()),
-                witness,
-                witness.identity,
-            );
-        });
+        return this.validateOPNetWitnesses(blockChecksumHash, validatorWitnesses);
     }
 
     private validateOPNetWitnesses(

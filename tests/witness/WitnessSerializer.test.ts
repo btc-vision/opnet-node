@@ -28,7 +28,6 @@ function makeWitness(
         previousBlockChecksum: '44556677',
         txCount: 5,
         validatorWitnesses: [],
-        trustedWitnesses: [],
         ...overrides,
     };
 }
@@ -42,7 +41,6 @@ function makeSyncResponse(
     return {
         blockNumber: Long.fromNumber(200, true),
         validatorWitnesses: [],
-        trustedWitnesses: [],
         ...overrides,
     };
 }
@@ -90,27 +88,6 @@ describe('WitnessSerializer', () => {
             expect(result.validatorWitnesses).toHaveLength(1);
             expect(result.validatorWitnesses[0].timestamp).toBeInstanceOf(Long);
             expect(result.validatorWitnesses[0].timestamp.toString()).toBe('1700000000000');
-        });
-
-        it('should reconstruct trusted witness timestamps from degraded objects', () => {
-            const timestamp = Long.fromNumber(1700000000001, true);
-            const degradedTimestamp = degradeLong(timestamp);
-
-            const witness = makeWitness({
-                trustedWitnesses: [
-                    {
-                        identity: 'trusted1',
-                        signature: new Uint8Array([4, 5, 6]),
-                        timestamp: degradedTimestamp as unknown as Long,
-                    },
-                ],
-            });
-
-            const result = reconstructBlockWitness(witness);
-
-            expect(result.trustedWitnesses).toHaveLength(1);
-            expect(result.trustedWitnesses[0].timestamp).toBeInstanceOf(Long);
-            expect(result.trustedWitnesses[0].timestamp.toString()).toBe('1700000000001');
         });
 
         it('should handle already-valid Long instances (no-op)', () => {
@@ -207,14 +184,6 @@ describe('WitnessSerializer', () => {
             expect(result.validatorWitnesses).toEqual([]);
         });
 
-        it('should handle empty trustedWitnesses array', () => {
-            const witness = makeWitness({ trustedWitnesses: [] });
-
-            const result = reconstructBlockWitness(witness);
-
-            expect(result.trustedWitnesses).toEqual([]);
-        });
-
         it('should handle undefined validatorWitnesses', () => {
             const witness = makeWitness();
             // Force undefined (the interface says it can be optional through spreading)
@@ -225,19 +194,9 @@ describe('WitnessSerializer', () => {
             expect(result.validatorWitnesses).toBeUndefined();
         });
 
-        it('should handle undefined trustedWitnesses', () => {
-            const witness = makeWitness();
-            const withUndefined = { ...witness, trustedWitnesses: undefined } as unknown as IBlockHeaderWitness;
-
-            const result = reconstructBlockWitness(withUndefined);
-
-            expect(result.trustedWitnesses).toBeUndefined();
-        });
-
         it('should reconstruct multiple witnesses in array', () => {
             const ts1 = Long.fromNumber(1000, true);
             const ts2 = Long.fromNumber(2000, true);
-            const ts3 = Long.fromNumber(3000, true);
 
             const witness = makeWitness({
                 validatorWitnesses: [
@@ -252,13 +211,6 @@ describe('WitnessSerializer', () => {
                         timestamp: degradeLong(ts2) as unknown as Long,
                     },
                 ],
-                trustedWitnesses: [
-                    {
-                        identity: 't1',
-                        signature: new Uint8Array([3]),
-                        timestamp: degradeLong(ts3) as unknown as Long,
-                    },
-                ],
             });
 
             const result = reconstructBlockWitness(witness);
@@ -266,8 +218,6 @@ describe('WitnessSerializer', () => {
             expect(result.validatorWitnesses).toHaveLength(2);
             expect(result.validatorWitnesses[0].timestamp.toString()).toBe('1000');
             expect(result.validatorWitnesses[1].timestamp.toString()).toBe('2000');
-            expect(result.trustedWitnesses).toHaveLength(1);
-            expect(result.trustedWitnesses[0].timestamp.toString()).toBe('3000');
         });
 
         it('should reconstruct high-value blockNumber correctly (values requiring both low and high bits)', () => {
@@ -348,21 +298,12 @@ describe('WitnessSerializer', () => {
                         timestamp: degradeLong(ts) as unknown as Long,
                     },
                 ],
-                trustedWitnesses: [
-                    {
-                        identity: 'trust',
-                        signature: new Uint8Array([2]),
-                        timestamp: degradeLong(ts) as unknown as Long,
-                    },
-                ],
             });
 
             const result = reconstructSyncResponse(response);
 
             expect(result.validatorWitnesses[0].timestamp).toBeInstanceOf(Long);
             expect(result.validatorWitnesses[0].timestamp.toString()).toBe('9999');
-            expect(result.trustedWitnesses[0].timestamp).toBeInstanceOf(Long);
-            expect(result.trustedWitnesses[0].timestamp.toString()).toBe('9999');
         });
 
         it('should preserve non-Long fields', () => {
@@ -374,33 +315,17 @@ describe('WitnessSerializer', () => {
 
             expect(result.blockNumber.toString()).toBe('300');
             expect(result.validatorWitnesses).toEqual([]);
-            expect(result.trustedWitnesses).toEqual([]);
         });
 
         it('should handle undefined validatorWitnesses in sync response', () => {
             const response = {
                 blockNumber: Long.fromNumber(100, true),
                 validatorWitnesses: undefined,
-                trustedWitnesses: [],
             } as unknown as ISyncBlockHeaderResponse;
 
             const result = reconstructSyncResponse(response);
 
             expect(result.validatorWitnesses).toBeUndefined();
-            expect(result.trustedWitnesses).toEqual([]);
-        });
-
-        it('should handle undefined trustedWitnesses in sync response', () => {
-            const response = {
-                blockNumber: Long.fromNumber(100, true),
-                validatorWitnesses: [],
-                trustedWitnesses: undefined,
-            } as unknown as ISyncBlockHeaderResponse;
-
-            const result = reconstructSyncResponse(response);
-
-            expect(result.validatorWitnesses).toEqual([]);
-            expect(result.trustedWitnesses).toBeUndefined();
         });
 
         it('should handle string blockNumber in sync response', () => {

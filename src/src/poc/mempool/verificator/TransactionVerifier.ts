@@ -15,7 +15,6 @@ export abstract class TransactionVerifier<
 
     public readonly logColor: string = '#e0e0e0';
 
-    //protected readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
     protected currentBlockHeight: bigint = 0n;
 
     protected constructor(

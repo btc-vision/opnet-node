@@ -15,8 +15,6 @@ import {
 } from './threading/interfaces/thread-messages/messages/LinkThreadRequestMessage.js';
 import { ThreadMessageBase } from './threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadTypes } from './threading/thread/enums/ThreadTypes.js';
-import { TrustedAuthority } from './poc/configurations/manager/TrustedAuthority.js';
-import { AuthorityManager } from './poc/configurations/manager/AuthorityManager.js';
 import { OPNetIdentity } from './poc/identity/OPNetIdentity.js';
 
 Globals.register();
@@ -26,8 +24,6 @@ export class Core extends Logger {
 
     private readonly masterThreads: Partial<Record<ThreadTypes, Worker>> = {};
     private readonly threads: Worker[] = [];
-
-    private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
 
     private pluginReadyResolver?: () => void;
     private pluginReadyPromise?: Promise<void>;
@@ -133,7 +129,7 @@ export class Core extends Logger {
     }
 
     private createIdentity(): void {
-        new OPNetIdentity(Config, this.currentAuthority); // create identity if non-existent. If OPNet is unable to load the current node identity, it will error before starting threads.
+        new OPNetIdentity(Config); // create identity if non-existent. If OPNet is unable to load the current node identity, it will error before starting threads.
     }
 
     private async setupDB(): Promise<boolean> {

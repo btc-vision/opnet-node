@@ -47,9 +47,6 @@ export function reconstructBlockWitness(data: IBlockHeaderWitness): IBlockHeader
         validatorWitnesses: data.validatorWitnesses
             ? reconstructWitnesses(data.validatorWitnesses)
             : data.validatorWitnesses,
-        trustedWitnesses: data.trustedWitnesses
-            ? reconstructWitnesses(data.trustedWitnesses)
-            : data.trustedWitnesses,
     };
 }
 
@@ -63,8 +60,5 @@ export function reconstructSyncResponse(data: ISyncBlockHeaderResponse): ISyncBl
         validatorWitnesses: data.validatorWitnesses
             ? reconstructWitnesses(data.validatorWitnesses)
             : data.validatorWitnesses,
-        trustedWitnesses: data.trustedWitnesses
-            ? reconstructWitnesses(data.trustedWitnesses)
-            : data.trustedWitnesses,
     };
 }

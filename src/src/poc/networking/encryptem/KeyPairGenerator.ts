@@ -8,7 +8,6 @@ export interface OPNetKeyPair {
     privateKey: Uint8Array;
 
     identity: OPNetProvenIdentity;
-    trusted: SodiumKeyPair;
 }
 
 export type OPNetProvenIdentity = {
@@ -30,7 +29,6 @@ export class KeyPairGenerator extends Logger {
 
     public generateKey(): OPNetKeyPair {
         const keyPair: SodiumKeyPair = this.generateKeyPair(this.generateAuthKey());
-        const trustedKeyPair: SodiumKeyPair = this.generateTrustedKeypair();
 
         const identity: OPNetProvenIdentity = this.generateIdentity(keyPair);
 
@@ -38,7 +36,6 @@ export class KeyPairGenerator extends Logger {
             publicKey: keyPair.publicKey,
             privateKey: keyPair.privateKey,
             identity: identity,
-            trusted: trustedKeyPair,
         };
     }
 
@@ -118,15 +115,6 @@ export class KeyPairGenerator extends Logger {
         hash.update(data);
 
         return hash.digest();
-    }
-
-    private generateTrustedKeypair(): SodiumKeyPair {
-        const seedBuffer: Buffer = crypto.randomBytes(sodium.crypto_sign_SEEDBYTES);
-
-        const seed = Buffer.alloc(sodium.crypto_sign_SEEDBYTES);
-        sodium.randombytes_buf_deterministic(seed, seedBuffer);
-
-        return this.generateKeyPair(seed);
     }
 
     private generateAuthKey(): Uint8Array {

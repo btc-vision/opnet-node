@@ -5,7 +5,7 @@ import { PackedMessage, Packet } from '../Packet.js';
 
 export interface IDiscover extends PackedMessage {
     readonly version: string;
-    readonly trustedChecksum: string;
+    readonly protocolChecksum: string;
 }
 
 export class DiscoverPacket extends Packet<IDiscover, IDiscover, IDiscover> {

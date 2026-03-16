@@ -482,7 +482,6 @@ export class VMMongoStorage extends VMStorage {
 
     public async getWitnesses(
         height: bigint | -1,
-        trusted?: boolean,
         limit?: number,
         page?: number,
     ): Promise<IParsedBlockWitnessDocument[]> {
@@ -495,7 +494,7 @@ export class VMMongoStorage extends VMStorage {
             height = BigInt(lastBlock.height);
         }
 
-        return await this.blockWitnessRepository.getWitnesses(height, trusted, limit, page ?? 1);
+        return await this.blockWitnessRepository.getWitnesses(height, limit, page ?? 1);
     }
 
     public async getWitnessesForEpoch(

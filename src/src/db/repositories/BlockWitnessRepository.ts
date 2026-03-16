@@ -77,17 +77,12 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
 
     public async getWitnesses(
         height: bigint,
-        trusted?: boolean,
         limit?: number,
         page?: number,
     ): Promise<IParsedBlockWitnessDocument[]> {
         const criteria: Partial<Filter<IBlockWitnessDocument>> = {
             blockNumber: DataConverter.toDecimal128(height),
         };
-
-        if (trusted !== undefined) {
-            criteria.trusted = trusted;
-        }
 
         let result: PagingQueryResult<IBlockWitnessDocument> | IBlockWitnessDocument[];
         if (limit) {
@@ -113,7 +108,7 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
     ): Promise<IParsedBlockWitnessDocument[]> {
         const results: Promise<IParsedBlockWitnessDocument[]>[] = [];
         for (let height = startBlock; height <= endBlock; height++) {
-            results.push(this.getWitnesses(height, false, limitPerBlock));
+            results.push(this.getWitnesses(height, limitPerBlock));
         }
 
         const allWitnesses = await Promise.safeAll(results);
@@ -133,12 +128,10 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
 
     public async getBlockWitnesses(
         height: bigint,
-        trusted: boolean = false,
         identity?: string[],
     ): Promise<IParsedBlockWitnessDocument[] | undefined> {
         const criteria: Partial<Filter<IBlockWitnessDocument>> = {
             blockNumber: DataConverter.toDecimal128(height),
-            trusted: trusted,
         };
 
         if (identity && identity.length) {
@@ -171,7 +164,6 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
 
             const blockNumber = DataConverter.toDecimal128(height);
 
-            const isTrusted = !pubKey;
             if (!signature) {
                 continue;
             }
@@ -187,7 +179,6 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
                 identity: witness.identity,
                 timestamp: new Date(Number(witness.timestamp)),
                 publicKey: pubKey,
-                trusted: isTrusted,
             };
 
             bulk.find(criteria).upsert().updateOne({ $set: update });
@@ -228,7 +219,6 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
                 identity: witness.identity,
                 publicKey: witness.publicKey,
                 signature: witness.signature,
-                trusted: witness.trusted,
                 timestamp: witness.timestamp,
                 proofs: witness.proofs,
             });
