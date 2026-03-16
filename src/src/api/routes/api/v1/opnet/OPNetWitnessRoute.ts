@@ -31,12 +31,11 @@ export class OPNetWitnessRoute extends Route<
         }
 
         // eslint-disable-next-line prefer-const
-        let [height, trusted, limit, page] = this.getDecodedParams(params);
+        let [height, limit, page] = this.getDecodedParams(params);
         if (typeof height === 'string') height = BigInt(height);
 
         const witnesses: IParsedBlockWitnessDocument[] = await this.storage.getWitnesses(
             height,
-            trusted,
             limit,
             page,
         );
@@ -61,7 +60,6 @@ export class OPNetWitnessRoute extends Route<
      * @summary Get block witness
      * @description Return a list of opnet block witnesses
      * @queryParam height {number} Height of the block
-     * @queryParam [trusted] {boolean} Trusted block
      * @queryParam [limit] {number} Limit of witnesses
      * @queryParam [page] {number} Page number
      * @response 200 - Returns the block witnesses
@@ -102,9 +100,6 @@ export class OPNetWitnessRoute extends Route<
         }
 
         const bigintHeight = height ? BigInt(height) : -1;
-        const trusted: boolean | undefined = req.query.trusted
-            ? req.query.trusted === 'true'
-            : undefined;
 
         const limit: number | undefined = req.query.limit
             ? parseInt(req.query.limit as string, 10)
@@ -116,7 +111,6 @@ export class OPNetWitnessRoute extends Route<
 
         return {
             height: bigintHeight,
-            trusted: trusted,
             limit: limit,
             page: page,
         };
@@ -138,7 +132,6 @@ export class OPNetWitnessRoute extends Route<
                 timestamp: witness.timestamp.getTime(),
                 proofs: witness.proofs?.map((proof) => proof.toString('base64')) || [],
                 identity: witness.identity,
-                trusted: witness.trusted,
             };
 
             result[blockNumber].push(parsedWitness);
@@ -154,22 +147,19 @@ export class OPNetWitnessRoute extends Route<
 
     private getDecodedParams(params: BlockWitnessParams): BlockWitnessAsArray {
         let height: bigint | -1 | string = -1;
-        let trusted: boolean | undefined;
         let limit: number | undefined;
         let page: number | undefined;
 
         if (Array.isArray(params)) {
             height = params[0];
-            trusted = params[1];
-            limit = params[2];
-            page = params[3];
+            limit = params[1];
+            page = params[2];
         } else {
             height = params.height;
-            trusted = params.trusted;
             limit = params.limit;
             page = params.page;
         }
 
-        return [height, trusted, limit, page];
+        return [height, limit, page];
     }
 }

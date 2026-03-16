@@ -534,9 +534,7 @@ export class SSHClient extends Logger {
             `Your OPNet identity is ${this.chalk.underline.bold.hex('#afe9fc')(this.identity.opnetAddress)}.`,
         );
 
-        const opnetTrustedCertificate = this.chalk.hex('#68d6f8')(
-            `Your OPNet trusted certificate is\r\n\r\n${this.chalk.underline.bold.hex('#afe9fc')(this.identity.trustedPublicKey)}.`,
-        );
+        const opnetTrustedCertificate = '';
 
         const nodeInfoHeader = this.chalk.underline.bold.hex('#00beff')('Node Information:');
         const networkInfoHeader = this.chalk.underline.bold.hex('#f868cf')('Network Information:');

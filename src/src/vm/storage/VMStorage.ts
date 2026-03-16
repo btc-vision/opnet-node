@@ -75,7 +75,6 @@ export abstract class VMStorage extends Logger {
 
     public abstract getWitnesses(
         height: bigint | -1,
-        trusted?: boolean,
         limit?: number,
         page?: number,
     ): Promise<IParsedBlockWitnessDocument[]>;

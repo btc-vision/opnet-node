@@ -13,7 +13,7 @@ export enum DisconnectionCode {
     BAD_AUTH_CIPHER = 11,
 
     UNABLE_TO_AUTHENTICATE = 12,
-    BAD_TRUSTED_CHECKSUM = 13,
+    BAD_PROTOCOL_CHECKSUM = 13,
 
     BAD_NETWORK = 14,
     BAD_CHAIN_ID = 15,

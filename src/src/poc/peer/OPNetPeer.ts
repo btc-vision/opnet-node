@@ -87,10 +87,6 @@ export class OPNetPeer extends Logger {
         return this.serverNetworkingManager.clientChainId;
     }
 
-    public get clientChecksum(): string | undefined {
-        return this.serverNetworkingManager.clientChecksum;
-    }
-
     public get clientVersion(): string | undefined {
         return this.serverNetworkingManager.clientVersion;
     }

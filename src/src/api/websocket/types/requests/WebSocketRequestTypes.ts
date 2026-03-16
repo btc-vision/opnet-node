@@ -40,7 +40,6 @@ export interface GetBlockByChecksumRequest extends BaseRequest {
 
 export interface GetBlockWitnessRequest extends BaseRequest {
     readonly height: number | bigint;
-    readonly trusted?: boolean;
     readonly limit?: number;
     readonly page?: number;
 }

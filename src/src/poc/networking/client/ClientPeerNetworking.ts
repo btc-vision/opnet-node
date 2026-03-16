@@ -123,7 +123,7 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
             this.selfIdentity,
         );
 
-        peerManager.getTrustedChecksum = this.trustedChecksum.bind(this);
+        peerManager.getProtocolChecksum = this.protocolChecksum.bind(this);
         peerManager.on(PeerHandlerEvents.PEERS_DISCOVERED, this.onPeersDiscovered.bind(this));
 
         this.listenToManagerEvents(peerManager);

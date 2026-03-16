@@ -2,7 +2,6 @@ import { JSONRpcMethods } from '../../../enums/JSONRpcMethods.js';
 import { JSONRpc2ResultData } from '../../JSONRpc2ResultData.js';
 
 export interface IBlockWitnessAPI {
-    readonly trusted: boolean;
     readonly signature: string;
     readonly timestamp: number;
 

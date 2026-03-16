@@ -23,8 +23,8 @@ export class ClientPeerManager extends AbstractPacketManager {
         super(protocol, peerId, selfIdentity);
     }
 
-    public getTrustedChecksum: () => string = () => {
-        throw new Error('getTrustedChecksum not implemented.');
+    public getProtocolChecksum: () => string = () => {
+        throw new Error('getProtocolChecksum not implemented.');
     };
 
     public async onPacket(packet: OPNetPacket): Promise<boolean> {
@@ -52,7 +52,7 @@ export class ClientPeerManager extends AbstractPacketManager {
 
         const discoverData: IDiscover = {
             version: AuthenticationManager.CURRENT_PROTOCOL_VERSION,
-            trustedChecksum: this.getTrustedChecksum(),
+            protocolChecksum: this.getProtocolChecksum(),
         };
 
         await this.sendMsg(packet.pack(discoverData));

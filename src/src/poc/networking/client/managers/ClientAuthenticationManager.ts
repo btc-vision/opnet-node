@@ -169,7 +169,7 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
         const authData: IAuthenticationPacket = {
             version: AuthenticationManager.CURRENT_PROTOCOL_VERSION,
             clientAuthCipher: this.#OPNetAuthKey,
-            trustedChecksum: this.trustedChecksum(),
+            protocolChecksum: this.protocolChecksum(),
             type: this.selfIdentity.peerType,
             network: this.selfIdentity.peerNetwork,
             chainId: this.selfIdentity.peerChainId,

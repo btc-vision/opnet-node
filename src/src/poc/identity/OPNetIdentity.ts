@@ -8,7 +8,6 @@ import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 import { KeyPairGenerator, OPNetKeyPair } from '../networking/encryptem/KeyPairGenerator.js';
 import { OPNetBlockWitness } from '../networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { OPNetPathFinder } from './OPNetPathFinder.js';
-import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
 import { EcKeyPair } from '@btc-vision/transaction';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import Long from 'long';
@@ -22,7 +21,6 @@ export class OPNetIdentity extends OPNetPathFinder {
     private readonly opnetWallet: UniversalSigner;
 
     private readonly keyPair: OPNetKeyPair;
-    private readonly trustedIdentity: string;
 
     readonly #xPubKey: Uint8Array;
 
@@ -30,7 +28,6 @@ export class OPNetIdentity extends OPNetPathFinder {
 
     public constructor(
         private readonly config: BtcIndexerConfig,
-        private readonly currentAuthority: TrustedAuthority,
     ) {
         super();
 
@@ -44,7 +41,6 @@ export class OPNetIdentity extends OPNetPathFinder {
         this.opnetAuthKeyBin = this.loadOPNetAuthKeys();
         this.keyPair = this.restoreKeyPair(this.opnetAuthKeyBin);
 
-        this.trustedIdentity = this.keyPairGenerator.opnetHash(this.keyPair.trusted.publicKey);
         this.#xPubKey = toXOnly(this.opnetWallet.publicKey);
     }
 
@@ -67,12 +63,8 @@ export class OPNetIdentity extends OPNetPathFinder {
         return this.config.BITCOIN.CHAIN_ID;
     }
 
-    public get trustedOPNetIdentity(): string {
-        return this.trustedIdentity;
-    }
-
     public get opnetPubKey(): string {
-        return toBase64(this.keyPair.trusted.publicKey);
+        return toBase64(this.keyPair.publicKey);
     }
 
     public get pubKeyBase64(): string {
@@ -85,19 +77,6 @@ export class OPNetIdentity extends OPNetPathFinder {
 
     public get publicKey(): Uint8Array {
         return this.opnetWalletPubKeyBytes;
-    }
-
-    public get signedTrustedWalletConfirmation(): string {
-        const signature: Uint8Array = this.keyPairGenerator.sign(
-            this.opnetWalletPubKeyBytes,
-            this.keyPair.trusted.privateKey,
-        );
-
-        return toBase64(signature);
-    }
-
-    public get trustedPublicKey(): string {
-        return `${this.opnetPubKey}|${this.pubKeyBase64}|${this.signedTrustedWalletConfirmation}`;
     }
 
     public get tapAddress(): string {
@@ -167,23 +146,6 @@ export class OPNetIdentity extends OPNetPathFinder {
         );
     }
 
-    // PoV: Proof of Validation
-    public verifyTrustedAcknowledgment(
-        data: Uint8Array,
-        witness: OPNetBlockWitness,
-        identity: string | undefined,
-    ): boolean {
-        if (!data) return false;
-        if (!witness.signature) return false;
-        if (!identity) return false;
-
-        // We protect the identity of trusted validators by not revealing their public keys.
-        const validWitness = this.currentAuthority.verifyTrustedSignature(data, witness.signature);
-        if (!validWitness.validity) return false;
-
-        return validWitness.identity === identity;
-    }
-
     public verifyOPNetIdentity(identity: string, pubKey: Uint8Array): boolean {
         return this.keyPairGenerator.verifyOPNetIdentity(identity, pubKey);
     }
@@ -207,19 +169,6 @@ export class OPNetIdentity extends OPNetPathFinder {
         view.setBigUint64(32, timestamp, false);
 
         return data;
-    }
-
-    public acknowledgeTrustedData(data: Uint8Array): OPNetBlockWitness {
-        if (!this.opnetWallet.privateKey) throw new Error('Private key not found');
-
-        const now = BigInt(Date.now());
-        const witnessData = this.mergeDataAndWitness(data, now);
-
-        return {
-            signature: this.keyPairGenerator.sign(witnessData, this.keyPair.trusted.privateKey),
-            timestamp: Long.fromBigInt(now, true),
-            identity: this.trustedIdentity,
-        };
     }
 
     private getOPNetAuthKeysPath(): string {
@@ -296,19 +245,12 @@ export class OPNetIdentity extends OPNetPathFinder {
 
         const identity = buf.subarray(96, 224);
 
-        const trustedPublicKey = buf.subarray(224, 256);
-        const trustedPrivateKey = buf.subarray(256);
-
         return {
             privateKey: new Uint8Array(privateKey),
             publicKey: new Uint8Array(publicKey),
             identity: {
                 hash: new Uint8Array(identity.subarray(0, 64)),
                 proof: new Uint8Array(identity.subarray(64)),
-            },
-            trusted: {
-                privateKey: new Uint8Array(trustedPrivateKey),
-                publicKey: new Uint8Array(trustedPublicKey),
             },
         };
     }
@@ -321,8 +263,6 @@ export class OPNetIdentity extends OPNetPathFinder {
             keyPair.publicKey, // 32 bytes
             keyPair.identity.hash, // 64 bytes
             keyPair.identity.proof, // 64 bytes
-            keyPair.trusted.publicKey, // 32 bytes
-            keyPair.trusted.privateKey, // 32 bytes
         ]);
     }
 }

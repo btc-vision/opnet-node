@@ -7,8 +7,6 @@ import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { Thread } from '../../threading/thread/Thread.js';
 import { BlockWitnessManager } from '../networking/p2p/BlockWitnessManager.js';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
-import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
-import { AuthorityManager } from '../configurations/manager/AuthorityManager.js';
 import { BlockProcessedData } from '../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
 import { IBlockHeaderWitness } from '../networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { ISyncBlockHeaderResponse } from '../networking/protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
@@ -70,8 +68,7 @@ export class WitnessThread extends Thread<ThreadTypes.WITNESS> {
         await DBManagerInstance.connect();
 
         // Create identity (same as P2P thread does)
-        const currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
-        const identity = new OPNetIdentity(Config, currentAuthority);
+        const identity = new OPNetIdentity(Config);
 
         // Create and initialize BlockWitnessManager
         this.blockWitnessManager = new BlockWitnessManager(Config, identity);

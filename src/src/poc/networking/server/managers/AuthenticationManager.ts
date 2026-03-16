@@ -1,6 +1,6 @@
 import { equals, toHex } from '@btc-vision/bitcoin';
 import { ChainIds } from '../../../../config/enums/ChainIds.js';
-import { TRUSTED_CHECKSUM } from '../../../configurations/P2PVersion.js';
+import { PROTOCOL_CHECKSUM } from '../../../configurations/P2PVersion.js';
 import { OPNetIdentity } from '../../../identity/OPNetIdentity.js';
 import { EncryptemServer } from '../../encryptem/EncryptemServer.js';
 import { DisconnectionCode } from '../../enums/DisconnectionCode.js';
@@ -27,13 +27,11 @@ import { Packets } from '../../protobuf/types/enums/Packets.js';
 import { ServerInBound } from '../../protobuf/types/messages/OPNetMessages.js';
 import { OPNetPacket } from '../../protobuf/types/OPNetPacket.js';
 import { SharedAuthenticationManager } from '../../shared/managers/SharedAuthenticationManager.js';
-import { TrustedVersion } from '../../../configurations/version/TrustedVersion.js';
 
 export abstract class AuthenticationManager extends SharedAuthenticationManager {
     private static readonly VERIFY_NETWORK: boolean = true;
 
     public clientVersion: string | undefined;
-    public clientChecksum: string | undefined;
 
     public clientIndexerMode: number | undefined;
     public clientNetwork: number | undefined;
@@ -391,16 +389,16 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         await this.createFullAuthentication();
     }
 
-    private mayAcceptTrustedChecksum(
-        peerVersion: TrustedVersion,
-        trustedChecksum: string,
+    private mayAcceptProtocolChecksum(
+        peerVersion: string,
+        protocolChecksum: string,
     ): boolean {
-        const requestedVersionChecksum: string = TRUSTED_CHECKSUM[peerVersion];
+        const requestedVersionChecksum: string = PROTOCOL_CHECKSUM[peerVersion];
         if (!requestedVersionChecksum) {
             return false;
         }
 
-        return requestedVersionChecksum !== trustedChecksum;
+        return requestedVersionChecksum !== protocolChecksum;
     }
 
     private async verifyNetwork(): Promise<void> {
@@ -452,15 +450,15 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         }
 
         if (
-            this.mayAcceptTrustedChecksum(
+            this.mayAcceptProtocolChecksum(
                 unpackedAuthData.version,
-                unpackedAuthData.trustedChecksum,
+                unpackedAuthData.protocolChecksum,
             )
         ) {
-            this.warn(`Peer (${this.peerId}) has an invalid trusted checksum.`);
+            this.warn(`Peer (${this.peerId}) has an invalid protocol checksum.`);
             await this.disconnectPeer(
-                DisconnectionCode.BAD_TRUSTED_CHECKSUM,
-                'Invalid trusted checksum.',
+                DisconnectionCode.BAD_PROTOCOL_CHECKSUM,
+                'Invalid protocol checksum.',
             );
             return;
         }
@@ -481,7 +479,6 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         }
 
         this.clientVersion = unpackedAuthData.version;
-        this.clientChecksum = unpackedAuthData.trustedChecksum;
         this.clientNetwork = unpackedAuthData.network;
         this.clientIndexerMode = unpackedAuthData.type;
         this.clientChainId = unpackedAuthData.chainId;
