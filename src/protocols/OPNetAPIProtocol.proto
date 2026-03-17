@@ -348,9 +348,8 @@ message ChallengeSubmission {
 message GetBlockWitnessRequest {
     uint32 requestId = 1;
     uint64 height = 2;
-    optional bool trusted = 3;
-    optional uint32 limit = 4;
-    optional uint32 page = 5;
+    optional uint32 limit = 3;
+    optional uint32 page = 4;
 }
 
 message BlockWitnessResponse {
