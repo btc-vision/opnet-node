@@ -30,9 +30,11 @@ export class OPNetWitnessRoute extends Route<
             throw new Error('Storage not initialized');
         }
 
-        // eslint-disable-next-line prefer-const
         let [height, limit, page] = this.getDecodedParams(params);
+
         if (typeof height === 'string') height = BigInt(height);
+        if (limit !== undefined) limit = Math.floor(limit satisfies number);
+        if (page !== undefined) page = Math.floor(page satisfies number);
 
         const witnesses: IParsedBlockWitnessDocument[] = await this.storage.getWitnesses(
             height,
@@ -152,12 +154,12 @@ export class OPNetWitnessRoute extends Route<
 
         if (Array.isArray(params)) {
             height = params[0];
-            limit = params[1];
-            page = params[2];
+            limit = Number(params[1]);
+            page = Number(params[2]);
         } else {
             height = params.height;
-            limit = params.limit;
-            page = params.page;
+            limit = Number(params.limit);
+            page = Number(params.page);
         }
 
         return [height, limit, page];
