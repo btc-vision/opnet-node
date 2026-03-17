@@ -5,11 +5,7 @@ import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middl
 import { JSONRpcRouter } from './JSONRpcRouter.js';
 import { JSONRPCErrorCode, JSONRPCErrorHttpCodes } from './types/enums/JSONRPCErrorCode.js';
 import { JSONRpcMethods } from './types/enums/JSONRpcMethods.js';
-import {
-    JSONRpc2Request,
-    JSONRpc2RequestParams,
-    JSONRpcId,
-} from './types/interfaces/JSONRpc2Request.js';
+import { JSONRpc2Request, JSONRpc2RequestParams, JSONRpcId, } from './types/interfaces/JSONRpc2Request.js';
 import { JSONRpc2ResponseError, JSONRpc2Result } from './types/interfaces/JSONRpc2Result.js';
 import { JSONRpcResultError } from './types/interfaces/JSONRpcResultError.js';
 import { Config } from '../../config/Config.js';
@@ -407,6 +403,8 @@ export class JSONRpc2Manager extends Logger {
     ): void {
         if (res.closed) return;
         if (error.message.toLowerCase().includes('mongo')) {
+            this.error(`Something went critically wrong: ${error.message}`);
+
             error = {
                 ...error,
                 message: `Something went critically wrong. Please contact this node administrator.`,
