@@ -21,17 +21,16 @@ import {
 import { GasTracker } from '../GasTracker.js';
 import { OPNetConsensus } from '../../../poc/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
-import { StrippedTransactionOutput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
+import {
+    StrippedTransactionOutput
+} from '../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { StrippedTransactionInput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import { FastBigIntMap } from '../../../utils/fast/FastBigintMap.js';
 import { AccessList } from '../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import { ProvenPointers } from '../../storage/types/MemoryValue.js';
 import { AddressStack } from './AddressStack.js';
 import { RustContract } from '../../rust/RustContract.js';
-import {
-    TransactionInputFlags,
-    TransactionOutputFlags,
-} from '../../../poc/configurations/types/IOPNetConsensus.js';
+import { TransactionInputFlags, TransactionOutputFlags, } from '../../../poc/configurations/types/IOPNetConsensus.js';
 import { SpecialContract } from '../../../poc/configurations/types/SpecialContracts.js';
 import { MutableNumber } from '../../mutables/MutableNumber.js';
 
@@ -374,6 +373,10 @@ export class ContractEvaluation implements ExecutionParameters {
         }
 
         this.deployedContracts.set(contract.contractPublicKey, contract);
+    }
+
+    public deployedContract(address: Address): boolean {
+        return this.deployedContracts.has(address);
     }
 
     public preloadedStorage(storage: ProvenPointers | null): void {
