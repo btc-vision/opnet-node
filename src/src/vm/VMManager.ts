@@ -1052,9 +1052,14 @@ export class VMManager extends Logger {
             throw new Error('Contract already deployed. (cache)');
         }
 
+        // Only check committed blocks (before current block). Same-block duplicates
+        // are already caught by contractCache above. Using blockNumber - 1n with the
+        // $lte query gives blockHeight < blockNumber, which excludes stale records
+        // from failed previous processing or incomplete reorg cleanup at the current
+        // height or above.
         const exists = await this.vmStorage.getContractAt(
             deployResult.toHex(),
-            evaluation.blockNumber + 1n,
+            evaluation.blockNumber - 1n,
         );
 
         if (exists) {
