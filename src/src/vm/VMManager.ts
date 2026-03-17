@@ -1052,6 +1052,10 @@ export class VMManager extends Logger {
             throw new Error('Contract already deployed. (cache)');
         }
 
+        if (evaluation.deployedContract(deployResult)) {
+            throw new Error('Contract already deployed. (eval)');
+        }
+
         // Only check committed blocks (before current block). Same-block duplicates
         // are already caught by contractCache above. Using blockNumber - 1n with the
         // $lte query gives blockHeight < blockNumber, which excludes stale records
@@ -1063,10 +1067,10 @@ export class VMManager extends Logger {
         );
 
         if (exists) {
-            return Promise.resolve({
+            return {
                 contractAddress: new Address(new Array(32).fill(0)),
                 bytecodeLength: 0,
-            });
+            };
         }
 
         const deployerKeyPair = contractInfo.contractPublicKey;
