@@ -86,9 +86,9 @@
         "@multiformats/multiaddr": "^13.0.1",
         "@noble/curves": "^2.0.1",
         "@noble/secp256k1": "^3.0.0",
-        "@typescript-eslint/eslint-plugin": "^8.57.0",
-        "@typescript-eslint/parser": "^8.57.0",
-        "@typescript-eslint/utils": "^8.57.0",
+        "@typescript-eslint/eslint-plugin": "^8.57.1",
+        "@typescript-eslint/parser": "^8.57.1",
+        "@typescript-eslint/utils": "^8.57.1",
         "asyncapi-validator": "^5.1.1",
         "bignumber.js": "^10.0.2",
         "bip174": "^3.0.0",
@@ -116,7 +116,7 @@
         "tiny-secp256k1": "^2.2.4",
         "toml": "^3.0.0",
         "typescript": "^5.9.3",
-        "typescript-eslint": "^8.57.0",
+        "typescript-eslint": "^8.57.1",
         "uint8arraylist": "^2.4.8"
     },
     "devDependencies": {
