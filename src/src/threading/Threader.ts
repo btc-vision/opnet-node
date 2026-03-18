@@ -439,7 +439,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
             const taskId: string = this.generateRndTaskId();
             const timeout = setTimeout(() => {
                 this.warn(`[A] Thread task ${taskId} timed out.`);
-
+                this.tasks.delete(taskId);
                 resolve({
                     error: true,
                 });

@@ -52,12 +52,20 @@ export class GetLatestPendingTransactions extends Route<
         const limit = Math.max(1, Math.min(decoded.limit, Config.API.MEMPOOL.MAX_LIMIT));
 
         // If a single address is provided, auto-resolve all address types
-        if (decoded.address && !addresses) {
+        if (decoded.address && (!addresses || addresses.length === 0)) {
             addresses = await this.resolveAddresses(decoded.address);
         }
 
         if (addresses && addresses.length > Config.API.MEMPOOL.MAX_ADDRESSES) {
             throw new Error(`Too many addresses. Maximum is ${Config.API.MEMPOOL.MAX_ADDRESSES}.`);
+        }
+
+        if (addresses && addresses.length > 0) {
+            let resolvedAdresses: string[] = [];
+            for (const address of addresses) {
+                resolvedAdresses = [...resolvedAdresses, ...(await this.resolveAddresses(address))];
+            }
+            addresses = resolvedAdresses;
         }
 
         const txs = await this.storage.getLatestPendingTransactions(addresses, limit);
