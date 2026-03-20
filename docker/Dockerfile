@@ -1,5 +1,5 @@
 # Build stage
-FROM node:24-bookworm-slim AS builder
+FROM node:24-trixie-slim AS builder
 
 WORKDIR /app
 
@@ -31,7 +31,7 @@ RUN npm run build
 RUN npm prune --production
 
 # Production stage
-FROM node:24-bookworm-slim
+FROM node:24-trixie-slim
 
 WORKDIR /app
 
@@ -50,6 +50,8 @@ RUN mkdir -p /app/config /app/data /app/plugins /app/build/config \
 COPY --from=builder --chown=opnet:opnet /app/build ./build
 COPY --from=builder --chown=opnet:opnet /app/node_modules ./node_modules
 COPY --from=builder --chown=opnet:opnet /app/package*.json ./
+
+RUN ln -s /app/build/src /app/src
 
 # Copy config example as reference (mount your config at /app/config/btc.conf)
 COPY --chown=opnet:opnet docker/config/btc.conf.example /app/config/btc.conf.example
