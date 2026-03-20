@@ -25,7 +25,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         [ChainIds.Bitcoin]: {
             [BitcoinNetwork.mainnet]: {
                 ENABLED: true,
-                BLOCK: 1_000_000_000n,
+                BLOCK: 941396n,
             },
             [BitcoinNetwork.testnet]: {
                 ENABLED: true,
@@ -123,7 +123,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         GAS_PENALTY_FACTOR: 1n,
 
         /** Target block gas limit, a transaction can not pass this limit. */
-        TARGET_GAS: 15_000_000_000_001n,
+        TARGET_GAS: 20_000_000_000_001n,
 
         /** Smooth out gas increase when equal to gas target. */
         SMOOTH_OUT_GAS_INCREASE: 1_000_000_000n,
@@ -132,7 +132,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
          * Maximum theoretical upper limit, all transactions after this limit will revert for being out of gas.
          * Can overflow up to the value set to TARGET_GAS.
          */
-        MAX_THEORETICAL_GAS: 15_000_000_000_000n,
+        MAX_THEORETICAL_GAS: 20_000_000_000_000n,
 
         /** Max gas per transactions */
         TRANSACTION_MAX_GAS: 150_000_000_000n, // 0.0015 BTC
