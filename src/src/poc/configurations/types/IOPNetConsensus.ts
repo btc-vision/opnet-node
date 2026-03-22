@@ -21,6 +21,12 @@ export interface OPNetEnabledConfigs {
     readonly BLOCK: bigint;
 }
 
+export interface EarlyMiningConfig {
+    readonly ENABLED: boolean;
+    readonly WHITELISTED_PUBLIC_KEY?: Address;
+    readonly EXPIRES_AT_BLOCK?: bigint;
+}
+
 export interface IOPNetConsensus<T extends Consensus> {
     /** Information about the consensus */
     // The consensus type.
@@ -53,6 +59,12 @@ export interface IOPNetConsensus<T extends Consensus> {
         readonly TIMELOCK_BLOCKS_REWARD: number;
 
         readonly SOLUTION_LIFETIME: bigint;
+
+        readonly EARLY_MINING?: {
+            readonly [key in ChainIds]?: {
+                readonly [key in BitcoinNetwork]?: EarlyMiningConfig;
+            };
+        };
     };
 
     readonly GENERIC: {

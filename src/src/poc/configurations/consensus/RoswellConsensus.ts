@@ -56,6 +56,25 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         TIMELOCK_BLOCKS_REWARD: 75,
 
         SOLUTION_LIFETIME: 80n,
+
+        EARLY_MINING: {
+            [ChainIds.Bitcoin]: {
+                [BitcoinNetwork.mainnet]: {
+                    ENABLED: true,
+                    WHITELISTED_PUBLIC_KEY: Address.fromString(
+                        '0xb884f251011f1b2f747a477b0d019c3abea15c889ea5e404bf7ed5e219af7de1',
+                        '0x0369bdc866e51df16d446110d37bcd8098e2e4d5f2f112537a07d45f5e3613604f',
+                    ),
+                    EXPIRES_AT_BLOCK: 948_200n,
+                },
+                [BitcoinNetwork.testnet]: {
+                    ENABLED: false,
+                },
+                [BitcoinNetwork.regtest]: {
+                    ENABLED: true,
+                },
+            },
+        },
     },
 
     GENERIC: {
