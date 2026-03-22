@@ -364,8 +364,14 @@ export class EpochManager extends Logger {
     private getBestSubmission(
         submissions: IEpochSubmissionsDocument[],
         targetHash: Uint8Array,
+        endBlock: bigint,
     ): EpochSubmissionWinner | null {
         if (submissions.length === 0) {
+            return null;
+        }
+
+        const eligibleSubmissions = this.filterEarlyMiningSubmissions(submissions, endBlock);
+        if (eligibleSubmissions.length === 0) {
             return null;
         }
 
@@ -373,7 +379,7 @@ export class EpochManager extends Logger {
         let bestSubmissions: IEpochSubmissionsDocument[] = [];
         let bestMatchingBits = 0;
 
-        for (const submission of submissions) {
+        for (const submission of eligibleSubmissions) {
             const solutionHash = new Uint8Array(submission.epochProposed.solution.buffer);
             if (solutionHash.length !== 20) {
                 this.log(
@@ -407,6 +413,51 @@ export class EpochManager extends Logger {
                 ? new Uint8Array(winningSubmission.epochProposed.graffiti.buffer)
                 : new Uint8Array(OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH),
         };
+    }
+
+    private filterEarlyMiningSubmissions(
+        submissions: IEpochSubmissionsDocument[],
+        endBlock: bigint,
+    ): IEpochSubmissionsDocument[] {
+        const earlyMining = OPNetConsensus.consensus.EPOCH.EARLY_MINING;
+        if (!earlyMining) {
+            return submissions;
+        }
+
+        const chainConfig = earlyMining[Config.BITCOIN.CHAIN_ID];
+        if (!chainConfig) {
+            return submissions;
+        }
+
+        const networkConfig = chainConfig[Config.BITCOIN.NETWORK];
+        if (!networkConfig || !networkConfig.ENABLED) {
+            return submissions;
+        }
+
+        if (!networkConfig.WHITELISTED_PUBLIC_KEY) {
+            return submissions;
+        }
+
+        if (networkConfig.EXPIRES_AT_BLOCK && endBlock >= networkConfig.EXPIRES_AT_BLOCK) {
+            return submissions;
+        }
+
+        const whitelistedKey = networkConfig.WHITELISTED_PUBLIC_KEY;
+        const eligible = submissions.filter((submission) => {
+            const submissionKey = new Address(
+                new Uint8Array(submission.epochProposed.mldsaPublicKey.buffer),
+            );
+
+            return whitelistedKey.equals(submissionKey);
+        });
+
+        if (eligible.length < submissions.length) {
+            this.warn(
+                `Early mining whitelist active: filtered ${submissions.length - eligible.length}/${submissions.length} non-whitelisted submissions from winner selection`,
+            );
+        }
+
+        return eligible;
     }
 
     private getWinningSubmission(
@@ -505,7 +556,7 @@ export class EpochManager extends Logger {
 
         const targetHash: Uint8Array = SHA1.hashBuffer(checksumRoot);
 
-        const winningSubmission = this.getBestSubmission(submissions, targetHash);
+        const winningSubmission = this.getBestSubmission(submissions, targetHash, endBlock);
         if (winningSubmission && winningSubmission.epochNumber !== epochNumber) {
             throw new Error(
                 `Winner epoch mismatch: expected ${epochNumber}, got ${winningSubmission.epochNumber}`,
