@@ -551,8 +551,6 @@ export class EpochManager extends Logger {
         const targetHash: Uint8Array = SHA1.hashBuffer(checksumRoot);
 
         const winningSubmission = this.getBestSubmission(submissions, targetHash, endBlock);
-        console.log(submissions, winningSubmission);
-
         if (winningSubmission && winningSubmission.epochNumber !== epochNumber) {
             throw new Error(
                 `Winner epoch mismatch: expected ${epochNumber}, got ${winningSubmission.epochNumber}`,
