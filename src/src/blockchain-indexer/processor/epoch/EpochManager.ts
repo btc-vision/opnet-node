@@ -9,12 +9,7 @@ import { DataConverter } from '@btc-vision/bsi-common';
 import { Binary } from 'mongodb';
 import { EpochDifficultyConverter } from '../../../poc/epoch/EpochDifficultyConverter.js';
 import { EpochValidator } from '../../../poc/epoch/EpochValidator.js';
-import {
-    Attestation,
-    AttestationType,
-    EpochData,
-    EpochMerkleTree,
-} from '../block/merkle/EpochMerkleTree.js';
+import { Attestation, AttestationType, EpochData, EpochMerkleTree, } from '../block/merkle/EpochMerkleTree.js';
 import {
     EpochSubmissionWinner,
     IEpochSubmissionsDocument,
@@ -241,7 +236,6 @@ export class EpochManager extends Logger {
             checkSumRoots,
             submissions,
             witnesses,
-            //task,
             epochNumber,
             lastEpoch,
             attestationChecksumRoot,
@@ -557,6 +551,8 @@ export class EpochManager extends Logger {
         const targetHash: Uint8Array = SHA1.hashBuffer(checksumRoot);
 
         const winningSubmission = this.getBestSubmission(submissions, targetHash, endBlock);
+        console.log(submissions, winningSubmission);
+
         if (winningSubmission && winningSubmission.epochNumber !== epochNumber) {
             throw new Error(
                 `Winner epoch mismatch: expected ${epochNumber}, got ${winningSubmission.epochNumber}`,

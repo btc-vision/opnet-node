@@ -209,7 +209,7 @@ export class SubmitEpochRoute extends Route<
             // Each hex pair represents one byte, so divide by 2
             const graffitiByteLength = graffitiHex.length / 2;
 
-            if (graffitiByteLength > OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {
+            if (graffitiByteLength > OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH - 4) {
                 throw new Error(
                     `Graffiti cannot exceed ${OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH} bytes. ` +
                         `Received ${graffitiByteLength} bytes`,
