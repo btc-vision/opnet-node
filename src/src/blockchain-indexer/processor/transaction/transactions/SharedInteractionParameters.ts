@@ -473,10 +473,11 @@ export abstract class SharedInteractionParameters<
         const mldsaPublicKey = binaryReader.readBytes(32);
         const salt = binaryReader.readBytes(32);
         const bytesLeft = binaryReader.bytesLeft();
+        const maxLength: number = OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH - 4;
 
         let graffiti: Uint8Array | undefined;
-        if (bytesLeft > 0 && bytesLeft <= OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {
-            graffiti = binaryReader.readBytesWithLength(bytesLeft);
+        if (bytesLeft > 0 && bytesLeft <= maxLength) {
+            graffiti = binaryReader.readBytesWithLength(maxLength);
         }
 
         if (isEmptyBuffer(mldsaPublicKey)) {
