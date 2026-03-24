@@ -1,4 +1,4 @@
-# OP_NET - Node (v1.0.0-rc.1+testnet)
+# OP_NET - Node (v1.0.1)
 
 ![Bitcoin](https://img.shields.io/badge/Bitcoin-000?style=for-the-badge&logo=bitcoin&logoColor=white)
 ![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white)
@@ -26,7 +26,7 @@
 
 | Network     | Status                                                   |
 |-------------|----------------------------------------------------------|
-| **Mainnet** | (NOT LIVE)                                               |
+| **Mainnet** | Live                                                     |
 | **Testnet** | Live (official testnet, will remain alive after mainnet) |
 
 ## Introduction

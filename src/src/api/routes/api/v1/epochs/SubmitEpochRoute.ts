@@ -205,19 +205,24 @@ export class SubmitEpochRoute extends Route<
                 ? params.graffiti.slice(2)
                 : params.graffiti;
 
+            if (graffitiHex.length > 0 && !hexRegex.test(graffitiHex)) {
+                throw new Error('Graffiti contains invalid hex characters');
+            }
+
             // Check if graffiti length exceeds maximum allowed bytes
             // Each hex pair represents one byte, so divide by 2
             const graffitiByteLength = graffitiHex.length / 2;
+
+            // Verify not decimal
+            if (Math.floor(graffitiByteLength) !== graffitiByteLength) {
+                throw new Error(`Invalid graffiti hex string length.`);
+            }
 
             if (graffitiByteLength > OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH - 4) {
                 throw new Error(
                     `Graffiti cannot exceed ${OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH} bytes. ` +
                         `Received ${graffitiByteLength} bytes`,
                 );
-            }
-
-            if (graffitiHex.length > 0 && !hexRegex.test(graffitiHex)) {
-                throw new Error('Graffiti contains invalid hex characters');
             }
         }
     }

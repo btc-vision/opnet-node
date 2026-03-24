@@ -9,7 +9,12 @@ import { DataConverter } from '@btc-vision/bsi-common';
 import { Binary } from 'mongodb';
 import { EpochDifficultyConverter } from '../../../poc/epoch/EpochDifficultyConverter.js';
 import { EpochValidator } from '../../../poc/epoch/EpochValidator.js';
-import { Attestation, AttestationType, EpochData, EpochMerkleTree, } from '../block/merkle/EpochMerkleTree.js';
+import {
+    Attestation,
+    AttestationType,
+    EpochData,
+    EpochMerkleTree,
+} from '../block/merkle/EpochMerkleTree.js';
 import {
     EpochSubmissionWinner,
     IEpochSubmissionsDocument,
