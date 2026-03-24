@@ -15,7 +15,12 @@ import {
 } from '../../../../json-rpc/types/interfaces/results/epochs/SubmittedEpochResult.js';
 import { EpochValidationParams, EpochValidator } from '../../../../../poc/epoch/EpochValidator.js';
 import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import { BinaryWriter, MessageSigner, MLDSASecurityLevel, QuantumBIP32Factory, } from '@btc-vision/transaction';
+import {
+    BinaryWriter,
+    MessageSigner,
+    MLDSASecurityLevel,
+    QuantumBIP32Factory,
+} from '@btc-vision/transaction';
 import { equals } from '@btc-vision/bitcoin';
 import { isEmptyBuffer } from '../../../../../utils/BufferUtils.js';
 
