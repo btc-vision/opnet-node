@@ -15,12 +15,7 @@ import {
 } from '../../../../json-rpc/types/interfaces/results/epochs/SubmittedEpochResult.js';
 import { EpochValidationParams, EpochValidator } from '../../../../../poc/epoch/EpochValidator.js';
 import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import {
-    BinaryWriter,
-    MessageSigner,
-    MLDSASecurityLevel,
-    QuantumBIP32Factory,
-} from '@btc-vision/transaction';
+import { BinaryWriter, MessageSigner, MLDSASecurityLevel, QuantumBIP32Factory, } from '@btc-vision/transaction';
 import { equals } from '@btc-vision/bitcoin';
 import { isEmptyBuffer } from '../../../../../utils/BufferUtils.js';
 
@@ -205,19 +200,24 @@ export class SubmitEpochRoute extends Route<
                 ? params.graffiti.slice(2)
                 : params.graffiti;
 
+            if (graffitiHex.length > 0 && !hexRegex.test(graffitiHex)) {
+                throw new Error('Graffiti contains invalid hex characters');
+            }
+
             // Check if graffiti length exceeds maximum allowed bytes
             // Each hex pair represents one byte, so divide by 2
             const graffitiByteLength = graffitiHex.length / 2;
+
+            // Verify not decimal
+            if (Math.floor(graffitiByteLength) !== graffitiByteLength) {
+                throw new Error(`Invalid graffiti hex string length.`);
+            }
 
             if (graffitiByteLength > OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH - 4) {
                 throw new Error(
                     `Graffiti cannot exceed ${OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH} bytes. ` +
                         `Received ${graffitiByteLength} bytes`,
                 );
-            }
-
-            if (graffitiHex.length > 0 && !hexRegex.test(graffitiHex)) {
-                throw new Error('Graffiti contains invalid hex characters');
             }
         }
     }
