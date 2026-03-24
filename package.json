@@ -61,7 +61,7 @@
         "@btc-vision/plugin-sdk": "^1.0.1",
         "@btc-vision/post-quantum": "^0.5.3",
         "@btc-vision/rust-merkle-tree": "^1.0.2",
-        "@btc-vision/transaction": "^1.8.2",
+        "@btc-vision/transaction": "^1.8.4",
         "@btc-vision/uwebsockets.js": "^20.57.0",
         "@chainsafe/libp2p-noise": "^17.0.0",
         "@chainsafe/libp2p-quic": "^2.0.0",
@@ -86,9 +86,6 @@
         "@multiformats/multiaddr": "^13.0.1",
         "@noble/curves": "^2.0.1",
         "@noble/secp256k1": "^3.0.0",
-        "@typescript-eslint/eslint-plugin": "^8.57.1",
-        "@typescript-eslint/parser": "^8.57.1",
-        "@typescript-eslint/utils": "^8.57.1",
         "asyncapi-validator": "^5.1.1",
         "bignumber.js": "^10.0.2",
         "bip174": "^3.0.0",
@@ -115,8 +112,8 @@
         "swagger-ui-express": "^5.0.1",
         "tiny-secp256k1": "^2.2.4",
         "toml": "^3.0.0",
-        "typescript": "^5.9.3",
-        "typescript-eslint": "^8.57.1",
+        "typescript": "^6.0.2",
+        "typescript-eslint": "^8.57.2",
         "uint8arraylist": "^2.4.8"
     },
     "devDependencies": {
@@ -126,14 +123,19 @@
         "@types/sodium-native": "^2.3.9",
         "@types/ssh2": "^1.15.5",
         "@types/swagger-ui-express": "^4.1.8",
-        "@vitest/coverage-v8": "^4.1.0",
-        "eslint": "^10.0.3",
+        "@vitest/coverage-v8": "^4.1.1",
+        "eslint": "^10.1.0",
         "gulp": "^5.0.1",
         "gulp-cached": "^1.1.1",
         "gulp-clean": "^0.4.0",
-        "gulp-eslint-new": "^2.6.1",
+        "gulp-eslint-new": "^2.6.2",
         "gulp-typescript": "^6.0.0-alpha.1",
         "prettier": "^3.8.1",
-        "vitest": "^4.1.0"
+        "vitest": "^4.1.1"
+    },
+	"overrides": {
+        "typescript-eslint": {
+            "typescript": "$typescript"
+        }
     }
 }
