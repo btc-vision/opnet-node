@@ -3,11 +3,7 @@ import { SpecialContract, SpecialContracts } from '../../types/SpecialContracts.
 
 // APPLIED @ BLOCK 16706
 const nativeSwapRegtest: Address = Address.fromString(
-    '0xd7bf1ef160a5cc688682b16f36128cdba4710578541a5dc5fe9b2e88d975907a',
-);
-
-const nativeSwapRegtest2: Address = Address.fromString(
-    '0xb056ba05448cf4a5468b3e1190b0928443981a93c3aff568467f101e94302422',
+    '0xfcab8f4f47c83846581eb2c1b07918971af2100d245444d9c3dee1a3dadd6d4f',
 );
 
 const nativeSwapMainnet: Address = Address.fromString(
@@ -31,12 +27,6 @@ export const SPECIAL_CONTRACTS_ROSWELL_REGTEST: SpecialContracts = {
         ...nativeSwapContractSettings,
 
         address: nativeSwapRegtest,
-    },
-
-    [nativeSwapRegtest2.toHex()]: {
-        ...nativeSwapContractSettings,
-
-        address: nativeSwapRegtest2,
     },
 };
 
