@@ -78,7 +78,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     },
 
     GENERIC: {
-        /** General consensus properties */
+        /** Consensus properties */
         // The block height at which this consensus was enabled.
         ENABLED_AT_BLOCK: -1n,
 
