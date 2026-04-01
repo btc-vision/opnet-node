@@ -34,17 +34,9 @@
         "url": "https://github.com/btc-vision/opnet-node.git"
     },
     "overrides": {
-        "jsonpath-plus": "10.4.0",
-        "@asyncapi/parser": {
-            "ajv": "8.18.0"
-        },
-        "json-schema-migrate": {
-            "ajv": "8.18.0"
-        },
-        "webapi-parser": {
-            "ajv": "8.18.0"
-        },
-        "minimatch": "10.2.3"
+        "typescript-eslint": {
+            "typescript": "$typescript"
+        }
     },
     "dependencies": {
         "@asyncapi/generator": "^3.2.0",
@@ -112,7 +104,7 @@
         "swagger-ui-express": "^5.0.1",
         "tiny-secp256k1": "^2.2.4",
         "toml": "^3.0.0",
-        "typescript": "^6.0.2",
+        "typescript": "^5.9.3",
         "typescript-eslint": "^8.57.2",
         "uint8arraylist": "^2.4.8"
     },
@@ -132,10 +124,5 @@
         "gulp-typescript": "^6.0.0-alpha.1",
         "prettier": "^3.8.1",
         "vitest": "^4.1.1"
-    },
-	"overrides": {
-        "typescript-eslint": {
-            "typescript": "$typescript"
-        }
     }
 }
