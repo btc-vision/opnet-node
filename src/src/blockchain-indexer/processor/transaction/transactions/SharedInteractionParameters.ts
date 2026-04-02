@@ -460,32 +460,22 @@ export abstract class SharedInteractionParameters<
         const mldsaPublicKey = binaryReader.readBytes(32);
         const salt = binaryReader.readBytes(32);
         const bytesLeft = binaryReader.bytesLeft();
+        const maxLength: number = OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH;
 
         let graffiti: Uint8Array | undefined;
         if (
             this.blockHeight >=
             OPNetConsensus.consensusEpochPatches.GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT
         ) {
-            const maxLength: number = OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH - 4;
-
-            console.log(
-                'maxLength',
-                maxLength,
-                'bytesLeft',
-                bytesLeft,
-                'binaryReader',
-                binaryReader,
-            );
-
             if (bytesLeft > 0) {
                 if (bytesLeft <= maxLength) {
-                    graffiti = binaryReader.readBytesWithLength(maxLength);
+                    graffiti = binaryReader.readBytes(bytesLeft);
                 } else {
                     throw new Error('OP_NET: Epoch submission graffiti too long.');
                 }
             }
         } else {
-            if (bytesLeft > 0 && bytesLeft <= OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {
+            if (bytesLeft > 0 && bytesLeft <= maxLength) {
                 graffiti = binaryReader.readBytesWithLength(bytesLeft);
             }
         }
