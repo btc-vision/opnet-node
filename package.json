@@ -53,7 +53,7 @@
         "@btc-vision/plugin-sdk": "^1.0.1",
         "@btc-vision/post-quantum": "^0.5.3",
         "@btc-vision/rust-merkle-tree": "^1.0.2",
-        "@btc-vision/transaction": "^1.8.5",
+        "@btc-vision/transaction": "^1.8.6-beta.0",
         "@btc-vision/uwebsockets.js": "^20.57.0",
         "@chainsafe/libp2p-noise": "^17.0.0",
         "@chainsafe/libp2p-quic": "^2.0.1",
