@@ -1,4 +1,5 @@
 import {
+    EpochPatches,
     IOPNetConsensus,
     IOPNetConsensusObj,
     OPNetEnabledConfigs,
@@ -33,6 +34,20 @@ class OPNetConsensusConfiguration extends Logger {
         }
 
         return this.#consensus;
+    }
+
+    public get consensusEpochPatches(): EpochPatches {
+        const chainConfig = OPNetConsensus.consensus.EPOCH.PATCH[Config.BITCOIN.CHAIN_ID];
+        if (!chainConfig) {
+            throw new Error('Chain not supported');
+        }
+
+        const networkConfig = chainConfig[Config.BITCOIN.NETWORK];
+        if (!networkConfig) {
+            throw new Error('Network not supported');
+        }
+
+        return networkConfig;
     }
 
     public get allowUnsafeSignatures(): boolean {

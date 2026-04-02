@@ -27,6 +27,10 @@ export interface EarlyMiningConfig {
     readonly EXPIRES_AT_BLOCK?: bigint;
 }
 
+export interface EpochPatches {
+    readonly GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT: bigint;
+}
+
 export interface IOPNetConsensus<T extends Consensus> {
     /** Information about the consensus */
     // The consensus type.
@@ -63,6 +67,12 @@ export interface IOPNetConsensus<T extends Consensus> {
         readonly EARLY_MINING?: {
             readonly [key in ChainIds]?: {
                 readonly [key in BitcoinNetwork]?: EarlyMiningConfig;
+            };
+        };
+
+        readonly PATCH: {
+            readonly [key in ChainIds]?: {
+                readonly [key in BitcoinNetwork]?: EpochPatches;
             };
         };
     };
