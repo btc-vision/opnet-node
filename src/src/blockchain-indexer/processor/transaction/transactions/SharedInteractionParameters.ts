@@ -1,21 +1,8 @@
 import { Transaction } from '../Transaction.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
-import {
-    AccessListFeature,
-    EpochSubmissionFeature,
-    MLDSALinkRequest,
-} from '../features/Features.js';
+import { AccessListFeature, EpochSubmissionFeature, MLDSALinkRequest, } from '../features/Features.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
-import {
-    alloc,
-    concat,
-    equals,
-    fromHex,
-    opcodes,
-    payments,
-    Script,
-    toHex,
-} from '@btc-vision/bitcoin';
+import { alloc, concat, equals, fromHex, opcodes, payments, Script, toHex, } from '@btc-vision/bitcoin';
 import { OPNetConsensus } from '../../../../poc/configurations/OPNetConsensus.js';
 import {
     Address,
@@ -480,8 +467,22 @@ export abstract class SharedInteractionParameters<
             OPNetConsensus.consensusEpochPatches.GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT
         ) {
             const maxLength: number = OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH - 4;
-            if (bytesLeft > 0 && bytesLeft <= maxLength) {
-                graffiti = binaryReader.readBytesWithLength(maxLength);
+
+            console.log(
+                'maxLength',
+                maxLength,
+                'bytesLeft',
+                bytesLeft,
+                'binaryReader',
+                binaryReader,
+            );
+
+            if (bytesLeft > 0) {
+                if (bytesLeft <= maxLength) {
+                    graffiti = binaryReader.readBytesWithLength(maxLength);
+                } else {
+                    throw new Error('OP_NET: Epoch submission graffiti too long.');
+                }
             }
         } else {
             if (bytesLeft > 0 && bytesLeft <= OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {
