@@ -57,6 +57,20 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
         SOLUTION_LIFETIME: 80n,
 
+        PATCH: {
+            [ChainIds.Bitcoin]: {
+                [BitcoinNetwork.mainnet]: {
+                    GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT: 943417n,
+                },
+                [BitcoinNetwork.testnet]: {
+                    GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT: 12583n,
+                },
+                [BitcoinNetwork.regtest]: {
+                    GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT: 0n,
+                },
+            },
+        },
+
         EARLY_MINING: {
             [ChainIds.Bitcoin]: {
                 [BitcoinNetwork.mainnet]: {
