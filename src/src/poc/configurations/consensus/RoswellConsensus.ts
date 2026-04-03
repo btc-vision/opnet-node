@@ -60,7 +60,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         PATCH: {
             [ChainIds.Bitcoin]: {
                 [BitcoinNetwork.mainnet]: {
-                    GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT: 943417n, //943432n
+                    GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT: 943452n, //943432n
                 },
                 [BitcoinNetwork.testnet]: {
                     GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT: 12583n,

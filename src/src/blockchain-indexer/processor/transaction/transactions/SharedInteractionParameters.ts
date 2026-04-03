@@ -463,20 +463,14 @@ export abstract class SharedInteractionParameters<
         const maxLength: number = OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH;
 
         let graffiti: Uint8Array | undefined;
-        if (
-            this.blockHeight >=
-            OPNetConsensus.consensusEpochPatches.GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT
-        ) {
-            if (bytesLeft > 0) {
-                if (bytesLeft <= maxLength) {
-                    graffiti = binaryReader.readBytes(bytesLeft);
-                } else {
-                    throw new Error('OP_NET: Epoch submission graffiti too long.');
-                }
-            }
-        } else {
-            if (bytesLeft > 0 && bytesLeft <= maxLength) {
-                graffiti = binaryReader.readBytesWithLength(bytesLeft);
+        if (bytesLeft > 0) {
+            if (bytesLeft <= maxLength) {
+                graffiti = binaryReader.readBytes(bytesLeft);
+            } else if (
+                this.blockHeight >=
+                OPNetConsensus.consensusEpochPatches.GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT
+            ) {
+                throw new Error('OP_NET: Epoch submission graffiti too long.');
             }
         }
 

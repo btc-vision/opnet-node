@@ -54,7 +54,9 @@ import {
     OPNetBroadcastResponse,
 } from '../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 import { BroadcastResponse } from '../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
-import { MempoolTransactionNotificationMessage } from '../../threading/interfaces/thread-messages/messages/api/MempoolTransactionNotification.js';
+import {
+    MempoolTransactionNotificationMessage
+} from '../../threading/interfaces/thread-messages/messages/api/MempoolTransactionNotification.js';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
@@ -1560,7 +1562,7 @@ export class P2PManager extends Logger {
         const id: string = peerId.toString();
 
         if (this.isBlackListedPeerId(peerId.toString())) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                 this.debug(`Peer ${id} is blacklisted. Flushing connection...`);
             }
 
