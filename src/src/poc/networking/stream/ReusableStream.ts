@@ -130,7 +130,7 @@ export class ReusableStream extends Logger {
         return new Promise<void>((resolve, reject) => {
             this.messageQueue.push({ data, resolve, reject });
 
-            if (this.messageQueue.length === 1 && !this._isProcessingQueue) {
+            if (this.messageQueue.length === 1) {
                 void this.processQueue();
             }
         });
@@ -242,23 +242,34 @@ export class ReusableStream extends Logger {
      * Process outbound messages in FIFO, sending each in turn.
      */
     private async processQueue(): Promise<void> {
-        this._isProcessingQueue = true;
-
-        while (this.messageQueue.length > 0) {
-            if (this.isClosed) break;
-
-            const item = this.messageQueue[0];
-            try {
-                await this.writeData(item.data);
-                this.messageQueue.shift();
-                item.resolve();
-            } catch (err) {
-                this.messageQueue.shift();
-                item.reject(err);
-            }
+        if (this._isProcessingQueue) {
+            return;
         }
 
-        this._isProcessingQueue = false;
+        this._isProcessingQueue = true;
+        try {
+            while (this.messageQueue.length > 0) {
+                if (this.isClosed) break;
+
+                const item = this.messageQueue[0];
+                try {
+                    await this.writeData(item.data);
+                    this.messageQueue.shift();
+                    item.resolve();
+                } catch (err) {
+                    this.messageQueue.shift();
+                    item.reject(err);
+                }
+            }
+        } finally {
+            this._isProcessingQueue = false;
+
+            // A message may have been enqueued after the loop observed an empty queue
+            // but before we cleared the processing flag. Restart draining if needed.
+            if (!this.isClosed && this.messageQueue.length > 0) {
+                void this.processQueue();
+            }
+        }
     }
 
     /**
