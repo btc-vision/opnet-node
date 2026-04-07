@@ -91,13 +91,16 @@ export class WitnessThread extends Thread<ThreadTypes.WITNESS> {
                 // Broadcast to ALL instances: update currentBlock so peer witnesses
                 // for recent blocks are accepted (not rejected as "too old").
                 const { blockNumber } = m.data as { blockNumber: bigint };
-                void this.blockWitnessManager.setCurrentBlock(blockNumber, true);
-
-                if (!this.currentBlockSet) {
-                    this.currentBlockSet = true;
-                    // Height is now set, replay any buffered peer witnesses
-                    this.flushPendingPeerMessages();
-                }
+                this.blockWitnessManager.setCurrentBlock(blockNumber, true).then(
+                    () => {
+                        if (!this.currentBlockSet) {
+                            this.currentBlockSet = true;
+                            // Height is now set, replay any buffered peer witnesses
+                            this.flushPendingPeerMessages();
+                        }
+                    },
+                    () => {},
+                );
 
                 return {};
             }
