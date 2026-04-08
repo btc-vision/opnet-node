@@ -118,7 +118,8 @@ export class P2PManager extends Logger {
 
     private knownMempoolIdentifiers: FastStringSet = new FastStringSet();
 
-    private readonly PURGE_BLACKLISTED_PEER_AFTER: number = 30_000;
+    private readonly PURGE_BLACKLISTED_PEER_AFTER: number = 300_000;
+    private isMonitoringHealth: boolean = false;
 
     private readonly identity: OPNetIdentity;
     private startedIndexer: boolean = false;
@@ -466,13 +467,15 @@ export class P2PManager extends Logger {
 
         const peerIdStr = peerId.toString();
 
-        try {
-            // Remove from peer store to stop future dial attempts from monitorConnectionHealth
-            await this.node.peerStore.delete(peerId);
+        // Already blacklisted, skip duplicate handling
+        if (this.blackListedPeerIds.has(peerIdStr)) {
+            return;
+        }
 
-            // Add to in-memory blacklist (will expire after 30 seconds per PURGE_BLACKLISTED_PEER_AFTER)
-            // The peer will remain unreachable via PeerChecker's failure tracking for 1 hour
+        try {
+            // Blacklist FIRST (reads peer data for IP extraction), then delete from store
             await this.blackListPeerId(peerId, DisconnectionCode.UNREACHABLE);
+            await this.node.peerStore.delete(peerId);
 
             this.warn(
                 `Peer ${peerIdStr} marked as unreachable after repeated dial failures, removed from peer store`,
@@ -626,9 +629,12 @@ export class P2PManager extends Logger {
     }
 
     private onReconnectFailure(evt: CustomEvent<PeerId>): void {
-        const peerId = evt.detail.toString();
+        const peerId = evt.detail;
+        const peerIdStr = peerId.toString();
 
-        this.warn(`Failed to reconnect to peer ${peerId}.`);
+        this.warn(`Failed to reconnect to peer ${peerIdStr}.`);
+
+        void this._peerChecker?.recordExternalDialFailure(peerId);
     }
 
     private resetExternalAddressDiscovery(): void {
@@ -638,77 +644,83 @@ export class P2PManager extends Logger {
 
     private async monitorConnectionHealth(): Promise<void> {
         if (!this.node) return;
+        if (this.isMonitoringHealth) return;
+        this.isMonitoringHealth = true;
 
-        const connections = this.node.getConnections();
-        const healthyConnections = connections.filter((conn) => conn.status === 'open');
+        try {
+            const connections = this.node.getConnections();
+            const healthyConnections = connections.filter((conn) => conn.status === 'open');
 
-        const authenticatedPeers = Array.from(this.peers.values()).filter(
-            (p) => p.isAuthenticated,
-        ).length;
+            const authenticatedPeers = Array.from(this.peers.values()).filter(
+                (p) => p.isAuthenticated,
+            ).length;
 
-        this.debug(
-            `Connection health: ${healthyConnections.length} connections, ${authenticatedPeers} authenticated peers`,
-        );
+            this.debug(
+                `Connection health: ${healthyConnections.length} connections, ${authenticatedPeers} authenticated peers`,
+            );
 
-        if (this.streamManager) {
-            this.streamManager.logStreamStats();
-        }
-
-        if (healthyConnections.length === 0) {
-            this.resetExternalAddressDiscovery();
-        }
-
-        if (!this.isBootstrapNode()) {
-            if (healthyConnections.length < this.config.P2P.MINIMUM_PEERS) {
-                // Trigger peer discovery
-                try {
-                    this.addBoostrapNodesToPeerStore();
-
-                    await this.refreshRouting();
-
-                    // Try to dial known peers that we're not connected to
-                    const knownPeers = await this.node.peerStore.all();
-                    const connectedPeerIds = new Set(
-                        connections.map((c) => c.remotePeer.toString()),
-                    );
-
-                    if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                        this.debug(
-                            `Refreshing routing table. Known peers: ${knownPeers.length}, Connected peers: ${connectedPeerIds.size}`,
-                        );
-                    }
-
-                    // Filter out unreachable and already connected peers, then try up to 5
-                    const peersToTry = knownPeers.filter((peer) => {
-                        const peerIdStr = peer.id.toString();
-                        return (
-                            !connectedPeerIds.has(peerIdStr) &&
-                            !this._peerChecker?.isPeerUnreachable(peerIdStr)
-                        );
-                    });
-
-                    for (const peer of peersToTry.slice(0, 5)) {
-                        const peerIdStr = peer.id.toString();
-                        try {
-                            await this.node.dial(peer.id);
-
-                            // Reset failure count on successful dial
-                            this._peerChecker?.resetDialFailures(peerIdStr);
-                        } catch (e) {
-                            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                                this.debug(`Failed to dial ${peer.id}: ${e}`);
-                            }
-
-                            // Record failure - will trigger onPeerUnreachable if threshold exceeded
-                            await this._peerChecker?.recordExternalDialFailure(peer.id);
-                        }
-                    }
-                } catch (e) {
-                    this.error(`Failed to refresh routing table: ${e}`);
-                }
-            } else {
-                this.debug('Connection health is good.');
+            if (this.streamManager) {
+                this.streamManager.logStreamStats();
             }
+
+            if (healthyConnections.length === 0) {
+                this.resetExternalAddressDiscovery();
+            }
+
+            if (!this.isBootstrapNode()) {
+                if (healthyConnections.length < this.config.P2P.MINIMUM_PEERS) {
+                    // Trigger peer discovery
+                    try {
+                        this.addBoostrapNodesToPeerStore();
+
+                        await this.refreshRouting();
+
+                        // Try to dial known peers that we're not connected to
+                        const knownPeers = await this.node.peerStore.all();
+                        const connectedPeerIds = new Set(
+                            connections.map((c) => c.remotePeer.toString()),
+                        );
+
+                        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                            this.debug(
+                                `Refreshing routing table. Known peers: ${knownPeers.length}, Connected peers: ${connectedPeerIds.size}`,
+                            );
+                        }
+
+                        // Filter out unreachable and already connected peers, then try up to 5
+                        const peersToTry = knownPeers.filter((peer) => {
+                            const peerIdStr = peer.id.toString();
+                            return (
+                                !connectedPeerIds.has(peerIdStr) &&
+                                !this._peerChecker?.isPeerUnreachable(peerIdStr)
+                            );
+                        });
+
+                        for (const peer of peersToTry.slice(0, 5)) {
+                            const peerIdStr = peer.id.toString();
+                            try {
+                                await this.node.dial(peer.id);
+
+                                // Reset failure count on successful dial
+                                this._peerChecker?.resetDialFailures(peerIdStr);
+                            } catch (e) {
+                                if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                                    this.debug(`Failed to dial ${peer.id}: ${e}`);
+                                }
+
+                                // Record failure, will trigger onPeerUnreachable if threshold exceeded
+                                await this._peerChecker?.recordExternalDialFailure(peer.id);
+                            }
+                        }
+                    } catch (e) {
+                        this.error(`Failed to refresh routing table: ${e}`);
+                    }
+                } else {
+                    this.debug('Connection health is good.');
+                }
+            }
+        } finally {
+            this.isMonitoringHealth = false;
         }
     }
 
@@ -859,6 +871,11 @@ export class P2PManager extends Logger {
     private onPeerDiscovery(evt: CustomEvent<PeerInfo>): void {
         const peerId = evt.detail.id.toString();
 
+        if (this.isBlackListedPeerId(peerId) || this._peerChecker?.isPeerUnreachable(peerId)) {
+            void this.node?.peerStore.delete(evt.detail.id);
+            return;
+        }
+
         this.info(`Discovered peer: ${peerId}`);
     }
 
@@ -897,8 +914,12 @@ export class P2PManager extends Logger {
             await this.streamManager.closePeerStreams(peerIdStr);
         }
 
-        // Re-add addresses to peerStore so we can reconnect later
-        if (savedAddresses.length > 0 && this.node) {
+        // Re-add addresses to peerStore so we can reconnect later (skip unreachable peers)
+        if (
+            savedAddresses.length > 0 &&
+            this.node &&
+            !this._peerChecker?.isPeerUnreachable(peerIdStr)
+        ) {
             try {
                 await this.node.peerStore.merge(peerId, {
                     addresses: savedAddresses.map((addr) => ({
@@ -1098,6 +1119,7 @@ export class P2PManager extends Logger {
                 }
 
                 if (this.isBlackListedPeerId(peerIdStr)) continue;
+                if (this._peerChecker?.isPeerUnreachable(peerIdStr)) continue;
 
                 // Is self
                 if (this.node.peerId.equals(peerId)) continue;
@@ -1510,9 +1532,11 @@ export class P2PManager extends Logger {
     ): Promise<boolean> {
         const id: string = peerId.toString();
 
-        if (this.isBlackListedPeerId(peerId.toString())) {
+        if (this.isBlackListedPeerId(id) || this._peerChecker?.isPeerUnreachable(id)) {
             if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG && this.config.DEV_MODE) {
-                this.debug(`[OUT] Peer ${id} is blacklisted. Flushing connection...`);
+                this.debug(
+                    `[OUT] Peer ${id} is blacklisted or unreachable. Flushing connection...`,
+                );
             }
 
             return true;
@@ -1528,9 +1552,11 @@ export class P2PManager extends Logger {
     ): Promise<boolean> {
         const id: string = peerId.toString();
 
-        if (this.isBlackListedPeerId(peerId.toString())) {
+        if (this.isBlackListedPeerId(id) || this._peerChecker?.isPeerUnreachable(id)) {
             if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                this.debug(`[OUT] Peer ${id} is blacklisted. Flushing connection...`);
+                this.debug(
+                    `[OUT] Peer ${id} is blacklisted or unreachable. Flushing connection...`,
+                );
             }
 
             return true;
@@ -1561,7 +1587,7 @@ export class P2PManager extends Logger {
     ): Promise<boolean> {
         const id: string = peerId.toString();
 
-        if (this.isBlackListedPeerId(peerId.toString())) {
+        if (this.isBlackListedPeerId(id)) {
             if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                 this.debug(`Peer ${id} is blacklisted. Flushing connection...`);
             }
@@ -1586,6 +1612,8 @@ export class P2PManager extends Logger {
     // eslint-disable-next-line @typescript-eslint/require-await
     private async addressFilter(peerId: PeerId, multiaddr: Multiaddr): Promise<boolean> {
         const peerIdStr: string = peerId.toString();
+
+        if (this._peerChecker?.isPeerUnreachable(peerIdStr)) return false;
 
         const ip = extractAddressHost(multiaddr);
         if (!ip) {

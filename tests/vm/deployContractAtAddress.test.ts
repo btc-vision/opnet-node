@@ -7,22 +7,33 @@ vi.mock('../../src/src/config/Config.js', () => ({
         DEV_MODE: false,
         DEBUG_LEVEL: 0,
         OP_NET: {
-            REINDEX: false, REINDEX_FROM_BLOCK: 0, REINDEX_BATCH_SIZE: 1000,
-            REINDEX_PURGE_UTXOS: true, EPOCH_REINDEX: false,
-            EPOCH_REINDEX_FROM_EPOCH: 0, MAXIMUM_PREFETCH_BLOCKS: 10,
-            MODE: 'ARCHIVE', LIGHT_MODE_FROM_BLOCK: 0,
+            REINDEX: false,
+            REINDEX_FROM_BLOCK: 0,
+            REINDEX_BATCH_SIZE: 1000,
+            REINDEX_PURGE_UTXOS: true,
+            EPOCH_REINDEX: false,
+            EPOCH_REINDEX_FROM_EPOCH: 0,
+            MAXIMUM_PREFETCH_BLOCKS: 10,
+            MODE: 'ARCHIVE',
+            LIGHT_MODE_FROM_BLOCK: 0,
         },
         DEV: {
-            RESYNC_BLOCK_HEIGHTS: false, RESYNC_BLOCK_HEIGHTS_UNTIL: 0,
-            ALWAYS_ENABLE_REORG_VERIFICATION: false, PROCESS_ONLY_X_BLOCK: 0,
-            CAUSE_FETCHING_FAILURE: false, ENABLE_REORG_NIGHTMARE: false,
+            RESYNC_BLOCK_HEIGHTS: false,
+            RESYNC_BLOCK_HEIGHTS_UNTIL: 0,
+            ALWAYS_ENABLE_REORG_VERIFICATION: false,
+            PROCESS_ONLY_X_BLOCK: 0,
+            CAUSE_FETCHING_FAILURE: false,
+            ENABLE_REORG_NIGHTMARE: false,
         },
         BITCOIN: { NETWORK: 'regtest', CHAIN_ID: 0 },
         PLUGINS: { PLUGINS_ENABLED: false },
         INDEXER: {
-            READONLY_MODE: false, STORAGE_TYPE: 'MONGODB',
-            BLOCK_QUERY_INTERVAL: 100, START_INDEXING_UTXO_AT_BLOCK_HEIGHT: 0n,
-            SOLVE_UNKNOWN_UTXOS: false, DISABLE_UTXO_INDEXING: false,
+            READONLY_MODE: false,
+            STORAGE_TYPE: 'MONGODB',
+            BLOCK_QUERY_INTERVAL: 100,
+            START_INDEXING_UTXO_AT_BLOCK_HEIGHT: 0n,
+            SOLVE_UNKNOWN_UTXOS: false,
+            DISABLE_UTXO_INDEXING: false,
         },
         BLOCKCHAIN: {},
     },
@@ -96,17 +107,23 @@ class InMemoryContractDB {
     private contracts: StoredContract[] = [];
 
     /** @returns contract info where {@link blockHeight} `<= height`, or `undefined`. */
-    getContractAt(addressHex: string, height?: bigint): ReturnType<typeof makeContractInfo> | undefined {
+    getContractAt(
+        addressHex: string,
+        height?: bigint,
+    ): ReturnType<typeof makeContractInfo> | undefined {
         if (height === undefined) {
             return this.contracts.find((c) => c.address === addressHex)?.info;
         }
-        return this.contracts.find(
-            (c) => c.address === addressHex && c.blockHeight <= height,
-        )?.info;
+        return this.contracts.find((c) => c.address === addressHex && c.blockHeight <= height)
+            ?.info;
     }
 
     /** @throws if a contract with the same address already exists. */
-    setContractAt(addressHex: string, blockHeight: bigint, info: ReturnType<typeof makeContractInfo>): void {
+    setContractAt(
+        addressHex: string,
+        blockHeight: bigint,
+        info: ReturnType<typeof makeContractInfo>,
+    ): void {
         const exists = this.contracts.find((c) => c.address === addressHex);
         if (exists) {
             throw new Error('OP_NET: Contract already exists');
@@ -157,10 +174,7 @@ class BlockProcessor {
             throw new Error('Contract already deployed. (cache)');
         }
 
-        const exists = this.db.getContractAt(
-            deployAddress.toHex(),
-            blockNumber - 1n,
-        );
+        const exists = this.db.getContractAt(deployAddress.toHex(), blockNumber - 1n);
         if (exists) {
             return null;
         }
@@ -178,10 +192,7 @@ class BlockProcessor {
     /** Writes deployed contracts from the evaluation to both cache and DB. */
     terminateEvaluation(evaluation: ReturnType<typeof makeMockEvaluation>): void {
         for (const [addr, contract] of evaluation.deployedContracts.entries()) {
-            const info = makeContractInfo(
-                (contract as { blockHeight: bigint }).blockHeight,
-                addr,
-            );
+            const info = makeContractInfo((contract as { blockHeight: bigint }).blockHeight, addr);
             this.contractCache.set(addr, info);
             this.db.setContractAt(addr.toHex(), info.blockHeight, info);
         }
@@ -365,7 +376,7 @@ describe('revertBlock cleans up stale data', () => {
 });
 
 describe('Reorg simulation: 10 TXs each deploying 2 sub-contracts', () => {
-    it('process block, reorg, re-process — all 20 contracts deploy correctly both times', async () => {
+    it('process block, reorg, re-process,  all 20 contracts deploy correctly both times', async () => {
         const db = new InMemoryContractDB();
         const proc = new BlockProcessor(db);
         const BLOCK = 500n;
@@ -375,7 +386,6 @@ describe('Reorg simulation: 10 TXs each deploying 2 sub-contracts', () => {
             txBatches.push([uniqueAddress(), uniqueAddress()]);
         }
         const allAddresses = txBatches.flat();
-
 
         for (const batch of txBatches) {
             const { deployed } = await proc.processTx(batch, BLOCK);
@@ -388,7 +398,6 @@ describe('Reorg simulation: 10 TXs each deploying 2 sub-contracts', () => {
             expect(db.has(addr.toHex())).toBe(true);
         }
 
-
         proc.revertBlock(BLOCK);
 
         expect(db.size()).toBe(0);
@@ -396,7 +405,6 @@ describe('Reorg simulation: 10 TXs each deploying 2 sub-contracts', () => {
         for (const addr of allAddresses) {
             expect(db.has(addr.toHex())).toBe(false);
         }
-
 
         for (const batch of txBatches) {
             const { deployed } = await proc.processTx(batch, BLOCK);
@@ -670,7 +678,6 @@ describe('Complex: factory contracts deploying sub-contracts across reorgs', () 
             });
         }
 
-
         for (let i = 0; i < 5; i++) {
             const { deployed } = await proc.processTx(factories[i].children, BLOCK);
             expect(deployed.length).toBe(2);
@@ -680,7 +687,6 @@ describe('Complex: factory contracts deploying sub-contracts across reorgs', () 
 
         proc.revertBlock(BLOCK);
         expect(db.size()).toBe(0);
-
 
         for (let i = 0; i < 10; i++) {
             const { deployed } = await proc.processTx(factories[i].children, BLOCK);

@@ -268,12 +268,12 @@ describe('chainReorged flag lifecycle under failure', () => {
 
     describe('C-1a: finally block always resets chainReorged to false', () => {
         it('should reset chainReorged to false when revertDataUntilBlock throws', async () => {
-            mockVmStorage.revertDataUntilBlock.mockRejectedValue(
-                new Error('storage write failed'),
-            );
+            mockVmStorage.revertDataUntilBlock.mockRejectedValue(new Error('storage write failed'));
 
             await expect(
-                (indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }).revertChain(98n, 100n, 'hash', true),
+                (
+                    indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }
+                ).revertChain(98n, 100n, 'hash', true),
             ).rejects.toThrow('storage write failed');
 
             // storageModified=false (threw before revertDataUntilBlock succeeded), safe to unlock
@@ -284,7 +284,9 @@ describe('chainReorged flag lifecycle under failure', () => {
             mockVmStorage.killAllPendingWrites.mockRejectedValue(new Error('lock failed'));
 
             await expect(
-                (indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }).revertChain(98n, 100n, 'hash', true),
+                (
+                    indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }
+                ).revertChain(98n, 100n, 'hash', true),
             ).rejects.toThrow('lock failed');
 
             // storageModified=false (threw before revertDataUntilBlock), safe to unlock
@@ -297,7 +299,9 @@ describe('chainReorged flag lifecycle under failure', () => {
             );
 
             await expect(
-                (indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }).revertChain(98n, 100n, 'hash', true),
+                (
+                    indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }
+                ).revertChain(98n, 100n, 'hash', true),
             ).rejects.toThrow('observer exploded');
 
             // FIX: storageModified=true → panic() called, chainReorged stays TRUE (node LOCKED)
@@ -308,7 +312,9 @@ describe('chainReorged flag lifecycle under failure', () => {
             mockVmStorage.setReorg.mockRejectedValue(new Error('setReorg failed'));
 
             await expect(
-                (indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }).revertChain(50n, 100n, 'hash', true),
+                (
+                    indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }
+                ).revertChain(50n, 100n, 'hash', true),
             ).rejects.toThrow('setReorg failed');
 
             // setReorg is called from reorgFromHeight which runs AFTER revertDataUntilBlock
@@ -322,7 +328,9 @@ describe('chainReorged flag lifecycle under failure', () => {
             );
 
             await expect(
-                (indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }).revertChain(50n, 100n, 'hash', false),
+                (
+                    indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }
+                ).revertChain(50n, 100n, 'hash', false),
             ).rejects.toThrow('plugin thread down');
 
             // FIX: notifyPluginsOfReorg is after revertDataUntilBlock → storageModified=true
@@ -349,7 +357,9 @@ describe('chainReorged flag lifecycle under failure', () => {
             );
 
             await expect(
-                (indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }).revertChain(98n, 100n, 'hash', true),
+                (
+                    indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }
+                ).revertChain(98n, 100n, 'hash', true),
             ).rejects.toThrow('observer update failed');
 
             // FIX: revertDataUntilBlock was called (storage modified)
@@ -358,7 +368,7 @@ describe('chainReorged flag lifecycle under failure', () => {
             // onChainReorganisation was attempted but threw
             expect(mockChainObserver.onChainReorganisation).toHaveBeenCalledTimes(1);
 
-            // FIX: chainReorged stays TRUE — node is LOCKED, NOT resuming on inconsistent state
+            // FIX: chainReorged stays TRUE,  node is LOCKED, NOT resuming on inconsistent state
             expect(Reflect.get(indexer, 'chainReorged')).toBe(true);
         });
 
@@ -375,7 +385,9 @@ describe('chainReorged flag lifecycle under failure', () => {
             );
 
             await expect(
-                (indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }).revertChain(50n, 100n, 'reorg-hash', true),
+                (
+                    indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }
+                ).revertChain(50n, 100n, 'reorg-hash', true),
             ).rejects.toThrow('chain observer dead');
 
             // setReorg never called → no reorg record in DB
@@ -393,13 +405,16 @@ describe('chainReorged flag lifecycle under failure', () => {
             mockChainObserver.pendingBlockHeight = 100n;
             mockVmStorage.revertDataUntilBlock.mockRejectedValue(new Error('db failure'));
 
-            const panicSpy = vi.spyOn(indexer as never as { panic: (...a: unknown[]) => void }, 'panic');
+            const panicSpy = vi.spyOn(
+                indexer as never as { panic: (...a: unknown[]) => void },
+                'panic',
+            );
 
             // Trigger the height regression path
-            const onHeightRegression = Reflect.get(
-                indexer,
-                'onHeightRegressionDetected',
-            ) as (h: bigint, hash: string) => Promise<void>;
+            const onHeightRegression = Reflect.get(indexer, 'onHeightRegressionDetected') as (
+                h: bigint,
+                hash: string,
+            ) => Promise<void>;
 
             // Should NOT throw - the catch calls panic() but does not re-throw
             await expect(
@@ -421,12 +436,15 @@ describe('chainReorged flag lifecycle under failure', () => {
             mockVmStorage.revertDataUntilBlock.mockResolvedValue(undefined);
             mockChainObserver.onChainReorganisation.mockResolvedValue(undefined);
 
-            const startTasksSpy = vi.spyOn(indexer as never as { startTasks: () => void }, 'startTasks');
+            const startTasksSpy = vi.spyOn(
+                indexer as never as { startTasks: () => void },
+                'startTasks',
+            );
 
-            const onHeightRegression = Reflect.get(
-                indexer,
-                'onHeightRegressionDetected',
-            ) as (h: bigint, hash: string) => Promise<void>;
+            const onHeightRegression = Reflect.get(indexer, 'onHeightRegressionDetected') as (
+                h: bigint,
+                hash: string,
+            ) => Promise<void>;
 
             await onHeightRegression.call(indexer, 98n, 'reorg-hash');
 
@@ -444,7 +462,9 @@ describe('chainReorged flag lifecycle under failure', () => {
                 flagDuringRevert = Reflect.get(indexer, 'chainReorged') as boolean;
             });
 
-            await (indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }).revertChain(98n, 100n, 'hash', true);
+            await (
+                indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }
+            ).revertChain(98n, 100n, 'hash', true);
 
             expect(flagDuringRevert).toBe(true);
             // After completion, flag is false
@@ -457,7 +477,9 @@ describe('chainReorged flag lifecycle under failure', () => {
                 flagDuringObserver = Reflect.get(indexer, 'chainReorged') as boolean;
             });
 
-            await (indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }).revertChain(98n, 100n, 'hash', true);
+            await (
+                indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }
+            ).revertChain(98n, 100n, 'hash', true);
 
             expect(flagDuringObserver).toBe(true);
             expect(Reflect.get(indexer, 'chainReorged')).toBe(false);
@@ -469,7 +491,9 @@ describe('chainReorged flag lifecycle under failure', () => {
                 flagDuringSetReorg = Reflect.get(indexer, 'chainReorged') as boolean;
             });
 
-            await (indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }).revertChain(50n, 100n, 'hash', true);
+            await (
+                indexer as never as { revertChain: (...a: unknown[]) => Promise<void> }
+            ).revertChain(50n, 100n, 'hash', true);
 
             expect(flagDuringSetReorg).toBe(true);
             expect(Reflect.get(indexer, 'chainReorged')).toBe(false);

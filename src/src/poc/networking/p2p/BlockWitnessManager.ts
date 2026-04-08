@@ -203,7 +203,7 @@ export class BlockWitnessManager extends Logger {
         isSelf: boolean,
     ): Promise<void> {
         if (isSelf) {
-            if (this.currentBlock >= data.blockNumber) {
+            if (this.currentBlock > data.blockNumber) {
                 this.revertKnownWitnessesReorg(data.blockNumber);
             }
 
@@ -272,7 +272,7 @@ export class BlockWitnessManager extends Logger {
 
             // Sequential: update consensus height in block order.
             // This must happen before firing off the concurrent proof.
-            if (this.currentBlock >= data.blockNumber) {
+            if (this.currentBlock > data.blockNumber) {
                 this.revertKnownWitnessesReorg(data.blockNumber);
             }
             await this.setCurrentBlock(data.blockNumber, true);

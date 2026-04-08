@@ -4,6 +4,26 @@ const IP_HOST_PROTOCOLS = new Set(['ip4', 'ip6']);
 const DNS_HOST_PROTOCOLS = new Set(['dns', 'dns4', 'dns6', 'dnsaddr']);
 const TRANSPORT_PROTOCOLS = new Set(['tcp', 'udp']);
 
+/** Protocols that consume the next path segment as a value. */
+const VALUED_PROTOCOLS = new Set([
+    'ip4',
+    'ip6',
+    'dns',
+    'dns4',
+    'dns6',
+    'dnsaddr',
+    'tcp',
+    'udp',
+    'p2p',
+    'ipfs',
+    'unix',
+    'onion',
+    'onion3',
+    'garlic64',
+    'garlic32',
+    'memory',
+]);
+
 interface ComponentLike {
     readonly name: string;
     readonly value?: string;
@@ -24,17 +44,12 @@ function getComponentsSafe(addr: Multiaddr): ComponentLike[] {
         let i = 0;
         while (i < parts.length) {
             const name = parts[i];
-            const next = parts[i + 1];
-            if (
-                IP_HOST_PROTOCOLS.has(name) ||
-                DNS_HOST_PROTOCOLS.has(name) ||
-                TRANSPORT_PROTOCOLS.has(name)
-            ) {
-                result.push({ name, value: next ?? '' });
+            if (VALUED_PROTOCOLS.has(name)) {
+                result.push({ name, value: parts[i + 1] ?? '' });
                 i += 2;
             } else {
-                result.push({ name, value: next ?? '' });
-                i += 2;
+                result.push({ name });
+                i += 1;
             }
         }
         return result;

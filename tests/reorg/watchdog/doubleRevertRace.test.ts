@@ -116,7 +116,7 @@ describe('Double-revert race condition', () => {
 
             // Previous block has a DIFFERENT hash → triggers reorg
             mockVMManager.blockHeaderValidator.getBlockHeader.mockResolvedValue({
-                hash: 'CORRECT_PREV_HASH',  // different from block.previousBlockHash
+                hash: 'CORRECT_PREV_HASH', // different from block.previousBlockHash
                 checksumRoot: 'cs',
             });
             // For restoreBlockchain → revertToLastGoodBlock
@@ -166,7 +166,6 @@ describe('Double-revert race condition', () => {
             expect(listener1).toHaveBeenCalledTimes(1);
             expect(listener2).toHaveBeenCalledTimes(1);
         });
-
     });
 
     /** Section 2: Same-height hash mismatch detection */
@@ -182,7 +181,7 @@ describe('Double-revert race condition', () => {
 
             const block = createMockBlock({
                 height: 100n,
-                hash: 'stale_hash',       // Different from canonical
+                hash: 'stale_hash', // Different from canonical
                 previousBlockHash: 'prev99',
             });
             const task = createMockTask({ tip: 100n, block });
@@ -198,7 +197,10 @@ describe('Double-revert race condition', () => {
             mockRpcClient.getBlockHash.mockResolvedValue('prev99');
             mockVMStorage.getBlockHeader.mockResolvedValue({ hash: 'prev99', checksumRoot: 'cs' });
 
-            const restoreSpy = vi.spyOn(watchdog as never as { restoreBlockchain: (tip: bigint) => Promise<void> }, 'restoreBlockchain');
+            const restoreSpy = vi.spyOn(
+                watchdog as never as { restoreBlockchain: (tip: bigint) => Promise<void> },
+                'restoreBlockchain',
+            );
 
             const result = await watchdog.verifyChainReorgForBlock(task as never);
             expect(result).toBe(true);
@@ -214,7 +216,7 @@ describe('Double-revert race condition', () => {
 
             const block = createMockBlock({
                 height: 100n,
-                hash: 'same_hash',       // Matches canonical
+                hash: 'same_hash', // Matches canonical
                 previousBlockHash: 'prev99',
             });
             const task = createMockTask({ tip: 100n, block });
@@ -225,7 +227,10 @@ describe('Double-revert race condition', () => {
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            const restoreSpy = vi.spyOn(watchdog as never as { restoreBlockchain: (tip: bigint) => Promise<void> }, 'restoreBlockchain');
+            const restoreSpy = vi.spyOn(
+                watchdog as never as { restoreBlockchain: (tip: bigint) => Promise<void> },
+                'restoreBlockchain',
+            );
 
             const result = await watchdog.verifyChainReorgForBlock(task as never);
             expect(result).toBe(false);
@@ -253,7 +258,10 @@ describe('Double-revert race condition', () => {
             });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            const restoreSpy = vi.spyOn(watchdog as never as { restoreBlockchain: (tip: bigint) => Promise<void> }, 'restoreBlockchain');
+            const restoreSpy = vi.spyOn(
+                watchdog as never as { restoreBlockchain: (tip: bigint) => Promise<void> },
+                'restoreBlockchain',
+            );
 
             const result = await watchdog.verifyChainReorgForBlock(task as never);
             expect(result).toBe(false);
@@ -268,7 +276,7 @@ describe('Double-revert race condition', () => {
             // verifyChainReorgForBlock has no try/catch
             // around the restoreBlockchain call site. If restoreBlockchain throws,
             // the exception propagates to the caller (IndexingTask.processBlock),
-            // which then calls revertBlock — potentially double-reverting.
+            // which then calls revertBlock,  potentially double-reverting.
 
             watchdog.onBlockChange({
                 height: 105,
@@ -291,9 +299,9 @@ describe('Double-revert race condition', () => {
             mockRpcClient.getBlockHash.mockResolvedValue(null); // causes "Error fetching block hash"
 
             // This throws, and the caller has no try/catch for it
-            await expect(
-                watchdog.verifyChainReorgForBlock(task as never),
-            ).rejects.toThrow('Error fetching block hash');
+            await expect(watchdog.verifyChainReorgForBlock(task as never)).rejects.toThrow(
+                'Error fetching block hash',
+            );
         });
 
         it('should CONFIRM: exception from restoreBlockchain (vmStorage failure) propagates', async () => {
@@ -318,9 +326,9 @@ describe('Double-revert race condition', () => {
             mockRpcClient.getBlockHash.mockResolvedValue('correct_prev');
             mockVMStorage.getBlockHeader.mockRejectedValue(new Error('DB connection lost'));
 
-            await expect(
-                watchdog.verifyChainReorgForBlock(task as never),
-            ).rejects.toThrow('DB connection lost');
+            await expect(watchdog.verifyChainReorgForBlock(task as never)).rejects.toThrow(
+                'DB connection lost',
+            );
         });
 
         it('should CONFIRM: same-height hash mismatch path also propagates restoreBlockchain exception', async () => {
@@ -333,7 +341,7 @@ describe('Double-revert race condition', () => {
 
             const block = createMockBlock({
                 height: 100n,
-                hash: 'stale',        // mismatch
+                hash: 'stale', // mismatch
                 previousBlockHash: 'prev',
             });
             const task = createMockTask({ tip: 100n, block });
@@ -348,9 +356,9 @@ describe('Double-revert race condition', () => {
             // restoreBlockchain → revertToLastGoodBlock fails
             mockRpcClient.getBlockHash.mockResolvedValue(null);
 
-            await expect(
-                watchdog.verifyChainReorgForBlock(task as never),
-            ).rejects.toThrow('Error fetching block hash');
+            await expect(watchdog.verifyChainReorgForBlock(task as never)).rejects.toThrow(
+                'Error fetching block hash',
+            );
         });
 
         it('should CONFIRM: no try/catch in verifyChainReorgForBlock wraps restoreBlockchain', async () => {
@@ -371,10 +379,10 @@ describe('Double-revert race condition', () => {
             });
             mockRpcClient.getBlockHash.mockRejectedValue(new Error('RPC unavailable'));
 
-            // MUST throw — not return false — proving no try/catch
-            await expect(
-                watchdog.verifyChainReorgForBlock(task as never),
-            ).rejects.toThrow('RPC unavailable');
+            // MUST throw,  not return false,  proving no try/catch
+            await expect(watchdog.verifyChainReorgForBlock(task as never)).rejects.toThrow(
+                'RPC unavailable',
+            );
         });
     });
 
@@ -389,11 +397,16 @@ describe('Double-revert race condition', () => {
 
             // Set up reorg scenario
             mockRpcClient.getBlockHash.mockResolvedValue('goodhash');
-            mockVMStorage.getBlockHeader.mockResolvedValue({ hash: 'goodhash', checksumRoot: 'cs' });
+            mockVMStorage.getBlockHeader.mockResolvedValue({
+                hash: 'goodhash',
+                checksumRoot: 'cs',
+            });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
             await expect(
-                (watchdog as never as { restoreBlockchain: (tip: bigint) => Promise<void> }).restoreBlockchain(100n),
+                (
+                    watchdog as never as { restoreBlockchain: (tip: bigint) => Promise<void> }
+                ).restoreBlockchain(100n),
             ).rejects.toThrow('listener1 failed');
 
             // listener2 was never called because listener1 threw
@@ -406,10 +419,15 @@ describe('Double-revert race condition', () => {
 
             // goodhash at height 99 → lastGoodBlock = 99
             mockRpcClient.getBlockHash.mockResolvedValue('goodhash99');
-            mockVMStorage.getBlockHeader.mockResolvedValue({ hash: 'goodhash99', checksumRoot: 'cs' });
+            mockVMStorage.getBlockHeader.mockResolvedValue({
+                hash: 'goodhash99',
+                checksumRoot: 'cs',
+            });
             mockVMManager.blockHeaderValidator.validateBlockChecksum.mockResolvedValue(true);
 
-            await (watchdog as never as { restoreBlockchain: (tip: bigint) => Promise<void> }).restoreBlockchain(100n);
+            await (
+                watchdog as never as { restoreBlockchain: (tip: bigint) => Promise<void> }
+            ).restoreBlockchain(100n);
 
             // from = lastGoodBlock + 1 = 100, to = tip = 100
             expect(listener).toHaveBeenCalledWith(100n, 100n, 'goodhash99');
