@@ -7,11 +7,10 @@ import {
     BroadcastRequest,
     BroadcastResponse,
 } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
+import { RPCMessage, RPCMessageData, } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import {
-    RPCMessage,
-    RPCMessageData,
-} from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
-import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
+    BitcoinRPCThreadMessageType
+} from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import {
     OPNetBroadcastData,
     OPNetPackageBroadcastData,
@@ -31,16 +30,15 @@ import {
     SmartFeeEstimation,
     TestMempoolAcceptResult,
 } from '@btc-vision/bitcoin-rpc';
-import {
-    InvalidTransaction,
-    TransactionVerifierManager,
-} from '../transaction/TransactionVerifierManager.js';
+import { InvalidTransaction, TransactionVerifierManager, } from '../transaction/TransactionVerifierManager.js';
 import { Config } from '../../../config/Config.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
 import { Network, toHex } from '@btc-vision/bitcoin';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
-import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import {
+    OPNetTransactionTypes
+} from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
 import { TransactionSizeValidator } from '../data-validator/TransactionSizeValidator.js';
@@ -73,6 +71,7 @@ export class Mempool extends Logger {
     #mempoolRepository: MempoolRepository | undefined;
 
     private fullSync: boolean = false;
+    private latestObservedHeight: bigint = -1n;
 
     private readonly network: Network = NetworkConverter.getNetwork();
 
@@ -224,13 +223,48 @@ export class Mempool extends Logger {
 
     private async watchBlockchain(): Promise<void> {
         this.blockchainInformationRepository.watchBlockChanges(async (blockHeight: bigint) => {
+            // Track the latest observed height up-front. The polling loop in
+            // BlockchainInfoRepository fires listeners without awaiting them, so
+            // async callbacks for different heights can overlap. The
+            // `latestObservedHeight` field lets stale callbacks detect that a
+            // newer one has already taken over and abandon themselves before
+            // clobbering `fullSync` with stale data.
+            this.latestObservedHeight = blockHeight;
+
             if (OPNetConsensus.getBlockHeight() <= blockHeight) {
                 await this.onBlockChange(blockHeight);
             }
 
-            const diff = blockHeight - OPNetConsensus.getBlockHeight();
-            if (diff === 0n) {
-                this.fullSync = true;
+            // A newer callback may have arrived during onBlockChange (which
+            // can take seconds when the underlying challenge-solution fetch
+            // retries). If so, abandon, the newer callback will set fullSync.
+            if (blockHeight !== this.latestObservedHeight) {
+                return;
+            }
+
+            // `fullSync` means "caught up to the Bitcoin chain tip", not
+            // "caught up to the indexer's own frontier". Compare against
+            // Bitcoin Core's tip directly. The 1-block tolerance mirrors the
+            // `>= 2n` gap threshold used by `verifyBlockHeight`.
+            try {
+                const tip = await this.bitcoinRPC.getBlockHeight();
+                if (!tip) {
+                    return;
+                }
+
+                // Re-check after the RPC await: a newer block may have arrived.
+                if (blockHeight !== this.latestObservedHeight) {
+                    return;
+                }
+
+                const bitcoinTip: bigint = BigInt(tip.blockHeight) + 1n;
+                this.fullSync = blockHeight >= bitcoinTip - 1n;
+            } catch (e) {
+                if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
+                    this.warn(
+                        `Could not verify full sync against Bitcoin tip: ${(e as Error).message}`,
+                    );
+                }
             }
         });
 

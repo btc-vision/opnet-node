@@ -1,4 +1,4 @@
-# OP_NET - Node (v1.0.2)
+# OP_NET - Node (v1.0.3)
 
 ![Bitcoin](https://img.shields.io/badge/Bitcoin-000?style=for-the-badge&logo=bitcoin&logoColor=white)
 ![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white)

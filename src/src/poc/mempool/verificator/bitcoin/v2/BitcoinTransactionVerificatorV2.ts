@@ -2,12 +2,11 @@ import { TransactionVerifier } from '../../TransactionVerifier.js';
 import { TransactionTypes } from '../../../transaction/TransactionTypes.js';
 import { Network, networks, toHex, Transaction } from '@btc-vision/bitcoin';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
-import {
-    InvalidTransaction,
-    KnownTransaction,
-} from '../../../transaction/TransactionVerifierManager.js';
+import { InvalidTransaction, KnownTransaction, } from '../../../transaction/TransactionVerifierManager.js';
 import { Config } from '../../../../../config/Config.js';
-import { TransactionFactory } from '../../../../../blockchain-indexer/processor/transaction/transaction-factory/TransactionFactory.js';
+import {
+    TransactionFactory
+} from '../../../../../blockchain-indexer/processor/transaction/transaction-factory/TransactionFactory.js';
 import { IMempoolTransactionObj } from '../../../../../db/interfaces/IMempoolTransaction.js';
 import { TransactionData, VOut } from '@btc-vision/bitcoin-rpc/src/rpc/types/BlockData.js';
 import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
@@ -17,28 +16,38 @@ import { OPNetConsensus } from '../../../../configurations/OPNetConsensus.js';
 import { ChallengeSolution } from '../../../../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
 import { AddressMap } from '@btc-vision/transaction';
 import { EpochRepository } from '../../../../../db/repositories/EpochRepository.js';
-import { OPNetTransactionTypes } from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import { Transaction as OPNetDecodedTransaction } from '../../../../../blockchain-indexer/processor/transaction/Transaction.js';
-import { InteractionTransaction } from '../../../../../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
-import { DeploymentTransaction } from '../../../../../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
+import {
+    OPNetTransactionTypes
+} from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import {
+    Transaction as OPNetDecodedTransaction
+} from '../../../../../blockchain-indexer/processor/transaction/Transaction.js';
+import {
+    InteractionTransaction
+} from '../../../../../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
+import {
+    DeploymentTransaction
+} from '../../../../../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
 
 const EMPTY_BLOCK_HASH = toHex(new Uint8Array(32));
 
 export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<TransactionTypes[]> {
+    private static readonly RETRY_BASE_DELAY_MS = 500;
+    private static readonly MAX_RETRIES = 5;
+    private static readonly ABORT_POLL_INTERVAL_MS = 100;
     public readonly type: TransactionTypes[] = [
         TransactionTypes.BITCOIN_TRANSACTION_V1,
         TransactionTypes.BITCOIN_TRANSACTION_V2,
     ];
 
     private readonly transactionFactory: TransactionFactory = new TransactionFactory();
-
     private allowedChallenges: Promise<ChallengeSolution> = Promise.resolve({
         solutions: new AddressMap(),
         legacyPublicKeys: new AddressMap(),
     });
 
     private blockChangeQueue: Promise<void> = Promise.resolve();
-    private currentSolutionsHeight: bigint = -1n;
+    private targetSolutionsHeight: bigint = -1n;
 
     public constructor(
         db: ConfigurableDBManager,
@@ -59,18 +68,39 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
     }
 
     public onBlockChange(blockHeight: bigint): Promise<void> {
-        this.blockChangeQueue = this.blockChangeQueue.then(async () => {
-            if (blockHeight === this.currentSolutionsHeight) {
+        // Record the latest requested height synchronously, so any in-flight or
+        // queued retries for older heights can detect that a newer block has
+        // arrived and abandon themselves.
+        this.targetSolutionsHeight = blockHeight;
+
+        const result = this.blockChangeQueue.then(async () => {
+            // A newer onBlockChange may have advanced the target while we were
+            // queued. Skip this stale slot, the newer callback will run next.
+            if (this.targetSolutionsHeight !== blockHeight) {
                 return;
             }
 
-            this.allowedChallenges =
-                this.epochRepository.getChallengeSolutionsAtHeight(blockHeight);
-            await this.allowedChallenges;
-            this.currentSolutionsHeight = blockHeight;
+            // Always refetch when called. Block height alone is not a safe
+            // cache key under chain reorgs: the same height can correspond
+            // to different chain states with different challenge solutions.
+            // The targetSolutionsHeight check above already collapses bursts
+            // of duplicate requests that arrive while a fetch is in progress;
+            // sequential same-height calls (e.g. verifyBlockHeight on a 5s
+            // tick during a sync gap) will incur one DB query each, which is
+            // an acceptable cost for reorg correctness.
+            await this.fetchAndApplyChallenges(blockHeight);
         });
 
-        return this.blockChangeQueue;
+        // Keep the internal queue healthy even if all retries are exhausted.
+        // The caller still observes the rejection via `result`; this trailing
+        // catch only prevents the shared chain from being permanently poisoned.
+        this.blockChangeQueue = result.catch((e: unknown) => {
+            this.error(
+                `Failed to load challenge solutions for block ${blockHeight}: ${(e as Error).stack}`,
+            );
+        });
+
+        return result;
     }
 
     /*public async onBlockChange(blockHeight: bigint): Promise<void> {
@@ -146,6 +176,77 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
         return version === 2
             ? TransactionTypes.BITCOIN_TRANSACTION_V2
             : TransactionTypes.BITCOIN_TRANSACTION_V1;
+    }
+
+    private async fetchAndApplyChallenges(blockHeight: bigint): Promise<void> {
+        let lastError: unknown;
+
+        for (let attempt = 0; attempt <= BitcoinTransactionVerificatorV2.MAX_RETRIES; attempt++) {
+            // Abandon if a newer height has been requested in the meantime.
+            if (this.targetSolutionsHeight !== blockHeight) {
+                return;
+            }
+
+            try {
+                const next = await this.epochRepository.getChallengeSolutionsAtHeight(blockHeight);
+
+                // Re-check after to await: the DB query may have taken long
+                // enough that a newer block arrived. Don't apply stale data.
+                if (this.targetSolutionsHeight !== blockHeight) {
+                    return;
+                }
+
+                this.allowedChallenges = Promise.resolve(next);
+                return;
+            } catch (e) {
+                lastError = e;
+
+                if (attempt >= BitcoinTransactionVerificatorV2.MAX_RETRIES) {
+                    break;
+                }
+
+                this.warn(
+                    `Attempt ${attempt + 1}/${BitcoinTransactionVerificatorV2.MAX_RETRIES + 1} ` +
+                        `to load challenge solutions for block ${blockHeight} failed: ` +
+                        `${(e as Error).message}. Retrying...`,
+                );
+
+                const delayMs = BitcoinTransactionVerificatorV2.RETRY_BASE_DELAY_MS * 2 ** attempt;
+                const stillCurrent = await this.abortableSleep(delayMs, blockHeight);
+                if (!stillCurrent) {
+                    // Target advanced during backoff, abandon this stale retry.
+                    return;
+                }
+            }
+        }
+
+        // All retries exhausted. Throw so the queue's trailing .catch logs it.
+        // The queue stays healthy, and the next onBlockChange call (or the
+        // 5s verifyBlockHeight tick) will re-trigger a fresh attempt.
+        throw lastError instanceof Error
+            ? lastError
+            : new Error(`Failed to fetch challenge solutions for block ${blockHeight}`);
+    }
+
+    /**
+     * Sleeps up to `ms` ms, waking early if the target block height changes.
+     * Returns false if the wait was aborted (caller should abandon work).
+     */
+    private async abortableSleep(ms: number, blockHeight: bigint): Promise<boolean> {
+        const deadline = Date.now() + ms;
+        while (Date.now() < deadline) {
+            if (this.targetSolutionsHeight !== blockHeight) {
+                return false;
+            }
+            const remaining = deadline - Date.now();
+            const chunk = Math.min(
+                BitcoinTransactionVerificatorV2.ABORT_POLL_INTERVAL_MS,
+                remaining,
+            );
+            if (chunk <= 0) break;
+            await new Promise((r) => setTimeout(r, chunk));
+        }
+        return this.targetSolutionsHeight === blockHeight;
     }
 
     private insertSharedProperty(
