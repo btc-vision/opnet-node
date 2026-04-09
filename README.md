@@ -143,6 +143,40 @@ curl -fsSL https://autosetup.opnet.org/autoconfig.sh -o autoconfig.sh && sudo -E
    npm start
    ```
 
+## Recommended Bitcoin Mainnet Node Setup
+
+Install Bitcoin Core from the official website: https://bitcoin.org/en/download. After installation, create a
+`bitcoin.conf`
+
+```conf
+rpcuser=youruser
+rpcpassword=yourpassword
+
+server=1
+dameon=0
+
+txindex=1
+prune=0
+datadir=/root/mainnet
+
+printtoconsole=1
+allowignoredconf=1
+minrelaytxfee=0.000002
+blockmintxfee=0.000002
+maxmempool=4096
+mempoolexpiry=96
+
+rpcport=9236
+
+rpcworkqueue=1024
+rpcthreads=256
+rpctimeout=15
+rpcservertimeout=15
+```
+
+The rpc settings are very important for the correct operation of the OP_NET node. Make sure to adjust `rpcuser`,
+`rpcpassword`, and `datadir` according to your setup.
+
 ## Testnet Bitcoin Node Setup
 
 OP_NET testnet requires a custom Bitcoin Core build. Clone and build it

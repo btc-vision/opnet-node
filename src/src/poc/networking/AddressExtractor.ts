@@ -2,7 +2,6 @@ import { Multiaddr } from '@multiformats/multiaddr';
 
 const IP_HOST_PROTOCOLS = new Set(['ip4', 'ip6']);
 const DNS_HOST_PROTOCOLS = new Set(['dns', 'dns4', 'dns6', 'dnsaddr']);
-const TRANSPORT_PROTOCOLS = new Set(['tcp', 'udp']);
 
 /** Protocols that consume the next path segment as a value. */
 const VALUED_PROTOCOLS = new Set([

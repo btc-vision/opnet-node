@@ -20,8 +20,8 @@ import { P2PMajorVersion, P2PVersion } from './P2PVersion.js';
 import { fromBase64, toBase64 } from '@btc-vision/bitcoin';
 import { generateKeyPair, privateKeyFromRaw } from '@libp2p/crypto/keys';
 import { Config } from '../../config/Config.js';
-import { multiaddr } from '@multiformats/multiaddr';
 import type { Multiaddr } from '@multiformats/multiaddr';
+import { multiaddr } from '@multiformats/multiaddr';
 import { isPrivate } from '@libp2p/utils';
 import { AutoNATv2ServiceInit } from '@libp2p/autonat-v2';
 
@@ -115,7 +115,7 @@ export class P2PConfigurations extends OPNetPathFinder {
         return {
             listen: listenAt,
             announce: announce.length > 0 ? announce : undefined,
-            announceFilter: (addrs: Multiaddr[]) => addrs.filter(addr => !isPrivate(addr)),
+            announceFilter: (addrs: Multiaddr[]) => addrs.filter((addr) => !isPrivate(addr)),
         };
     }
 
