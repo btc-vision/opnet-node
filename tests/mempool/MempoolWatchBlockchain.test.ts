@@ -276,17 +276,19 @@ describe('Mempool.watchBlockchain (H-03)', () => {
             expect(h.onBlockChangeSpy).toHaveBeenCalledWith(100n);
         });
 
-        it('skips onBlockChange when consensus is already ahead', async () => {
+        it('calls onBlockChange even when consensus is already ahead', async () => {
             const h = await makeWatcherHarness();
-            // Consensus is at 105; the watcher reports a stale 100.
+            // Consensus is at 105; the watcher reports 100. onBlockChange
+            // should still be called so challenge solutions are refreshed
+            // (the forward-only guard inside onBlockChange prevents the
+            // consensus height from regressing).
             mockOPNetConsensus.consensusHeight = 105n;
             h.rpcSpy.mockResolvedValue({ blockHeight: 99 });
 
             await h.triggerCallback(100n);
 
-            expect(h.onBlockChangeSpy).not.toHaveBeenCalled();
-            // Latest observed should still be tracked (so any concurrent
-            // callbacks that arrive later can correctly be flagged stale).
+            expect(h.onBlockChangeSpy).toHaveBeenCalledTimes(1);
+            expect(h.onBlockChangeSpy).toHaveBeenCalledWith(100n);
             expect(asPrivate(h.mempool).latestObservedHeight).toBe(100n);
         });
     });
