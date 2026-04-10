@@ -103,9 +103,9 @@ describe('TOCTOU race on currentHeader in verifyChainReorgForBlock', () => {
             // before any onBlockChange (e.g. if watchdog is initialised but block
             // changes haven't fired yet, or if onBlockChange fires after the task
             // is queued but before verifyChainReorgForBlock runs)
-            await expect(
-                watchdog.verifyChainReorgForBlock(task as never),
-            ).rejects.toThrow('Current header is not set');
+            await expect(watchdog.verifyChainReorgForBlock(task as never)).rejects.toThrow(
+                'Current header is not set',
+            );
         });
 
         it('should throw when _currentHeader is explicitly set to null', async () => {
@@ -114,9 +114,9 @@ describe('TOCTOU race on currentHeader in verifyChainReorgForBlock', () => {
 
             const task = createMockTask({ tip: 50n });
 
-            await expect(
-                watchdog.verifyChainReorgForBlock(task as never),
-            ).rejects.toThrow('Current header is not set');
+            await expect(watchdog.verifyChainReorgForBlock(task as never)).rejects.toThrow(
+                'Current header is not set',
+            );
         });
 
         it('should NOT throw if onBlockChange has been called before verifyChainReorgForBlock', async () => {
@@ -138,9 +138,7 @@ describe('TOCTOU race on currentHeader in verifyChainReorgForBlock', () => {
             const task = createMockTask({ tip: 100n, block });
 
             // Should NOT throw - currentHeader is set
-            await expect(
-                watchdog.verifyChainReorgForBlock(task as never),
-            ).resolves.toBeDefined();
+            await expect(watchdog.verifyChainReorgForBlock(task as never)).resolves.toBeDefined();
         });
     });
 
@@ -181,7 +179,7 @@ describe('TOCTOU race on currentHeader in verifyChainReorgForBlock', () => {
             const result = await watchdog.verifyChainReorgForBlock(task as never);
 
             // Verification was skipped (gap ≥ 100) → returns false (no reorg detected)
-            // even though the block IS stale — this is the missed-reorg scenario
+            // even though the block IS stale,  this is the missed-reorg scenario
             expect(result).toBe(false);
 
             // CONFIRM: validateBlockChecksum was NOT called (verification skipped)
@@ -248,7 +246,7 @@ describe('TOCTOU race on currentHeader in verifyChainReorgForBlock', () => {
             // This IS a stale block (competing fork at height 100)
             const block = createMockBlock({
                 height: 100n,
-                hash: 'stale_100',        // Different from canonical_100
+                hash: 'stale_100', // Different from canonical_100
                 previousBlockHash: 'prev99',
             });
             const task = createMockTask({ tip: 100n, block });
@@ -265,17 +263,20 @@ describe('TOCTOU race on currentHeader in verifyChainReorgForBlock', () => {
             // The stale block at height 100 is processed without detecting the fork
             const result = await watchdog.verifyChainReorgForBlock(task as never);
 
-            expect(result).toBe(false);  // missed the stale-block scenario
+            expect(result).toBe(false); // missed the stale-block scenario
             // Confirm: no restoreBlockchain was called
         });
-
     });
 
     /** Section 3: The exact threshold behavior */
 
     describe('C-3c: Verification threshold boundary at syncBlockDiff=100', () => {
         it('should skip verification when syncBlockDiff == 100', async () => {
-            watchdog.onBlockChange({ height: 200, hash: 'h200', previousblockhash: 'h199' } as never);
+            watchdog.onBlockChange({
+                height: 200,
+                hash: 'h200',
+                previousblockhash: 'h199',
+            } as never);
             // syncBlockDiff = 200 - 100 = 100 → skip
             const task = createMockTask({ tip: 100n });
             const result = await watchdog.verifyChainReorgForBlock(task as never);
@@ -284,7 +285,11 @@ describe('TOCTOU race on currentHeader in verifyChainReorgForBlock', () => {
         });
 
         it('should perform verification when syncBlockDiff == 99', async () => {
-            watchdog.onBlockChange({ height: 199, hash: 'h199', previousblockhash: 'h198' } as never);
+            watchdog.onBlockChange({
+                height: 199,
+                hash: 'h199',
+                previousblockhash: 'h198',
+            } as never);
             // syncBlockDiff = 199 - 100 = 99 → verify
 
             const block = createMockBlock({ height: 100n, previousBlockHash: 'prev99' });
@@ -299,7 +304,11 @@ describe('TOCTOU race on currentHeader in verifyChainReorgForBlock', () => {
         });
 
         it('should skip verification when syncBlockDiff > 100', async () => {
-            watchdog.onBlockChange({ height: 500, hash: 'h500', previousblockhash: 'h499' } as never);
+            watchdog.onBlockChange({
+                height: 500,
+                hash: 'h500',
+                previousblockhash: 'h499',
+            } as never);
             // syncBlockDiff = 500 - 100 = 400 → skip
             const task = createMockTask({ tip: 100n });
             const result = await watchdog.verifyChainReorgForBlock(task as never);
@@ -307,7 +316,6 @@ describe('TOCTOU race on currentHeader in verifyChainReorgForBlock', () => {
             expect(mockVMManager.blockHeaderValidator.validateBlockChecksum).not.toHaveBeenCalled();
         });
     });
-
 
     /** Section 5: onBlockChange sets currentHeader atomically */
 
@@ -331,8 +339,16 @@ describe('TOCTOU race on currentHeader in verifyChainReorgForBlock', () => {
         });
 
         it('should completely replace previous currentHeader on each call', () => {
-            watchdog.onBlockChange({ height: 10, hash: 'old', previousblockhash: 'older' } as never);
-            watchdog.onBlockChange({ height: 20, hash: 'new', previousblockhash: 'newer' } as never);
+            watchdog.onBlockChange({
+                height: 10,
+                hash: 'old',
+                previousblockhash: 'older',
+            } as never);
+            watchdog.onBlockChange({
+                height: 20,
+                hash: 'new',
+                previousblockhash: 'newer',
+            } as never);
 
             const header = Reflect.get(watchdog, '_currentHeader') as {
                 blockNumber: bigint;

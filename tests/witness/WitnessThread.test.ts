@@ -306,10 +306,7 @@ function setCurrentBlockSet(thread: WitnessThread, value: boolean): void {
 
 type PoCType = import('../../src/src/poc/PoC.js').PoC;
 
-function createPoC(
-    PoCCtor: new (...args: unknown[]) => PoCType,
-    config: unknown,
-): PoCType {
+function createPoC(PoCCtor: new (...args: unknown[]) => PoCType, config: unknown): PoCType {
     return Reflect.construct(PoCCtor, [config]) as PoCType;
 }
 
@@ -1331,7 +1328,7 @@ describe('WitnessThreadManager', () => {
 
     it('WitnessThread should have threadType WITNESS after construction', () => {
         const t = new WitnessThread();
-        // Real class property access — not a mock
+        // Real class property access,  not a mock
         expect(t.threadType).toBe(ThreadTypes.WITNESS);
     });
 
@@ -1354,13 +1351,15 @@ describe('WitnessThreadManager', () => {
         const result = callOnLinkMessage(t, ThreadTypes.INDEXER, msg);
 
         expect(result).toBeUndefined();
-        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('unexpected message from thread type'));
+        expect(warnSpy).toHaveBeenCalledWith(
+            expect.stringContaining('unexpected message from thread type'),
+        );
     });
 
     it('WitnessThread.createLinkBetweenThreads registers a P2P link (method is async and exists)', async () => {
         const t = new WitnessThread();
         // createLinkBetweenThreads is not on WitnessThread but the manager structure
-        // implies the thread must have a P2P onLinkMessage handler — which we verified above.
+        // implies the thread must have a P2P onLinkMessage handler,  which we verified above.
         // Confirm the method does NOT throw on execution (it would fail without real worker_threads
         // but we confirm the intent via the handler test above).
         expect(typeof Reflect.get(t, 'onLinkMessage')).toBe('function');

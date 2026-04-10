@@ -20,7 +20,9 @@ import { P2PMajorVersion, P2PVersion } from './P2PVersion.js';
 import { fromBase64, toBase64 } from '@btc-vision/bitcoin';
 import { generateKeyPair, privateKeyFromRaw } from '@libp2p/crypto/keys';
 import { Config } from '../../config/Config.js';
+import type { Multiaddr } from '@multiformats/multiaddr';
 import { multiaddr } from '@multiformats/multiaddr';
+import { isPrivate } from '@libp2p/utils';
 import { AutoNATv2ServiceInit } from '@libp2p/autonat-v2';
 
 interface BackedUpPeer {
@@ -110,21 +112,10 @@ export class P2PConfigurations extends OPNetPathFinder {
             announce.push(`/ip4/${host}/${protocol}/${port}`);
         }
 
-        // Don't announce private addresses
-        const noAnnounce = [
-            '/ip4/127.0.0.0/ipcidr/8', // All loopback addresses
-            '/ip4/10.0.0.0/ipcidr/8', // Private network
-            '/ip4/172.16.0.0/ipcidr/12', // Private network
-            '/ip4/192.168.0.0/ipcidr/16', // Private network
-            '/ip6/::1/ipcidr/128', // IPv6 loopback
-            '/ip6/fc00::/ipcidr/7', // IPv6 unique local
-            '/ip6/fe80::/ipcidr/10', // IPv6 link local
-        ];
-
         return {
             listen: listenAt,
             announce: announce.length > 0 ? announce : undefined,
-            noAnnounce,
+            announceFilter: (addrs: Multiaddr[]) => addrs.filter((addr) => !isPrivate(addr)),
         };
     }
 

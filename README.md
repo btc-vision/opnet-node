@@ -1,4 +1,4 @@
-# OP_NET - Node (v1.0.2)
+# OP_NET - Node (v1.0.3)
 
 ![Bitcoin](https://img.shields.io/badge/Bitcoin-000?style=for-the-badge&logo=bitcoin&logoColor=white)
 ![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white)
@@ -142,6 +142,40 @@ curl -fsSL https://autosetup.opnet.org/autoconfig.sh -o autoconfig.sh && sudo -E
    ```bash
    npm start
    ```
+
+## Recommended Bitcoin Mainnet Node Setup
+
+Install Bitcoin Core from the official website: https://bitcoin.org/en/download. After installation, create a
+`bitcoin.conf`
+
+```conf
+rpcuser=youruser
+rpcpassword=yourpassword
+
+server=1
+dameon=0
+
+txindex=1
+prune=0
+datadir=/root/mainnet
+
+printtoconsole=1
+allowignoredconf=1
+minrelaytxfee=0.000002
+blockmintxfee=0.000002
+maxmempool=4096
+mempoolexpiry=96
+
+rpcport=9236
+
+rpcworkqueue=1024
+rpcthreads=256
+rpctimeout=15
+rpcservertimeout=15
+```
+
+The rpc settings are very important for the correct operation of the OP_NET node. Make sure to adjust `rpcuser`,
+`rpcpassword`, and `datadir` according to your setup.
 
 ## Testnet Bitcoin Node Setup
 

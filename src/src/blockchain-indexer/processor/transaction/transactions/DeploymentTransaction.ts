@@ -17,6 +17,7 @@ import { OPNet_MAGIC } from '../Transaction.js';
 
 import {
     Address,
+    BinaryWriter,
     ChallengeSolution,
     ContractAddressVerificationParams,
     EcKeyPair,
@@ -33,6 +34,7 @@ import { OPNetConsensus } from '../../../../poc/configurations/OPNetConsensus.js
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { SharedInteractionParameters } from './SharedInteractionParameters.js';
 import { AddressCache } from '../../AddressCache.js';
+import { Submission } from '../features/Submission.js';
 
 interface DeploymentWitnessData {
     readonly header: OPNetHeader;
@@ -297,6 +299,24 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         this.decompress();
     }
 
+    private getGraffiti(submission: Submission): Uint8Array | undefined {
+        let graffiti: Uint8Array | undefined;
+        if (
+            this.blockHeight <
+                OPNetConsensus.consensusEpochPatches.GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT &&
+            submission.graffiti
+        ) {
+            const writer = new BinaryWriter();
+            writer.writeBytesWithLength(submission.graffiti);
+
+            graffiti = writer.getBuffer();
+        } else {
+            graffiti = submission.graffiti;
+        }
+
+        return graffiti;
+    }
+
     private getFeatures(): Feature<Features>[] {
         const features: Feature<Features>[] = [];
         if (this._submission) {
@@ -306,7 +326,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
                 data: {
                     publicKey: new Address(this._submission.mldsaPublicKey),
                     solution: this._submission.salt,
-                    graffiti: this._submission.graffiti,
+                    graffiti: this.getGraffiti(this._submission),
                     epochNumber: 0n,
                     signature: new Uint8Array(0),
                     verifySignature: function (): boolean {

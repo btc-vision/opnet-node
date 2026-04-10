@@ -461,16 +461,24 @@ export abstract class SharedInteractionParameters<
         const salt = binaryReader.readBytes(32);
         const bytesLeft = binaryReader.bytesLeft();
         const maxLength: number = OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH;
+        const patchHeight = OPNetConsensus.consensusEpochPatches.GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT;
 
         let graffiti: Uint8Array | undefined;
+
         if (bytesLeft > 0) {
-            if (bytesLeft <= maxLength) {
-                graffiti = binaryReader.readBytes(bytesLeft);
-            } else if (
-                this.blockHeight >=
-                OPNetConsensus.consensusEpochPatches.GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT
-            ) {
-                throw new Error('OP_NET: Epoch submission graffiti too long.');
+            if (this.blockHeight < patchHeight) {
+                // Pre-patch: use the original readBytesWithLength to preserve v1.0.1 parse behavior
+                // (will throw on malformed graffiti, keeping state consistent during resync).
+                if (bytesLeft <= maxLength) {
+                    graffiti = binaryReader.readBytesWithLength(bytesLeft);
+                }
+            } else {
+                // Post-patch: read raw bytes without a length prefix.
+                if (bytesLeft <= maxLength) {
+                    graffiti = binaryReader.readBytes(bytesLeft);
+                } else {
+                    throw new Error('OP_NET: Epoch submission graffiti too long.');
+                }
             }
         }
 

@@ -70,6 +70,12 @@ export class PeerChecker extends Logger {
      */
     public async recordExternalDialFailure(peerId: PeerId): Promise<boolean> {
         const peerIdStr = peerId.toString();
+
+        // Already unreachable, skip duplicate callback
+        if (this.isPeerUnreachable(peerIdStr)) {
+            return true;
+        }
+
         const exceededThreshold = this.recordDialFailure(peerIdStr);
 
         if (exceededThreshold) {
@@ -215,6 +221,11 @@ export class PeerChecker extends Logger {
         } catch (e) {
             if (Config.DEV_MODE) {
                 this.error(`Failed to add/dial peer ${peerData.id}: ${e}`);
+            }
+
+            // Already unreachable, skip duplicate callback
+            if (this.isPeerUnreachable(peerIdStr)) {
+                return;
             }
 
             // Record the failure and check if threshold exceeded
