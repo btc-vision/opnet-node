@@ -201,7 +201,7 @@ export abstract class SharedInteractionParameters<
 
         const message = writer.getBuffer();
 
-        // Verify legacy signature - required for address rotation where each UTXO may have
+        // Verify legacy signature, required for address rotation where each UTXO may have
         // a different address, but the user needs to prove ownership of the specific Bitcoin
         // key being linked to the MLDSA key.
         const isValidSchnorr = MessageSigner.verifySignature(
