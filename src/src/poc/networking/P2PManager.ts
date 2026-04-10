@@ -704,7 +704,7 @@ export class P2PManager extends Logger {
                                 // Reset failure count on successful dial
                                 this._peerChecker?.resetDialFailures(peerIdStr);
                             } catch (e) {
-                                if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                                if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                                     this.debug(`Failed to dial ${peer.id}: ${e}`);
                                 }
 
