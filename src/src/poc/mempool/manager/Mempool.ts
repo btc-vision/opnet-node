@@ -208,16 +208,23 @@ export class Mempool extends Logger {
 
                 this.fullSync = false;
 
-                await this.onBlockChange(currentBitcoinHeight);
+                // Only refresh challenges when close to the tip. During initial
+                // sync or reindexing the indexer is far behind so epoch data
+                // does not exist at the tip, fetching challenges would produce
+                // an empty set and the guard in watchBlockChanges would prevent
+                // any refresh until the indexer fully catches up.
+                if (blockDiff <= 10n) {
+                    await this.onBlockChange(currentBitcoinHeight);
+                }
             }
-
-            setTimeout(() => {
-                void this.verifyBlockHeight();
-            }, 5000);
         } catch (e) {
             if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
                 this.warn(`Error verifying block height: ${(e as Error).message}`);
             }
+        } finally {
+            setTimeout(() => {
+                void this.verifyBlockHeight();
+            }, 5000);
         }
     }
 
@@ -231,9 +238,12 @@ export class Mempool extends Logger {
             // clobbering `fullSync` with stale data.
             this.latestObservedHeight = blockHeight;
 
-            if (OPNetConsensus.getBlockHeight() <= blockHeight) {
-                await this.onBlockChange(blockHeight);
-            }
+            // Always refresh challenge solutions when the indexer progresses.
+            // The previous guard (OPNetConsensus.getBlockHeight() <= blockHeight)
+            // would skip refreshes during sync because verifyBlockHeight pushed
+            // the consensus height to the Bitcoin tip while the indexer was
+            // still far behind, leaving challenges permanently empty.
+            await this.onBlockChange(blockHeight);
 
             // A newer callback may have arrived during onBlockChange (which
             // can take seconds when the underlying challenge-solution fetch
@@ -274,19 +284,42 @@ export class Mempool extends Logger {
     }
 
     private async onBlockChange(blockHeight: bigint): Promise<void> {
+        // Only move the consensus height forward, never backwards.
+        if (OPNetConsensus.getBlockHeight() <= blockHeight) {
+            try {
+                OPNetConsensus.setBlockHeight(blockHeight);
+            } catch (e) {
+                if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
+                    this.warn(
+                        `Failed to set block height to ${blockHeight}: ${(e as Error).message}`,
+                    );
+                }
+            }
+        }
+
+        this.log(`[MEM] Block changed to height ${blockHeight}`);
+
         try {
-            OPNetConsensus.setBlockHeight(blockHeight);
-
-            this.log(`[MEM] Block changed to height ${blockHeight}`);
-
             await this.transactionVerifier.onBlockChange(blockHeight);
+        } catch (e) {
+            if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
+                this.warn(
+                    `Failed to refresh challenge solutions at ${blockHeight}: ${(e as Error).message}`,
+                );
+            }
+        }
 
-            /*if (Config.MEMPOOL.ENABLE_BLOCK_PURGE) {
-                void this.mempoolRepository.purgeOldTransactions(blockHeight);
-            }*/
+        /*if (Config.MEMPOOL.ENABLE_BLOCK_PURGE) {
+            void this.mempoolRepository.purgeOldTransactions(blockHeight);
+        }*/
 
+        try {
             await this.estimateFees();
-        } catch {}
+        } catch (e) {
+            if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
+                this.warn(`Failed to estimate fees: ${(e as Error).message}`);
+            }
+        }
     }
 
     private processSmartFee(feeData: SmartFeeEstimation): number {
