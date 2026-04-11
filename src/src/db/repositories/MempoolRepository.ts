@@ -724,7 +724,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             priorityFee: data.priorityFee
                 ? Long.isLong(data.priorityFee)
                     ? data.priorityFee.toBigInt()
-                    : BigInt(0)
+                    : BigInt(`${data.priorityFee}`)
                 : undefined,
             from: data.from,
             contractAddress: data.contractAddress,
