@@ -1,6 +1,12 @@
 import '../reorg/setup.js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Address, AddressMap, BinaryReader, DeterministicMap, PointerStorage, } from '@btc-vision/transaction';
+import {
+    Address,
+    AddressMap,
+    BinaryReader,
+    DeterministicMap,
+    PointerStorage,
+} from '@btc-vision/transaction';
 import { toBase64 } from '@btc-vision/bitcoin';
 import { ContractEvaluation } from '../../src/src/vm/runtime/classes/ContractEvaluation.js';
 import { AddressStack } from '../../src/src/vm/runtime/classes/AddressStack.js';
@@ -352,7 +358,6 @@ describe('ContractEvaluation.parseAccessList', () => {
         const storage = new AddressMap<PointerStorage>();
         const tracker = makeGasTracker();
         const tokenIn = uniqueAddress();
-        const pair = uniqueAddress();
 
         const BALANCE_SLOT = 1n;
         const BALANCE = 1000n;
