@@ -139,7 +139,9 @@ export class ContractEvaluation implements ExecutionParameters {
         this.touchedAddresses = params.touchedAddresses || new AddressMap();
         this.touchedAddresses.set(this.contractAddress, true);
 
-        this.parseAccessList();
+        if (!this.externalCall) {
+            this.parseAccessList();
+        }
     }
 
     public get maxGas(): bigint {
