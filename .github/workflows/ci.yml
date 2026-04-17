@@ -287,7 +287,7 @@ jobs:
           fi
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.git_tag }}
           name: Release ${{ steps.version.outputs.display_version }}
