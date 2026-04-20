@@ -7,5 +7,5 @@ export const MongoDBConfigurationDefaults: MongoClientOptions = {
     connectTimeoutMS: 30000,
     socketTimeoutMS: 0,
     appName: `OPNet`,
-    authSource: Config.DATABASE_AUTH.SOURCE,
+    authSource: Config.DATABASE_AUTH ? Config.DATABASE_AUTH.SOURCE : undefined,
 };
