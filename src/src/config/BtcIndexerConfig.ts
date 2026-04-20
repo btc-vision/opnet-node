@@ -3,6 +3,7 @@ import {
     APIExtendedConfigurations,
     BitcoinConfig,
     BlockchainConfig,
+    DatabaseAuthSource,
     DevConfig,
     DocsConfig,
     EpochConfigs,
@@ -45,6 +46,8 @@ export class BtcIndexerConfig extends ConfigBase<IConfig<IBtcIndexerConfig>> {
 
     public readonly PLUGINS: PluginsConfig;
 
+    public readonly DATABASE_AUTH: DatabaseAuthSource;
+
     constructor(config: IConfig<IBtcIndexerConfig>) {
         super(config);
 
@@ -59,6 +62,7 @@ export class BtcIndexerConfig extends ConfigBase<IConfig<IBtcIndexerConfig>> {
         this.OP_NET = config.OP_NET;
 
         this.DEV_MODE = config.DEV_MODE;
+        this.DATABASE_AUTH = config.DATABASE_AUTH;
 
         this.SSH = config.SSH;
 

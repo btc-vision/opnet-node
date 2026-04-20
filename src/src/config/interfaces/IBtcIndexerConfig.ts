@@ -195,6 +195,10 @@ export interface BitcoinConfig {
     readonly DNS_SEEDS?: string[];
 }
 
+export interface DatabaseAuthSource {
+    readonly SOURCE?: string;
+}
+
 export interface DocsConfig {
     ENABLED: boolean;
     PORT: number;
@@ -234,6 +238,7 @@ export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {
     RPC: RPCConfig;
     OP_NET: OPNetConfig;
     BLOCKCHAIN: BlockchainConfig;
+    DATABASE_AUTH: DatabaseAuthSource;
 
     DOCS: DocsConfig;
 
