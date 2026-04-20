@@ -68,6 +68,10 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             START_INDEXING_UTXO_AT_BLOCK_HEIGHT: 800_000,
         },
 
+        DATABASE_AUTH: {
+            SOURCE: undefined,
+        },
+
         DEV: {
             PROCESS_ONLY_X_BLOCK: 0,
 
@@ -1095,6 +1099,15 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             }
         }
 
+        if (parsedConfig.DATABASE_AUTH) {
+            if (
+                parsedConfig.DATABASE_AUTH.SOURCE !== undefined &&
+                typeof parsedConfig.DATABASE_AUTH.SOURCE !== 'string'
+            ) {
+                throw new Error(`Oops the property DATABASE_AUTH.SOURCE is not a string.`);
+            }
+        }
+
         if (parsedConfig.DATABASE?.AUTH) {
             parsedConfig.DATABASE.AUTH.PASSWORD = encodeURIComponent(
                 parsedConfig.DATABASE.AUTH.PASSWORD,
@@ -1237,6 +1250,11 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             keyof IBtcIndexerConfig,
             IBtcIndexerConfig['DATABASE']
         >(parsedConfig.DATABASE, defaultConfigs.DATABASE);
+
+        this.config.DATABASE_AUTH = this.getConfigModified<
+            keyof IBtcIndexerConfig,
+            IBtcIndexerConfig['DATABASE_AUTH']
+        >(parsedConfig.DATABASE_AUTH, defaultConfigs.DATABASE_AUTH);
 
         this.config.DOCS = this.getConfigModified<
             keyof IBtcIndexerConfig,
