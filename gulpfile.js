@@ -177,9 +177,19 @@ function startTsgoWatch() {
 
 const buildESM = gulp.series(lintSources, compileTs);
 
+// Only clean tsgo-emitted outputs. Never touch build/config/ or any other
+// build/ subdirectory that may contain user-authored files (btc.conf, etc.).
 export function clean() {
     return gulp
-        .src(['./build', './tsconfig.tsbuildinfo'], { read: false, allowEmpty: true })
+        .src(
+            [
+                './build/index.js',
+                './build/index.d.ts',
+                './build/src',
+                './tsconfig.tsbuildinfo',
+            ],
+            { read: false, allowEmpty: true },
+        )
         .pipe(gulpClean({ allowEmpty: true }));
 }
 
