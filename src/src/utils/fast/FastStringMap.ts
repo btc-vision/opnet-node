@@ -122,6 +122,23 @@ export class FastStringMap<T> implements Map<string, T> {
         }
     }
 
+    public getOrInsert(key: string, defaultValue: T): T {
+        if (this.has(key)) {
+            return this.items[key];
+        }
+        this.set(key, defaultValue);
+        return defaultValue;
+    }
+
+    public getOrInsertComputed(key: string, callbackfn: (key: string) => T): T {
+        if (this.has(key)) {
+            return this.items[key];
+        }
+        const value = callbackfn(key);
+        this.set(key, value);
+        return value;
+    }
+
     /**
      * Makes the map iterable with `for...of`, yielding [key, value] pairs.
      */

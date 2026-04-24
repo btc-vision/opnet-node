@@ -8,6 +8,8 @@
         "watch": "gulp watch",
         "start": "cd build && node --optimize_for_size index",
         "build": "gulp",
+        "compile": "tsgo -p tsconfig.json",
+        "typecheck": "tsgo -p tsconfig.json --noEmit",
         "test": "vitest",
         "setup": "npm i && npm run build"
     },
@@ -36,7 +38,8 @@
     "overrides": {
         "typescript-eslint": {
             "typescript": "$typescript"
-        }
+        },
+        "jsonpath-plus": "^10.4.0"
     },
     "dependencies": {
         "@asyncapi/generator": "^3.2.0",
@@ -78,6 +81,7 @@
         "@multiformats/multiaddr": "^13.0.1",
         "@noble/curves": "^2.0.1",
         "@noble/secp256k1": "^3.0.0",
+        "@typescript/native-preview": "^7.0.0-dev.20260423.1",
         "asyncapi-validator": "^5.1.1",
         "bignumber.js": "^10.0.2",
         "bip174": "^3.0.0",
@@ -104,7 +108,7 @@
         "swagger-ui-express": "^5.0.1",
         "tiny-secp256k1": "^2.2.4",
         "toml": "^4.1.1",
-        "typescript": "^5.9.3",
+        "typescript": "^6.0.3",
         "typescript-eslint": "^8.58.0",
         "uint8arraylist": "^2.4.8"
     },
@@ -121,7 +125,6 @@
         "gulp-cached": "^1.1.1",
         "gulp-clean": "^0.4.0",
         "gulp-eslint-new": "^2.6.2",
-        "gulp-typescript": "^6.0.0-alpha.1",
         "prettier": "^3.8.1",
         "vitest": "^4.1.2"
     }

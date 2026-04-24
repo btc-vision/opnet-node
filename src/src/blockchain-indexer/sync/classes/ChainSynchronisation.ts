@@ -8,9 +8,8 @@ import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
 import { BlockFetcher } from '../../fetcher/abstract/BlockFetcher.js';
 import { Config } from '../../../config/Config.js';
 import { RPCBlockFetcher } from '../../fetcher/RPCBlockFetcher.js';
-import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
+import { BasicBlockInfo, BitcoinRPC, TransactionData } from '@btc-vision/bitcoin-rpc';
 import { Block, DeserializedBlock } from '../../processor/block/Block.js';
-import { TransactionData } from '@btc-vision/bitcoin-rpc/build/rpc/types/BlockData.js';
 import {
     ProcessUnspentTransactionList,
     UnspentTransactionRepository,
@@ -18,7 +17,6 @@ import {
 import { DBManagerInstance } from '../../../db/DBManager.js';
 import { IChainReorg } from '../../../threading/interfaces/thread-messages/messages/indexer/IChainReorg.js';
 import { PublicKeysRepository } from '../../../db/repositories/PublicKeysRepository.js';
-import { BasicBlockInfo } from '@btc-vision/bitcoin-rpc/src/rpc/types/BasicBlockInfo.js';
 import { Classification, Utxo, UtxoSorter } from '../solver/UTXOSorter.js';
 import { AnyoneCanSpendRepository } from '../../../db/repositories/AnyoneCanSpendRepository.js';
 import { ChallengeSolution } from '../../processor/interfaces/TransactionPreimage.js';

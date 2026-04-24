@@ -121,6 +121,25 @@ export class FastBigIntMap implements Map<bigint, bigint> {
         }
     }
 
+    getOrInsert(key: bigint, defaultValue: bigint): bigint {
+        const keyStr = key.toString();
+        if (this.has(key)) {
+            return this.items[keyStr];
+        }
+        this.set(key, defaultValue);
+        return defaultValue;
+    }
+
+    getOrInsertComputed(key: bigint, callbackfn: (key: bigint) => bigint): bigint {
+        const keyStr = key.toString();
+        if (this.has(key)) {
+            return this.items[keyStr];
+        }
+        const value = callbackfn(key);
+        this.set(key, value);
+        return value;
+    }
+
     /**
      * Makes the map iterable with `for...of`, yielding [key, value] pairs.
      */
