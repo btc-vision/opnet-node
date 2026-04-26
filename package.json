@@ -83,7 +83,7 @@
         "@noble/secp256k1": "^3.0.0",
         "@typescript/native-preview": "^7.0.0-dev.20260423.1",
         "asyncapi-validator": "^5.1.1",
-        "bignumber.js": "^10.0.2",
+        "bignumber.js": "^11.0.0",
         "bip174": "^3.0.0",
         "bip39": "^3.1.0",
         "bson": "^7.2.0",
