@@ -1,4 +1,4 @@
-import { TransactionData } from '@btc-vision/bitcoin-rpc/src/rpc/types/BlockData.js';
+import { TransactionData } from '@btc-vision/bitcoin-rpc';
 import { TransactionSafeThread } from '../../db/interfaces/ITransactionDocument.js';
 
 export interface MsgFromMain {

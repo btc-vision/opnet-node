@@ -4,6 +4,7 @@ import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
 import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
 import { MessageType } from '../../../threading/enum/MessageType.js';
 import {
+    BitcoinRawTransactionParams,
     BitcoinRPC,
     BitcoinVerbosity,
     TransactionData,
@@ -12,7 +13,6 @@ import {
 import { Config } from '../../../config/Config.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
-import { BitcoinRawTransactionParams } from '@btc-vision/bitcoin-rpc/src/rpc/types/BitcoinRawTransaction.js';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { parseAndStoreInputOutputs } from '../../../utils/TransactionMempoolUtils.js';

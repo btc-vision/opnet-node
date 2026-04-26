@@ -27,6 +27,7 @@ import {
     BitcoinRPC,
     FeeEstimation,
     PackageResult,
+    RawMempoolInfo,
     SmartFeeEstimation,
     TestMempoolAcceptResult,
 } from '@btc-vision/bitcoin-rpc';
@@ -48,7 +49,6 @@ import {
     FeeMessageResponse,
     FeeRecommendation,
 } from '../../../threading/interfaces/thread-messages/messages/api/FeeRequest.js';
-import { RawMempoolInfo } from '@btc-vision/bitcoin-rpc/src/rpc/types/MempoolInfo.js';
 import { getMongodbMajorVersion } from '../../../vm/storage/databases/MongoUtils.js';
 import { MongoDBConfigurationDefaults } from '../../../vm/storage/databases/MongoDBConfigurationDefaults.js';
 

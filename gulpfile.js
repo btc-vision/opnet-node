@@ -3,8 +3,15 @@ import gulp from 'gulp';
 import gulpcache from 'gulp-cached';
 import gulpClean from 'gulp-clean';
 import { Logger } from '@btc-vision/logger';
-import ts from 'gulp-typescript';
 import { Transform } from 'stream';
+import { spawn } from 'child_process';
+import { createInterface } from 'readline';
+import { createRequire } from 'module';
+import path from 'path';
+
+const require = createRequire(import.meta.url);
+const tsgoPkg = require.resolve('@typescript/native-preview/package.json');
+const tsgoBin = path.join(path.dirname(tsgoPkg), 'bin', 'tsgo.js');
 
 process.on('uncaughtException', function (err) {
     console.log('Caught exception: ', err);
@@ -16,7 +23,6 @@ class GulpLogger extends Logger {
 }
 
 const logger = new GulpLogger();
-const tsProject = ts.createProject('tsconfig.json');
 
 function onError(e) {
     logger.error(String(e));
@@ -43,21 +49,147 @@ function logPipe(before, after, extname) {
     });
 }
 
-function buildESM() {
-    return tsProject
-        .src()
-        .on('error', onError)
-        .pipe(gulpcache())
-        .pipe(logPipe('Starting...', 'Project compiled!', '.js'))
-        .pipe(gulpESLintNew())
-        .pipe(gulpESLintNew.format())
-        .pipe(tsProject())
-        .pipe(gulp.dest('build'));
+function lintSummary() {
+    let fileCount = 0;
+    let errorCount = 0;
+    let warningCount = 0;
+    let fixableErrorCount = 0;
+    let fixableWarningCount = 0;
+    return new Transform({
+        objectMode: true,
+        transform(file, _enc, cb) {
+            fileCount += 1;
+            const r = file.eslint;
+            if (r) {
+                errorCount += r.errorCount ?? 0;
+                warningCount += r.warningCount ?? 0;
+                fixableErrorCount += r.fixableErrorCount ?? 0;
+                fixableWarningCount += r.fixableWarningCount ?? 0;
+            }
+            cb(null, file);
+        },
+        flush(cb) {
+            const parts = [
+                `${fileCount} file${fileCount === 1 ? '' : 's'} linted`,
+                `${errorCount} error${errorCount === 1 ? '' : 's'}`,
+                `${warningCount} warning${warningCount === 1 ? '' : 's'}`,
+            ];
+            if (fixableErrorCount || fixableWarningCount) {
+                parts.push(`${fixableErrorCount + fixableWarningCount} auto-fixable`);
+            }
+            if (errorCount > 0) {
+                logger.error(parts.join(' | '));
+            } else if (warningCount > 0) {
+                logger.warn(parts.join(' | '));
+            } else {
+                logger.success(parts.join(' | '));
+            }
+            cb();
+        },
+    });
 }
 
+function lintSources() {
+    return gulp
+        .src(['src/**/*.ts', 'src/**/*.js'])
+        .on('error', onError)
+        .pipe(logPipe('Linting...', 'Lint complete.', ''))
+        .pipe(gulpESLintNew())
+        .pipe(gulpESLintNew.format())
+        .pipe(lintSummary());
+}
+
+// Route a tsgo line through GulpLogger at the right severity.
+function emitTsgoLine(line) {
+    const stripped = line.replace(/\x1b\[[0-9;]*m/g, '').trim();
+    if (!stripped) return;
+
+    if (/\berror TS\d+:/.test(stripped)) {
+        logger.error(stripped);
+    } else if (/\bwarning TS\d+:/.test(stripped)) {
+        logger.warn(stripped);
+    } else if (stripped.startsWith('TSFILE:')) {
+        logger.log(stripped.replace(/^TSFILE:\s*/, 'emit '));
+    } else {
+        logger.log(stripped);
+    }
+}
+
+function spawnTsgo(extraArgs = []) {
+    const args = [
+        tsgoBin,
+        '-p',
+        'tsconfig.json',
+        '--extendedDiagnostics',
+        '--listEmittedFiles',
+        '--pretty',
+        'false',
+        ...extraArgs,
+    ];
+    const child = spawn(process.execPath, args, {
+        stdio: ['inherit', 'pipe', 'pipe'],
+        env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' },
+    });
+    const stdoutReader = createInterface({ input: child.stdout });
+    const stderrReader = createInterface({ input: child.stderr });
+    stdoutReader.on('line', emitTsgoLine);
+    stderrReader.on('line', emitTsgoLine);
+    return child;
+}
+
+function compileTs(cb) {
+    logger.log('Compiling with tsgo...');
+    const started = Date.now();
+    const child = spawnTsgo();
+    child.on('error', (err) => {
+        onError(err);
+        cb(err);
+    });
+    child.on('exit', (code) => {
+        const seconds = ((Date.now() - started) / 1000).toFixed(2);
+        if (code === 0) {
+            logger.success(`tsgo compiled project in ${seconds}s`);
+            cb();
+        } else {
+            cb(new Error(`tsgo exited with code ${code} after ${seconds}s`));
+        }
+    });
+}
+
+let tsgoWatchChild = null;
+function startTsgoWatch() {
+    if (tsgoWatchChild) return;
+    logger.log('Starting tsgo --watch...');
+    tsgoWatchChild = spawnTsgo(['--watch']);
+    tsgoWatchChild.on('exit', (code) => {
+        tsgoWatchChild = null;
+        if (code !== 0 && code !== null) {
+            logger.error(`tsgo --watch exited with code ${code}`);
+        }
+    });
+    const stop = () => {
+        if (tsgoWatchChild) tsgoWatchChild.kill('SIGTERM');
+    };
+    process.once('SIGINT', stop);
+    process.once('SIGTERM', stop);
+    process.once('exit', stop);
+}
+
+const buildESM = gulp.series(lintSources, compileTs);
+
+// Only clean tsgo-emitted outputs. Never touch build/config/ or any other
+// build/ subdirectory that may contain user-authored files (btc.conf, etc.).
 export function clean() {
     return gulp
-        .src('./build/src', { read: false, allowEmpty: true })
+        .src(
+            [
+                './build/index.js',
+                './build/index.d.ts',
+                './build/src',
+                './tsconfig.tsbuildinfo',
+            ],
+            { read: false, allowEmpty: true },
+        )
         .pipe(gulpClean({ allowEmpty: true }));
 }
 
@@ -90,7 +222,8 @@ export const build = gulp.series(clean, buildESM, optionals);
 export default build;
 
 export function watch() {
-    gulp.watch(['src/**/*.ts', 'src/**/*.js'], gulp.series(buildESM));
+    startTsgoWatch();
+    gulp.watch(['src/**/*.ts', 'src/**/*.js'], lintSources);
     gulp.watch(
         [
             'src/components/*.yaml',

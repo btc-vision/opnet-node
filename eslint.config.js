@@ -41,6 +41,7 @@ export default [
             '@typescript-eslint/no-unnecessary-type-arguments': 'off',
             'no-debugger': 'off',
             '@typescript-eslint/no-unnecessary-type-conversion': 'warn',
+            '@typescript-eslint/no-unnecessary-type-assertion': 'off',
             'opnet/no-uint8array-tostring': 'error',
 			
             // This is stupid. null and undefined is not the same thing. who ever made this eslint rule is stupid.

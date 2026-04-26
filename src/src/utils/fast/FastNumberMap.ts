@@ -126,6 +126,23 @@ export class FastNumberMap<T> implements Map<number, T> {
         }
     }
 
+    public getOrInsert(key: number, defaultValue: T): T {
+        if (this.has(key)) {
+            return this.items[key];
+        }
+        this.set(key, defaultValue);
+        return defaultValue;
+    }
+
+    public getOrInsertComputed(key: number, callbackfn: (key: number) => T): T {
+        if (this.has(key)) {
+            return this.items[key];
+        }
+        const value = callbackfn(key);
+        this.set(key, value);
+        return value;
+    }
+
     /**
      * Makes the map iterable with `for...of`, yielding [key, value] pairs.
      */

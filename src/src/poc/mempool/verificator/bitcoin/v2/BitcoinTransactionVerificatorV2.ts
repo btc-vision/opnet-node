@@ -9,8 +9,7 @@ import {
 import { Config } from '../../../../../config/Config.js';
 import { TransactionFactory } from '../../../../../blockchain-indexer/processor/transaction/transaction-factory/TransactionFactory.js';
 import { IMempoolTransactionObj } from '../../../../../db/interfaces/IMempoolTransaction.js';
-import { TransactionData, VOut } from '@btc-vision/bitcoin-rpc/src/rpc/types/BlockData.js';
-import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
+import { BitcoinRPC, TransactionData, VOut } from '@btc-vision/bitcoin-rpc';
 import { scriptToAddress } from '../../../../../utils/AddressDecoder.js';
 import BigNumber from 'bignumber.js';
 import { OPNetConsensus } from '../../../../configurations/OPNetConsensus.js';

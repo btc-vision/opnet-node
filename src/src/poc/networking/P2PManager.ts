@@ -16,8 +16,7 @@ import {
     Stream,
 } from '@libp2p/interface';
 import { kadDHT, PeerInfoMapper, removePrivateAddressesMapper } from '@libp2p/kad-dht';
-import { mdns } from '@libp2p/mdns';
-import { MulticastDNSComponents } from '@libp2p/mdns/dist/src/mdns.js';
+import { mdns, MulticastDNSComponents } from '@libp2p/mdns';
 import { peerIdFromCID, peerIdFromString } from '@libp2p/peer-id';
 import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { tcp } from '@libp2p/tcp';
@@ -62,7 +61,6 @@ import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/
 import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { shuffleArray } from '../../utils/shuffleArray.js';
 import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
-import { Components } from 'libp2p/components.js';
 import { noise } from '@chainsafe/libp2p-noise';
 import { CID } from 'multiformats/cid';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
@@ -77,6 +75,7 @@ import { autoNATv2 } from '@libp2p/autonat-v2';
 import {
     BlacklistedPeerInfo,
     BootstrapDiscoveryMethod,
+    Components,
     Libp2pInstance,
     OPNetConnectionInfo,
     P2PServices,

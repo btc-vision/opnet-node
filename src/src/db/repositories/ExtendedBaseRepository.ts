@@ -2,8 +2,12 @@ import {
     CurrentOpOutput,
     OperationDetails,
 } from '../../vm/storage/interfaces/StorageInterfaces.js';
-import { BaseRepository, DataAccessError, DataAccessErrorType } from '@btc-vision/bsi-common';
-import { IBaseDocument } from '@btc-vision/bsi-common/src/db/documents/interfaces/IBaseDocument.js';
+import {
+    BaseRepository,
+    DataAccessError,
+    DataAccessErrorType,
+    IBaseDocument,
+} from '@btc-vision/bsi-common';
 import {
     AnyBulkWriteOperation,
     BulkWriteOptions,
