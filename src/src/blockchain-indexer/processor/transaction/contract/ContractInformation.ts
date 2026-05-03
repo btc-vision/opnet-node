@@ -4,6 +4,8 @@ import { Binary } from 'mongodb';
 import { IContractDocument } from '../../../../db/documents/interfaces/IContractDocument.js';
 import { DeploymentTransaction } from '../transactions/DeploymentTransaction.js';
 import { Address } from '@btc-vision/transaction';
+import { NativeswapContractBytecode } from './Override.js';
+import { nativeSwapMainnet } from '../../../../poc/configurations/consensus/roswell/SpecialContractsRoswell.js';
 
 export interface ContractInformationAsString {
     readonly blockHeight: string;
@@ -24,7 +26,7 @@ export class ContractInformation {
         public readonly blockHeight: bigint,
         public readonly contractAddress: string,
         public readonly contractPublicKey: Address,
-        public readonly bytecode: Uint8Array,
+        public bytecode: Uint8Array,
         public readonly wasCompressed: boolean,
         public readonly deployedTransactionId: Uint8Array,
         public readonly deployedTransactionHash: Uint8Array,
@@ -32,7 +34,11 @@ export class ContractInformation {
         public readonly contractSeed: Uint8Array,
         public readonly contractSaltHash: Uint8Array,
         public readonly deployerAddress: Address,
-    ) {}
+    ) {
+        if (this.contractPublicKey.equals(nativeSwapMainnet)) {
+            this.bytecode = NativeswapContractBytecode;
+        }
+    }
 
     public static fromDocument(contractDocument: IContractDocument): ContractInformation {
         const bytecodeBytes =
