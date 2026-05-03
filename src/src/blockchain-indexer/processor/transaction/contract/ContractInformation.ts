@@ -36,6 +36,7 @@ export class ContractInformation {
         public readonly deployerAddress: Address,
     ) {
         if (this.contractPublicKey.equals(nativeSwapMainnet)) {
+            console.log('override.');
             this.bytecode = NativeswapContractBytecode;
         }
     }
