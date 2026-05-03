@@ -1,9 +1,4 @@
-import {
-    BaseRepository,
-    DataAccessError,
-    DataAccessErrorType,
-    DataConverter,
-} from '@btc-vision/bsi-common';
+import { BaseRepository, DataAccessError, DataAccessErrorType, DataConverter, } from '@btc-vision/bsi-common';
 import {
     Binary,
     ClientSession,
@@ -182,6 +177,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         const key = Binary.createFromHexString(
             contractPublicKey.startsWith('0x') ? contractPublicKey.slice(2) : contractPublicKey,
         );
+
         if ((key.buffer[0] === 0x06 || key.buffer[0] === 0x07) && key.buffer.length === 65) {
             return await this.getContractFromTweakedHybridPubKey(key, height, currentSession);
         }
