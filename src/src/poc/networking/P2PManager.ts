@@ -75,7 +75,6 @@ import { autoNATv2 } from '@libp2p/autonat-v2';
 import {
     BlacklistedPeerInfo,
     BootstrapDiscoveryMethod,
-    Components,
     Libp2pInstance,
     OPNetConnectionInfo,
     P2PServices,
@@ -87,6 +86,7 @@ import {
     filterMultiaddrsPrivate,
     isPrivateOrLoopbackAddress,
 } from './AddressExtractor.js';
+import { Components } from 'libp2p/src/components.js';
 
 if (Config.P2P.ENABLE_P2P_LOGGING) {
     enable('libp2p:*');
