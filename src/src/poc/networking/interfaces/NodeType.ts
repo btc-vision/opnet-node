@@ -1,4 +1,4 @@
-import type { Libp2p, Libp2pInit } from 'libp2p';
+import type { Libp2p } from 'libp2p';
 import { UPnPNAT } from '@libp2p/upnp-nat';
 import { KadDHT } from '@libp2p/kad-dht';
 import { Identify, IdentifyPush } from '@libp2p/identify';
@@ -6,11 +6,7 @@ import { Ping } from '@libp2p/ping';
 import { BootstrapComponents } from '@libp2p/bootstrap';
 import { PeerDiscovery, PeerId } from '@libp2p/interface';
 import { DisconnectionCode } from '../enums/DisconnectionCode.js';
-
-// libp2p doesn't re-export its internal `Components` type, but it appears in
-// every factory signature in `Libp2pInit`. Pull it out of `transports` so this
-// type stays in lockstep with whatever libp2p actually ships.
-export type Components = Parameters<NonNullable<Libp2pInit['transports']>[number]>[0];
+import type { Components } from 'libp2p/src/components.js';
 
 export type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
