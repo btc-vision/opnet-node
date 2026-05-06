@@ -9,12 +9,7 @@ import { DataConverter } from '@btc-vision/bsi-common';
 import { Binary } from 'mongodb';
 import { EpochDifficultyConverter } from '../../../poc/epoch/EpochDifficultyConverter.js';
 import { EpochValidator } from '../../../poc/epoch/EpochValidator.js';
-import {
-    Attestation,
-    AttestationType,
-    EpochData,
-    EpochMerkleTree,
-} from '../block/merkle/EpochMerkleTree.js';
+import { Attestation, AttestationType, EpochData, EpochMerkleTree, } from '../block/merkle/EpochMerkleTree.js';
 import {
     EpochSubmissionWinner,
     IEpochSubmissionsDocument,
@@ -437,7 +432,16 @@ export class EpochManager extends Logger {
             return submissions;
         }
 
-        if (networkConfig.EXPIRES_AT_BLOCK && endBlock >= networkConfig.EXPIRES_AT_BLOCK) {
+        const patch2Active =
+            !!networkConfig.PATCH_2_ENABLE_AT_BLOCK &&
+            endBlock >= networkConfig.PATCH_2_ENABLE_AT_BLOCK &&
+            (!networkConfig.EXPIRES_AT_BLOCK_PATCH_2 ||
+                endBlock < networkConfig.EXPIRES_AT_BLOCK_PATCH_2);
+
+        const originalExpired =
+            !!networkConfig.EXPIRES_AT_BLOCK && endBlock >= networkConfig.EXPIRES_AT_BLOCK;
+
+        if (originalExpired && !patch2Active) {
             return submissions;
         }
 

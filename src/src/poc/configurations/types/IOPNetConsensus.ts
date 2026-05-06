@@ -25,6 +25,8 @@ export interface EarlyMiningConfig {
     readonly ENABLED: boolean;
     readonly WHITELISTED_PUBLIC_KEY?: Address;
     readonly EXPIRES_AT_BLOCK?: bigint;
+    readonly PATCH_2_ENABLE_AT_BLOCK?: bigint;
+    readonly EXPIRES_AT_BLOCK_PATCH_2?: bigint;
 }
 
 export interface EpochPatches {
