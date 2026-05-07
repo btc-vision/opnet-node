@@ -6,6 +6,7 @@ import {
     LinkType,
 } from '../interfaces/thread-messages/messages/LinkThreadMessage.js';
 import { LinkThreadRequestMessage } from '../interfaces/thread-messages/messages/LinkThreadRequestMessage.js';
+import { UnlinkThreadMessage } from '../interfaces/thread-messages/messages/UnlinkThreadMessage.js';
 import { ThreadMessageBase } from '../interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadTypes } from '../thread/enums/ThreadTypes.js';
 import { Threader } from '../Threader.js';
@@ -100,6 +101,10 @@ export abstract class ThreadManager<T extends ThreadTypes> extends Logger {
             }
             case MessageType.LINK_THREAD: {
                 await this.onLinkThread(msg as LinkThreadMessage<LinkType>);
+                break;
+            }
+            case MessageType.UNLINK_THREAD: {
+                this.threadManager.broadcastUnlinkThread(msg as UnlinkThreadMessage);
                 break;
             }
             default: {

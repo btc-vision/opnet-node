@@ -13,6 +13,7 @@ import {
     LinkThreadRequestData,
     LinkThreadRequestMessage,
 } from './threading/interfaces/thread-messages/messages/LinkThreadRequestMessage.js';
+import { UnlinkThreadMessage } from './threading/interfaces/thread-messages/messages/UnlinkThreadMessage.js';
 import { ThreadMessageBase } from './threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadTypes } from './threading/thread/enums/ThreadTypes.js';
 import { OPNetIdentity } from './poc/identity/OPNetIdentity.js';
@@ -174,6 +175,21 @@ export class Core extends Logger {
         targetThread.postMessage(msg, [msg.data.port]);
     }
 
+    /**
+     * Forward an UNLINK_THREAD broadcast from one manager to every manager so each
+     * pool can purge dead MessagePorts from its leaf threads' threadRelations.
+     * Triggered when a worker dies inside any Threader (see Threader.ts exit handler).
+     */
+    private onUnlinkThread(msg: UnlinkThreadMessage): void {
+        const types = Object.keys(this.masterThreads) as Array<keyof typeof this.masterThreads>;
+        for (const type of types) {
+            const target = this.masterThreads[type];
+            if (target) {
+                target.postMessage(msg);
+            }
+        }
+    }
+
     private onThreadMessage(
         _thread: Worker,
         msg: ThreadMessageBase<MessageType>,
@@ -187,6 +203,11 @@ export class Core extends Logger {
 
             case MessageType.LINK_THREAD: {
                 this.onLinkThread(msg as LinkThreadMessage<LinkType>);
+                break;
+            }
+
+            case MessageType.UNLINK_THREAD: {
+                this.onUnlinkThread(msg as UnlinkThreadMessage);
                 break;
             }
 

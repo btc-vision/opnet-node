@@ -7,6 +7,7 @@ import {
 } from '../interfaces/thread-messages/messages/LinkThreadMessage.js';
 import { SetMessagePort } from '../interfaces/thread-messages/messages/SetMessagePort.js';
 import { ThreadMessageResponse } from '../interfaces/thread-messages/messages/ThreadMessageResponse.js';
+import { UnlinkThreadMessage } from '../interfaces/thread-messages/messages/UnlinkThreadMessage.js';
 import { ThreadMessageBase } from '../interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadData } from '../interfaces/ThreadData.js';
 import { ThreadTaskCallback } from '../Threader.js';
@@ -35,6 +36,12 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
     private tasks: FastStringMap<ThreadTaskCallback> = new FastStringMap<ThreadTaskCallback>();
     private availableThreads: Partial<Record<ThreadTypes, number>> = {};
 
+    // Tracks the other-end identity for each linked MessagePort so UNLINK_THREAD
+    // can identify which port to drop without depending on the (inconsistent)
+    // keying of threadRelations across RX/TX link messages.
+    private portMeta: Map<MessagePort, { threadType: ThreadTypes; threadId: number }> =
+        new Map();
+
     protected constructor() {
         super();
 
@@ -49,14 +56,9 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
     ): Promise<ThreadData | null> {
         return new Promise(async (resolve, reject) => {
             try {
-                const relation = this.threadRelations[threadType];
-                if (relation) {
-                    const port = this.getNextAvailableThread(threadType);
-                    if (!port) {
-                        return null;
-                    }
-
-                    const d = await this.sendMessage(m, port);
+                const port = this.getNextAvailableThread(threadType);
+                if (port) {
+                    const d = await this.sendMessage(m, port, threadType);
                     resolve(d);
                 } else if (i !== 5 && allowRetries) {
                     setTimeout(async () => {
@@ -93,7 +95,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                 if (relation) {
                     const promises: Promise<ThreadData | null>[] = [];
                     for (const port of relation) {
-                        promises.push(this.sendMessage({ ...m }, port));
+                        promises.push(this.sendMessage({ ...m }, port, threadType));
                     }
 
                     await Promise.safeAll(promises);
@@ -116,6 +118,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
     protected async sendMessage(
         m: ThreadMessageBase<MessageType>,
         port: MessagePort,
+        destThreadType?: ThreadTypes,
     ): Promise<ThreadData | null> {
         return new Promise<ThreadData | null>((resolve, reject) => {
             try {
@@ -123,15 +126,22 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                 if (!hasTaskId) {
                     m.taskId = this.generateTaskId();
 
+                    const sentAt = Date.now();
+                    const portIndex = destThreadType
+                        ? this.threadRelationsArray[destThreadType]?.indexOf(port) ?? -1
+                        : -1;
+
                     const timeout = setTimeout(() => {
+                        const ageMs = Date.now() - sentAt;
+                        const inflight = this.tasks.size;
                         this.warn(
-                            `[B] Thread task ${m.taskId} timed out. (Thread: ${threadId}, ThreadType: ${this.threadType}) - Trace: ${JSON.stringify(m.data)}`,
+                            `[B] Thread task ${m.taskId} timed out after ${ageMs}ms. (Thread: ${threadId}, ThreadType: ${this.threadType} -> ${destThreadType ?? 'unknown'} portIdx=${portIndex}, msgType=${m.type}, inflight=${inflight}) - Trace: ${JSON.stringify(m.data)}`,
                         );
 
                         if (Config.DEV.SAVE_TIMEOUTS_TO_FILE) {
                             fs.appendFileSync(
                                 './thread-timeouts.log',
-                                `[B] Thread task ${m.taskId} timed out. (Thread: ${threadId}, ThreadType: ${this.threadType}) - Trace: ${JSON.stringify(m)}\n`,
+                                `[B] Thread task ${m.taskId} timed out after ${ageMs}ms. (Thread: ${threadId}, ThreadType: ${this.threadType} -> ${destThreadType ?? 'unknown'} portIdx=${portIndex}, msgType=${m.type}, inflight=${inflight}) - Trace: ${JSON.stringify(m)}\n`,
                             );
                         }
 
@@ -141,6 +151,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                     const task: ThreadTaskCallback = {
                         timeout: timeout,
                         resolve: resolve,
+                        port: port,
                     };
 
                     this.tasks.set(m.taskId, task);
@@ -185,11 +196,11 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
 
     private getNextAvailableThread(threadType: ThreadTypes): MessagePort | null {
         const relation = this.threadRelationsArray[threadType];
-        if (!relation) {
+        if (!relation || relation.length === 0) {
             return null;
         }
 
-        const currentIndex = this.availableThreads[threadType] || 0;
+        const currentIndex = (this.availableThreads[threadType] || 0) % relation.length;
         this.availableThreads[threadType] = (currentIndex + 1) % relation.length;
 
         return relation[currentIndex];
@@ -218,6 +229,9 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
             case MessageType.LINK_THREAD:
                 this.createInternalThreadLink(m as LinkThreadMessage<LinkType>);
                 break;
+            case MessageType.UNLINK_THREAD:
+                this.onUnlinkThread(m as UnlinkThreadMessage);
+                break;
             default:
                 await this.onMessage(m);
                 break;
@@ -243,7 +257,79 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
         this.threadRelationsArray[threadType] = array;
         this.threadRelations[threadType] = relation;
 
+        // sourceThreadType / sourceThreadId always describe the OTHER end of the
+        // link from this thread's perspective, regardless of TX/RX direction.
+        this.portMeta.set(data.port, {
+            threadType: data.sourceThreadType,
+            threadId: data.sourceThreadId,
+        });
+
         this.createEvents(threadType, data.port);
+    }
+
+    /**
+     * Drop every link to a worker that just died.
+     *
+     * Without this, the dead MessagePort lingers in threadRelations /
+     * threadRelationsArray and every subsequent send to that port stalls until
+     * the 240s sendMessage timeout fires — and on broadcast paths
+     * (sendMessageToAllThreads) the slowest dead port poisons the whole call.
+     * In-flight tasks pinned to the dead port are also resolved here so callers
+     * unblock immediately instead of waiting out their own 240s timer.
+     */
+    private onUnlinkThread(m: UnlinkThreadMessage): void {
+        const { threadType, threadId } = m.data;
+
+        const deadPorts: MessagePort[] = [];
+        for (const [port, meta] of this.portMeta) {
+            if (meta.threadType === threadType && meta.threadId === threadId) {
+                deadPorts.push(port);
+            }
+        }
+
+        if (deadPorts.length === 0) return;
+
+        for (const port of deadPorts) {
+            this.portMeta.delete(port);
+
+            const array = this.threadRelationsArray[threadType];
+            if (array) {
+                const idx = array.indexOf(port);
+                if (idx >= 0) array.splice(idx, 1);
+            }
+
+            const relation = this.threadRelations[threadType];
+            if (relation) {
+                for (const [k, v] of relation.entries()) {
+                    if (v === port) relation.delete(k);
+                }
+            }
+
+            try {
+                port.close();
+            } catch {
+                // closing an already-disposed port is harmless; ignore.
+            }
+        }
+
+        const deadSet = new Set(deadPorts);
+        let cancelled = 0;
+        for (const taskId of [...this.tasks.keys()]) {
+            const task = this.tasks.get(taskId);
+            if (task && task.port && deadSet.has(task.port)) {
+                clearTimeout(task.timeout);
+                task.resolve(null);
+                this.tasks.delete(taskId);
+                cancelled++;
+            }
+        }
+
+        // Reset round-robin cursor so we don't read past the new (shorter) array.
+        this.availableThreads[threadType] = 0;
+
+        this.warn(
+            `Unlinked dead ${threadType}#${threadId}: dropped ${deadPorts.length} port(s), cancelled ${cancelled} pending task(s).`,
+        );
     }
 
     private async onEventMessage(

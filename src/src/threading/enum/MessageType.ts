@@ -3,6 +3,7 @@ export enum MessageType {
     LINK_THREAD,
     SET_MESSAGE_PORT,
     LINK_THREAD_REQUEST,
+    UNLINK_THREAD,
     RPC_METHOD,
 
     BLOCK_PROCESSED,
