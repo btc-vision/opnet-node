@@ -1,4 +1,4 @@
-import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
+import { ConfigurableDBManager, DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { ThreadMessageBase } from '../../../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
 import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
@@ -19,11 +19,15 @@ import { parseAndStoreInputOutputs } from '../../../utils/TransactionMempoolUtil
 import fs from 'fs';
 import { LargeJSONProcessor } from '../../../utils/LargeJSONProcessor.js';
 import { RPCMessageData } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
-import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
+import {
+    BitcoinRPCThreadMessageType
+} from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { TransactionVerifierManager } from '../transaction/TransactionVerifierManager.js';
 import { fromHex, Network } from '@btc-vision/bitcoin';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
-import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import {
+    OPNetTransactionTypes
+} from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { getMongodbMajorVersion } from '../../../vm/storage/databases/MongoUtils.js';
 import { MongoDBConfigurationDefaults } from '../../../vm/storage/databases/MongoDBConfigurationDefaults.js';
 
@@ -202,7 +206,7 @@ export class MempoolManager extends Logger {
             const batchData = await Promise.safeAll(promises);
             txsData.push(...batchData.filter((tx) => !!tx));
 
-            if (Config.DEV_MODE) {
+            if (Config.DEV_MODE && Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                 this.log(
                     `Fetched batch ${Math.floor(i / Config.MEMPOOL.BATCH_SIZE) + 1} of ${Math.ceil(
                         txs.length / Config.MEMPOOL.BATCH_SIZE,
