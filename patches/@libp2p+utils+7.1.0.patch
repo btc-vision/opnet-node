@@ -1,5 +1,5 @@
 diff --git a/node_modules/@libp2p/utils/dist/src/queue/job.js b/node_modules/@libp2p/utils/dist/src/queue/job.js
-index 8aef8c4..993ba71 100644
+index 8aef8c4..246cb26 100644
 --- a/node_modules/@libp2p/utils/dist/src/queue/job.js
 +++ b/node_modules/@libp2p/utils/dist/src/queue/job.js
 @@ -8,6 +8,16 @@ import { JobRecipient } from "./recipient.js";
@@ -19,24 +19,50 @@ index 8aef8c4..993ba71 100644
  export class Job {
      id;
      fn;
-@@ -43,6 +53,16 @@ export class Job {
+@@ -43,24 +53,61 @@ export class Job {
          }
      }
      async join(options) {
-+        // If the joiner's onProgress is THIS job's own internal fan-out closure
-+        // (reached by re-entering the queue from inside fn — see dial-queue's
-+        // existingDial.join path), drop it before constructing the recipient.
-+        // The joiner still gets the deferred result via the returned promise;
-+        // we just don't wire its closure as a self-recipient that would loop
-+        // when the closure next fires.
-+        if (options != null && options.onProgress != null && options.onProgress[PROGRESS_OWNER] === this) {
-+            const { onProgress, ...rest } = options;
-+            options = rest;
++        // If the joiner's onProgress is some Job's inner fan-out closure and
++        // adding it as our recipient would close a cycle in the
++        // closure-fan-out graph, drop onProgress before constructing the
++        // recipient. Catches self-cycles (Job_A re-joins Job_A) AND
++        // multi-job cycles (Job_A→Job_B→Job_A) that emerge when libp2p's
++        // dial-queue re-enters via peerRouting/kad-dht/openStream and a sub-
++        // dial joins back into one of its ancestors. Without this the next
++        // progress event recurses through the cycle and stack-overflows.
++        if (options != null && options.onProgress != null) {
++            const ownerJob = options.onProgress[PROGRESS_OWNER];
++            if (ownerJob != null && this.wouldCreateProgressCycle(ownerJob)) {
++                const { onProgress, ...rest } = options;
++                options = rest;
++            }
 +        }
          const recipient = new JobRecipient(options);
          this.recipients.push(recipient);
          options?.signal?.addEventListener('abort', this.onAbort);
-@@ -51,16 +71,18 @@ export class Job {
+         return recipient.deferred.promise;
+     }
++    // Iterative DFS over the closure-fan-out graph reachable from `start`.
++    // Returns true when `this` is reachable, i.e., adding `start`'s inner
++    // closure as one of our recipients would create a cycle. Visited set
++    // makes it safe even if the existing graph already contains cycles.
++    wouldCreateProgressCycle(start) {
++        const visited = new Set();
++        const stack = [start];
++        while (stack.length > 0) {
++            const job = stack.pop();
++            if (job === this) return true;
++            if (visited.has(job)) continue;
++            visited.add(job);
++            for (const r of job.recipients) {
++                const cb = r.onProgress;
++                const owner = cb != null ? cb[PROGRESS_OWNER] : undefined;
++                if (owner != null) stack.push(owner);
++            }
++        }
++        return false;
++    }
      async run() {
          this.status = 'running';
          this.timeline.started = Date.now();
