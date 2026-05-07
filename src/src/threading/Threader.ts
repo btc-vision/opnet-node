@@ -15,6 +15,7 @@ import {
     LinkThreadRequestMessage,
 } from './interfaces/thread-messages/messages/LinkThreadRequestMessage.js';
 import { SetMessagePort } from './interfaces/thread-messages/messages/SetMessagePort.js';
+import { UnlinkThreadMessage } from './interfaces/thread-messages/messages/UnlinkThreadMessage.js';
 import { ThreadMessageBase } from './interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadData } from './interfaces/ThreadData.js';
 import { ThreaderConfigurations } from './interfaces/ThreaderConfigurations.js';
@@ -25,6 +26,7 @@ import { FastStringMap } from '../utils/fast/FastStringMap.js';
 export type ThreadTaskCallback = {
     timeout: ReturnType<typeof setTimeout>;
     resolve: (value: ThreadData | PromiseLike<ThreadData>) => void;
+    port?: MessagePort;
 };
 
 export class Threader<T extends ThreadTypes> extends Logger {
@@ -194,6 +196,17 @@ export class Threader<T extends ThreadTypes> extends Logger {
         }
     }
 
+    /**
+     * Forward an UNLINK_THREAD notice to every sub-worker in this manager's pool
+     * so each leaf Thread can drop the dead MessagePort from its threadRelations.
+     * Called by ThreadManager when Core fans the notice out to all managers.
+     */
+    public broadcastUnlinkThread(msg: UnlinkThreadMessage): void {
+        for (const thread of this.threads) {
+            this.executeMessageOnThreadNoResponse(msg, thread);
+        }
+    }
+
     public createChannel(): { tx: MessagePort; rx: MessagePort } {
         const channel = new MessageChannel();
 
@@ -277,10 +290,42 @@ export class Threader<T extends ThreadTypes> extends Logger {
                             `Thread #${i} died. {Target: ${this.target} | ExitCode -> ${exitCode}}\n`,
                         );
 
+                        const deadThreadId = thread.threadId;
+
                         // Find the correct thread by its ID in the array
-                        const idx = this.threads.findIndex((w) => w.threadId === thread.threadId);
+                        const idx = this.threads.findIndex((w) => w.threadId === deadThreadId);
                         if (idx > -1) {
                             this.threads.splice(idx, 1); // remove just that one
+                        }
+
+                        // Drop the dead worker's subChannel so we never try to post to it again.
+                        this.subChannels.delete(deadThreadId);
+
+                        // Cancel any in-flight manager-side tasks targeted at this dead worker.
+                        for (const taskId of [...this.tasks.keys()]) {
+                            const task = this.tasks.get(taskId);
+                            if (task) {
+                                clearTimeout(task.timeout);
+                                task.resolve({ error: true });
+                                this.tasks.delete(taskId);
+                            }
+                        }
+
+                        // Notify the rest of the cluster so peers drop dead ports for this id.
+                        // Without this, leaf Thread instances keep the dead MessagePort in
+                        // their threadRelations and every send to it stalls 240s.
+                        const unlinkMsg: UnlinkThreadMessage = {
+                            type: MessageType.UNLINK_THREAD,
+                            toServer: false,
+                            data: {
+                                threadType: this.threadType,
+                                threadId: deadThreadId,
+                            },
+                        };
+                        try {
+                            parentPort?.postMessage(unlinkMsg);
+                        } catch (e) {
+                            this.error(`Failed to broadcast UNLINK_THREAD: ${(e as Error).stack}`);
                         }
 
                         // Then re-create a new thread instance
