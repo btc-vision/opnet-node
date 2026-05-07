@@ -11,7 +11,8 @@
         "compile": "tsgo -p tsconfig.json",
         "typecheck": "tsgo -p tsconfig.json --noEmit",
         "test": "vitest",
-        "setup": "npm i && npm run build"
+        "setup": "npm i && npm run build",
+        "postinstall": "patch-package"
     },
     "engines": {
         "node": ">=24.0.0 <26.0.0"
@@ -125,6 +126,7 @@
         "gulp-cached": "^1.1.1",
         "gulp-clean": "^0.4.0",
         "gulp-eslint-new": "^2.6.2",
+        "patch-package": "^8.0.1",
         "prettier": "^3.8.3",
         "vitest": "^4.1.5"
     }

@@ -1,0 +1,62 @@
+diff --git a/node_modules/@libp2p/utils/dist/src/queue/job.js b/node_modules/@libp2p/utils/dist/src/queue/job.js
+index 8aef8c4..993ba71 100644
+--- a/node_modules/@libp2p/utils/dist/src/queue/job.js
++++ b/node_modules/@libp2p/utils/dist/src/queue/job.js
+@@ -8,6 +8,16 @@ import { JobRecipient } from "./recipient.js";
+ function randomId() {
+     return `${(parseInt(String(Math.random() * 1e9), 10)).toString()}${Date.now()}`;
+ }
++// Brand placed on the inner onProgress closure built in Job.run so Job.join
++// can recognise — and refuse — a self-referential recipient.
++//
++// Without this brand, a Job whose `fn` propagates `options.onProgress`
++// downstream (as libp2p's dial-queue does through peerRouting/kad-dht/openStream)
++// can re-enter the same Queue and end up calling existingDial.join({ onProgress })
++// where `onProgress` is the running Job's own fan-out closure. That registers
++// the closure as one of its own recipients, and the very next progress event
++// stack-overflows.
++const PROGRESS_OWNER = Symbol.for('@libp2p/utils:queue:progress-owner');
+ export class Job {
+     id;
+     fn;
+@@ -43,6 +53,16 @@ export class Job {
+         }
+     }
+     async join(options) {
++        // If the joiner's onProgress is THIS job's own internal fan-out closure
++        // (reached by re-entering the queue from inside fn — see dial-queue's
++        // existingDial.join path), drop it before constructing the recipient.
++        // The joiner still gets the deferred result via the returned promise;
++        // we just don't wire its closure as a self-recipient that would loop
++        // when the closure next fires.
++        if (options != null && options.onProgress != null && options.onProgress[PROGRESS_OWNER] === this) {
++            const { onProgress, ...rest } = options;
++            options = rest;
++        }
+         const recipient = new JobRecipient(options);
+         this.recipients.push(recipient);
+         options?.signal?.addEventListener('abort', this.onAbort);
+@@ -51,16 +71,18 @@ export class Job {
+     async run() {
+         this.status = 'running';
+         this.timeline.started = Date.now();
++        const onProgress = (evt) => {
++            this.recipients.forEach(recipient => {
++                recipient.onProgress?.(evt);
++            });
++        };
++        onProgress[PROGRESS_OWNER] = this;
+         try {
+             this.controller.signal.throwIfAborted();
+             const result = await raceSignal(this.fn({
+                 ...(this.options ?? {}),
+                 signal: this.controller.signal,
+-                onProgress: (evt) => {
+-                    this.recipients.forEach(recipient => {
+-                        recipient.onProgress?.(evt);
+-                    });
+-                }
++                onProgress
+             }), this.controller.signal);
+             this.recipients.forEach(recipient => {
+                 recipient.deferred.resolve(result);
