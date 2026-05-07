@@ -111,7 +111,7 @@
         "toml": "^4.1.1",
         "typescript": "^6.0.3",
         "typescript-eslint": "^8.59.2",
-        "uint8arraylist": "^2.4.9"
+        "uint8arraylist": "^3.0.0"
     },
     "devDependencies": {
         "@types/cors": "^2.8.19",
