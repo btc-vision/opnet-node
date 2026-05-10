@@ -539,16 +539,71 @@ export class P2PManager extends Logger {
     }
 
     private async broadcastMempoolTransaction(transaction: ITransactionPacket): Promise<number> {
+        const PEER_BROADCAST_TIMEOUT_MS = 8_000;
+
         const broadcastPromises: Promise<void>[] = [];
-        for (const peer of this.peers.values()) {
+        for (const [peerIdStr, peer] of this.peers.entries()) {
             if (!peer.isAuthenticated) continue;
 
-            broadcastPromises.push(peer.broadcastMempoolTransaction(transaction));
+            broadcastPromises.push(
+                this.sendToPeerWithTimeout(
+                    peer,
+                    peerIdStr,
+                    transaction,
+                    PEER_BROADCAST_TIMEOUT_MS,
+                ),
+            );
         }
 
         await Promise.safeAll(broadcastPromises);
 
         return broadcastPromises.length;
+    }
+
+    private sendToPeerWithTimeout(
+        peer: OPNetPeer,
+        peerIdStr: string,
+        transaction: ITransactionPacket,
+        timeoutMs: number,
+    ): Promise<void> {
+        return new Promise<void>((resolve) => {
+            let settled = false;
+            const timer = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+
+                if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                    this.warn(
+                        `Mempool broadcast to peer ${peerIdStr} timed out after ${timeoutMs}ms; skipping.`,
+                    );
+                }
+
+                resolve();
+            }, timeoutMs);
+
+            peer.broadcastMempoolTransaction(transaction).then(
+                () => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(timer);
+                    resolve();
+                },
+                (err: unknown) => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(timer);
+
+                    if (Config.DEV_MODE) {
+                        const details = err instanceof Error ? err.message : String(err);
+                        this.warn(
+                            `Mempool broadcast to peer ${peerIdStr} failed: ${details}`,
+                        );
+                    }
+
+                    resolve();
+                },
+            );
+        });
     }
 
     private async requestBlockWitnessesFromPeer(blockNumber: bigint): Promise<void> {

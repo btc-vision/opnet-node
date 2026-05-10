@@ -22,6 +22,9 @@ interface ReusableStreamOptions {
  * No manual length-prefixing is needed.
  */
 export class ReusableStream extends Logger {
+    /** Hard cap on how long we'll block a writer waiting for the kernel/peer to drain. */
+    private static readonly DRAIN_TIMEOUT_MS = 5_000;
+
     public readonly logColor: string = '#ff9933';
 
     private isClosed: boolean = false;
@@ -278,13 +281,37 @@ export class ReusableStream extends Logger {
         // Send the data directly - MessageStream handles framing
         this.libp2pStream.send(data);
 
-        // Wait for drain if needed
+        // Wait for drain if needed.
+        // onDrain() has no built-in timeout. A peer that stops reading (full TCP
+        // recv buffer, slowloris-style misbehaviour) would otherwise pin this
+        // promise forever, jamming the FIFO queue and every caller behind it.
         if (this.libp2pStream.writableNeedsDrain) {
             if (this.enableDebug) {
                 this.debug(`[${this.direction}] Waiting for drain to ${this.peerIdStr}`);
             }
 
-            await this.libp2pStream.onDrain();
+            let timer: NodeJS.Timeout | undefined;
+            try {
+                await Promise.race([
+                    this.libp2pStream.onDrain(),
+                    new Promise<never>((_, reject) => {
+                        timer = setTimeout(() => {
+                            reject(
+                                new Error(
+                                    `Drain timeout (${ReusableStream.DRAIN_TIMEOUT_MS}ms) for ${this.peerIdStr}`,
+                                ),
+                            );
+                        }, ReusableStream.DRAIN_TIMEOUT_MS);
+                    }),
+                ]);
+            } catch (err) {
+                // Drop this stream so the manager dials a fresh one on next send,
+                // and reject every queued message instead of leaving them stuck.
+                void this.closeStream();
+                throw err;
+            } finally {
+                if (timer) clearTimeout(timer);
+            }
         }
     }
 
