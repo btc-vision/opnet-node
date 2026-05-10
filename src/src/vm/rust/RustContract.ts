@@ -4,14 +4,45 @@ import {
     EnvironmentVariablesRequest,
     ExitDataResponse,
 } from '@btc-vision/op-vm';
+import fs from 'fs';
 import { Blockchain } from '../Blockchain.js';
 import { RustContractBinding } from './RustContractBindings.js';
 import { BinaryWriter, SELECTOR_BYTE_LENGTH, U32_BYTE_LENGTH } from '@btc-vision/transaction';
 import { getChainId } from './ChainIdHex.js';
 import { OPNetConsensus } from '../../poc/configurations/OPNetConsensus.js';
 
+const writeFatal = (kind: 'uncaughtException' | 'unhandledRejection', err: unknown): void => {
+    const stack =
+        err instanceof Error ? (err.stack ?? err.message) : (() => {
+            try {
+                return JSON.stringify(err);
+            } catch {
+                return String(err);
+            }
+        })();
+
+    const line = `${new Date().toISOString()} [pid=${process.pid}] ${kind}: ${stack}\n`;
+
+    try {
+        fs.appendFileSync('uncaught-exception.log', line);
+    } catch {
+        // If the disk is gone there's nothing useful we can do here.
+    }
+
+    try {
+        process.stderr.write(line);
+    } catch {
+    }
+};
+
 process.on('uncaughtException', (error) => {
-    console.log('Uncaught Exception thrown:', error);
+    writeFatal('uncaughtException', error);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+    writeFatal('unhandledRejection', reason);
+    process.exit(1);
 });
 
 export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
