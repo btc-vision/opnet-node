@@ -95,7 +95,7 @@
         "eslint-plugin-openapi": "^0.0.4",
         "express": "^5.2.1",
         "figlet": "^1.11.0",
-        "interface-datastore": "^9.0.3",
+        "interface-datastore": "^10.0.0",
         "it-length-prefixed-stream": "^2.0.6",
         "libp2p": "^3.2.4",
         "long": "^5.3.2",
