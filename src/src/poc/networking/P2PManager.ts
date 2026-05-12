@@ -23,7 +23,6 @@ import { tcp } from '@libp2p/tcp';
 import { uPnPNAT } from '@libp2p/upnp-nat';
 import { multiaddr, Multiaddr } from '@multiformats/multiaddr';
 import figlet, { FontName } from 'figlet';
-import type { Datastore } from 'interface-datastore';
 import { createLibp2p, ServiceFactoryMap } from 'libp2p';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { DBManagerInstance } from '../../db/DBManager.js';
@@ -87,6 +86,7 @@ import {
     isPrivateOrLoopbackAddress,
 } from './AddressExtractor.js';
 import { Components } from 'libp2p/src/components.js';
+import { Datastore } from 'interface-datastore';
 
 if (Config.P2P.ENABLE_P2P_LOGGING) {
     enable('libp2p:*');

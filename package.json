@@ -40,7 +40,8 @@
         "typescript-eslint": {
             "typescript": "$typescript"
         },
-        "jsonpath-plus": "^10.4.0"
+        "jsonpath-plus": "^10.4.0",
+        "interface-datastore": "^10.0.1"
     },
     "dependencies": {
         "@asyncapi/generator": "^3.2.1",
