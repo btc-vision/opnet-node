@@ -10,6 +10,7 @@ import { Logger } from '@btc-vision/bsi-common';
 const STREAM_IDLE_TIMEOUT_MS = 30_000;
 const MAX_MESSAGE_SIZE_BYTES = 6 * 1024 * 1024;
 const MAX_OUTBOUND_STREAMS_PER_PEER = 1024;
+const DIAL_TIMEOUT_MS = 5_000;
 
 /**
  * A manager that stores "ReusableStream" objects for both inbound and outbound usage.
@@ -164,6 +165,7 @@ export class ReusableStreamManager extends Logger {
         try {
             conn = await this.node.dialProtocol(peerId, this.defaultProtocol, {
                 maxOutboundStreams: MAX_OUTBOUND_STREAMS_PER_PEER,
+                signal: AbortSignal.timeout(DIAL_TIMEOUT_MS),
             });
         } catch (err) {
             throw new Error(`Failed to open outbound stream to ${peerId.toString()}: ${err}`, {

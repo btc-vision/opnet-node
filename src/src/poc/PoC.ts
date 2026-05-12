@@ -52,7 +52,7 @@ export class PoC extends Logger {
     ): Promise<ThreadData> {
         switch (m.type) {
             case MessageType.BLOCK_PROCESSED: {
-                return await this.onBlockProcessed(m as BlockProcessedMessage);
+                return this.onBlockProcessed(m as BlockProcessedMessage);
             }
             case MessageType.RPC_METHOD: {
                 return await this.handleRPCMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
@@ -107,11 +107,8 @@ export class PoC extends Logger {
     }
 
     private async onBlockProcessed(m: BlockProcessedMessage): Promise<ThreadData> {
-        // Wait for previous block to finish so height + proof are always in order.
-        // Use catch so a failed broadcast doesn't permanently jam the lock.
         await this.blockProcessedLock.catch(() => {});
 
-        // Broadcast height to ALL witness instances
         this.blockProcessedLock = this.sendMessageToAllThreads(ThreadTypes.WITNESS, {
             type: MessageType.WITNESS_HEIGHT_UPDATE,
             data: { blockNumber: m.data.blockNumber },
@@ -123,7 +120,6 @@ export class PoC extends Logger {
             this.error(`Failed to broadcast height update: ${(e as Error).stack}`);
         }
 
-        // Round-robin proof generation to ONE witness instance
         void this.sendMessageToThread(ThreadTypes.WITNESS, {
             type: MessageType.WITNESS_BLOCK_PROCESSED,
             data: m.data,
@@ -131,7 +127,6 @@ export class PoC extends Logger {
             this.error(`Failed to dispatch WITNESS_BLOCK_PROCESSED: ${(e as Error).stack}`);
         });
 
-        // Update consensus height on this thread
         this.p2p.updateConsensusHeight(m.data.blockNumber);
 
         return {};

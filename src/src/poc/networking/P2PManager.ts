@@ -23,7 +23,6 @@ import { tcp } from '@libp2p/tcp';
 import { uPnPNAT } from '@libp2p/upnp-nat';
 import { multiaddr, Multiaddr } from '@multiformats/multiaddr';
 import figlet, { FontName } from 'figlet';
-import type { Datastore } from 'interface-datastore';
 import { createLibp2p, ServiceFactoryMap } from 'libp2p';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { DBManagerInstance } from '../../db/DBManager.js';
@@ -87,6 +86,7 @@ import {
     isPrivateOrLoopbackAddress,
 } from './AddressExtractor.js';
 import { Components } from 'libp2p/src/components.js';
+import { Datastore } from 'interface-datastore';
 
 if (Config.P2P.ENABLE_P2P_LOGGING) {
     enable('libp2p:*');
@@ -539,11 +539,20 @@ export class P2PManager extends Logger {
     }
 
     private async broadcastMempoolTransaction(transaction: ITransactionPacket): Promise<number> {
+        const PEER_BROADCAST_TIMEOUT_MS = 8_000;
+
         const broadcastPromises: Promise<void>[] = [];
-        for (const peer of this.peers.values()) {
+        for (const [peerIdStr, peer] of this.peers.entries()) {
             if (!peer.isAuthenticated) continue;
 
-            broadcastPromises.push(peer.broadcastMempoolTransaction(transaction));
+            broadcastPromises.push(
+                this.runPeerOp(
+                    peerIdStr,
+                    PEER_BROADCAST_TIMEOUT_MS,
+                    'Mempool broadcast',
+                    peer.broadcastMempoolTransaction(transaction),
+                ),
+            );
         }
 
         await Promise.safeAll(broadcastPromises);
@@ -551,9 +560,63 @@ export class P2PManager extends Logger {
         return broadcastPromises.length;
     }
 
+    /**
+     * Wrap a per-peer fan-out op with a hard timeout and full error isolation.
+     * Every fan-out path through libp2p (mempool gossip, witness broadcast,
+     * witness sync request) shares the same hazard: a single slow / dead /
+     * misbehaving peer would otherwise pin `Promise.safeAll` until the upstream
+     * 240s thread timeout fires and starts cascading. Always resolves; never
+     * rejects, so callers can treat the batch as best-effort.
+     */
+    private runPeerOp(
+        peerIdStr: string,
+        timeoutMs: number,
+        opName: string,
+        op: Promise<unknown>,
+    ): Promise<void> {
+        return new Promise<void>((resolve) => {
+            let settled = false;
+            const timer = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+
+                if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                    this.warn(
+                        `${opName} to peer ${peerIdStr} timed out after ${timeoutMs}ms; skipping.`,
+                    );
+                }
+
+                resolve();
+            }, timeoutMs);
+
+            op.then(
+                () => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(timer);
+                    resolve();
+                },
+                (err: unknown) => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(timer);
+
+                    if (Config.DEV_MODE) {
+                        const details = err instanceof Error ? err.message : String(err);
+                        this.warn(`${opName} to peer ${peerIdStr} failed: ${details}`);
+                    }
+
+                    resolve();
+                },
+            );
+        });
+    }
+
     private async requestBlockWitnessesFromPeer(blockNumber: bigint): Promise<void> {
+        const PEER_WITNESS_REQUEST_TIMEOUT_MS = 8_000;
+
         const promises: Promise<void>[] = [];
-        for (const [_peerId, peer] of this.peers) {
+        for (const [peerIdStr, peer] of this.peers.entries()) {
             if (!peer.isAuthenticated) continue;
 
             // We skip asking proofs to light nodes, this is in TODO.
@@ -561,7 +624,14 @@ export class P2PManager extends Logger {
             const peerMode = peer.peerMode();
             if (peerMode === undefined || peerMode === OPNetIndexerMode.LIGHT) continue;
 
-            promises.push(peer.requestBlockWitnessesFromPeer(blockNumber));
+            promises.push(
+                this.runPeerOp(
+                    peerIdStr,
+                    PEER_WITNESS_REQUEST_TIMEOUT_MS,
+                    'Witness sync request',
+                    peer.requestBlockWitnessesFromPeer(blockNumber),
+                ),
+            );
         }
 
         await Promise.safeAll(promises);
@@ -599,12 +669,19 @@ export class P2PManager extends Logger {
             return;
         }
 
-        // send to all peers
+        const PEER_WITNESS_TIMEOUT_MS = 8_000;
         const promises: Promise<void>[] = [];
-        for (const [_peerId, peer] of this.peers) {
+        for (const [peerIdStr, peer] of this.peers.entries()) {
             if (!peer.isAuthenticated) continue;
 
-            promises.push(peer.sendFromServer(generatedWitness));
+            promises.push(
+                this.runPeerOp(
+                    peerIdStr,
+                    PEER_WITNESS_TIMEOUT_MS,
+                    'Witness broadcast',
+                    peer.sendFromServer(generatedWitness),
+                ),
+            );
         }
 
         await Promise.safeAll(promises);
