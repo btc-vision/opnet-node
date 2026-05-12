@@ -97,6 +97,17 @@ class RPCManager extends Logger {
 
     protected listenToEvents(): void {
         process.on('message', this.onMessage.bind(this));
+
+        // If the parent goes away (thread restart, manager destroyed) keep this
+        // child from becoming a zombie holding an open MongoDB connection and
+        // VM managers. Exit cleanly so the manager-side restart logic (if any)
+        // can spawn a fresh one.
+        process.on('disconnect', () => {
+            if (Config.DEV_MODE) {
+                this.warn('Parent IPC disconnected; exiting RPC sub-worker.');
+            }
+            process.exit(0);
+        });
     }
 
     protected async getNextVMManager(tries: number = 0): Promise<VMManager> {
@@ -206,7 +217,25 @@ class RPCManager extends Logger {
     private send(data: object): void {
         if (!process.send) throw new Error('process.send is not a function');
 
-        process.send(data);
+        if (!process.connected) {
+            if (Config.DEV_MODE) {
+                this.warn('IPC channel closed before reply; dropping response.');
+            }
+            return;
+        }
+
+        try {
+            process.send(data);
+        } catch (e) {
+            const code = (e as NodeJS.ErrnoException).code;
+            if (code === 'ERR_IPC_CHANNEL_CLOSED' || code === 'ERR_IPC_DISCONNECTED') {
+                if (Config.DEV_MODE) {
+                    this.warn(`IPC send failed (${code}); dropping response.`);
+                }
+                return;
+            }
+            throw e;
+        }
     }
 
     private onBlockChange(blockHeight: bigint): void {

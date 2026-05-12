@@ -10,10 +10,6 @@ import { BinaryWriter, SELECTOR_BYTE_LENGTH, U32_BYTE_LENGTH } from '@btc-vision
 import { getChainId } from './ChainIdHex.js';
 import { OPNetConsensus } from '../../poc/configurations/OPNetConsensus.js';
 
-process.on('uncaughtException', (error) => {
-    console.log('Uncaught Exception thrown:', error);
-});
-
 export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly address: string;
 

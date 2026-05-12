@@ -44,8 +44,25 @@ export class RPCSubWorkerManager extends Logger {
     }
 
     private requestToWorker(data: string): void {
-        const worker = this.getWorker();
-        worker.send(data);
+        const total = this.workers.length;
+        for (let attempt = 0; attempt < total; attempt++) {
+            const worker = this.getWorker();
+            if (!worker.connected || worker.killed || worker.exitCode !== null) continue;
+
+            try {
+                worker.send(data);
+                return;
+            } catch (e) {
+                const code = (e as NodeJS.ErrnoException).code;
+                if (code === 'ERR_IPC_CHANNEL_CLOSED' || code === 'ERR_IPC_DISCONNECTED') {
+                    this.error(`RPC sub-worker pid=${worker.pid} send failed (${code}).`);
+                    continue;
+                }
+                throw e;
+            }
+        }
+
+        this.error('All RPC sub-workers are unavailable; dropping request.');
     }
 
     private createTaskId(): string {
@@ -79,9 +96,22 @@ export class RPCSubWorkerManager extends Logger {
         });
 
         worker.on('exit', (code: number) => {
-            this.error(`Worker exited with code ${code}`);
+            this.error(`Worker pid=${worker.pid} exited with code ${code}; respawning.`);
+            this.replaceWorker(worker);
         });
 
         return worker;
+    }
+
+    private replaceWorker(dead: ChildProcess): void {
+        const idx = this.workers.indexOf(dead);
+        if (idx === -1) return;
+
+        try {
+            const fresh = this.createWorker();
+            this.workers[idx] = fresh;
+        } catch (e) {
+            this.error(`Failed to respawn RPC sub-worker: ${(e as Error).stack}`);
+        }
     }
 }
