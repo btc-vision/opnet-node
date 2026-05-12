@@ -81,7 +81,7 @@ export class ReusableStream extends Logger {
 
         // Set up event listeners for the MessageStream interface
         this.messageHandler = (event: StreamMessageEvent) => {
-            void this.handleMessage(event.data);
+            void this.handleMessage(event.data as Uint8Array);
         };
 
         this.closeHandler = (_event: StreamCloseEvent) => {

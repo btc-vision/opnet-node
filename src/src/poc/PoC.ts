@@ -52,7 +52,7 @@ export class PoC extends Logger {
     ): Promise<ThreadData> {
         switch (m.type) {
             case MessageType.BLOCK_PROCESSED: {
-                return await this.onBlockProcessed(m as BlockProcessedMessage);
+                return this.onBlockProcessed(m as BlockProcessedMessage);
             }
             case MessageType.RPC_METHOD: {
                 return await this.handleRPCMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
@@ -107,21 +107,8 @@ export class PoC extends Logger {
     }
 
     private onBlockProcessed(m: BlockProcessedMessage): ThreadData {
-        // Acknowledge the indexer immediately. The witness fan-out (height
-        // broadcast + proof-gen dispatch) is CPU-heavy on the receiver side
-        // (ML-DSA signing can block the witness thread's event loop). If we
-        // awaited it before replying, a single slow witness would chain into
-        // a 240s task timeout on the indexer side and back up every following
-        // block notification — exactly the indexer→p2p timeout symptom we hit.
-        //
-        // Local consensus height is updated synchronously so reads on this
-        // thread see the latest block right away.
         this.p2p.updateConsensusHeight(m.data.blockNumber);
 
-        // Chain the witness fan-out behind the previous block so ordering
-        // (height update before proof dispatch) is still preserved. The chain
-        // runs entirely in the background; failures don't poison subsequent
-        // iterations because of the `.catch(() => {})` between links.
         const previous = this.blockProcessedLock;
         this.blockProcessedLock = (async () => {
             await previous.catch(() => {});
