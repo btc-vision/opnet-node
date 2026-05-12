@@ -546,11 +546,11 @@ export class P2PManager extends Logger {
             if (!peer.isAuthenticated) continue;
 
             broadcastPromises.push(
-                this.sendToPeerWithTimeout(
-                    peer,
+                this.runPeerOp(
                     peerIdStr,
-                    transaction,
                     PEER_BROADCAST_TIMEOUT_MS,
+                    'Mempool broadcast',
+                    peer.broadcastMempoolTransaction(transaction),
                 ),
             );
         }
@@ -560,11 +560,19 @@ export class P2PManager extends Logger {
         return broadcastPromises.length;
     }
 
-    private sendToPeerWithTimeout(
-        peer: OPNetPeer,
+    /**
+     * Wrap a per-peer fan-out op with a hard timeout and full error isolation.
+     * Every fan-out path through libp2p (mempool gossip, witness broadcast,
+     * witness sync request) shares the same hazard: a single slow / dead /
+     * misbehaving peer would otherwise pin `Promise.safeAll` until the upstream
+     * 240s thread timeout fires and starts cascading. Always resolves; never
+     * rejects, so callers can treat the batch as best-effort.
+     */
+    private runPeerOp(
         peerIdStr: string,
-        transaction: ITransactionPacket,
         timeoutMs: number,
+        opName: string,
+        op: Promise<unknown>,
     ): Promise<void> {
         return new Promise<void>((resolve) => {
             let settled = false;
@@ -574,14 +582,14 @@ export class P2PManager extends Logger {
 
                 if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                     this.warn(
-                        `Mempool broadcast to peer ${peerIdStr} timed out after ${timeoutMs}ms; skipping.`,
+                        `${opName} to peer ${peerIdStr} timed out after ${timeoutMs}ms; skipping.`,
                     );
                 }
 
                 resolve();
             }, timeoutMs);
 
-            peer.broadcastMempoolTransaction(transaction).then(
+            op.then(
                 () => {
                     if (settled) return;
                     settled = true;
@@ -595,9 +603,7 @@ export class P2PManager extends Logger {
 
                     if (Config.DEV_MODE) {
                         const details = err instanceof Error ? err.message : String(err);
-                        this.warn(
-                            `Mempool broadcast to peer ${peerIdStr} failed: ${details}`,
-                        );
+                        this.warn(`${opName} to peer ${peerIdStr} failed: ${details}`);
                     }
 
                     resolve();
@@ -607,8 +613,10 @@ export class P2PManager extends Logger {
     }
 
     private async requestBlockWitnessesFromPeer(blockNumber: bigint): Promise<void> {
+        const PEER_WITNESS_REQUEST_TIMEOUT_MS = 8_000;
+
         const promises: Promise<void>[] = [];
-        for (const [_peerId, peer] of this.peers) {
+        for (const [peerIdStr, peer] of this.peers.entries()) {
             if (!peer.isAuthenticated) continue;
 
             // We skip asking proofs to light nodes, this is in TODO.
@@ -616,7 +624,14 @@ export class P2PManager extends Logger {
             const peerMode = peer.peerMode();
             if (peerMode === undefined || peerMode === OPNetIndexerMode.LIGHT) continue;
 
-            promises.push(peer.requestBlockWitnessesFromPeer(blockNumber));
+            promises.push(
+                this.runPeerOp(
+                    peerIdStr,
+                    PEER_WITNESS_REQUEST_TIMEOUT_MS,
+                    'Witness sync request',
+                    peer.requestBlockWitnessesFromPeer(blockNumber),
+                ),
+            );
         }
 
         await Promise.safeAll(promises);
@@ -654,12 +669,19 @@ export class P2PManager extends Logger {
             return;
         }
 
-        // send to all peers
+        const PEER_WITNESS_TIMEOUT_MS = 8_000;
         const promises: Promise<void>[] = [];
-        for (const [_peerId, peer] of this.peers) {
+        for (const [peerIdStr, peer] of this.peers.entries()) {
             if (!peer.isAuthenticated) continue;
 
-            promises.push(peer.sendFromServer(generatedWitness));
+            promises.push(
+                this.runPeerOp(
+                    peerIdStr,
+                    PEER_WITNESS_TIMEOUT_MS,
+                    'Witness broadcast',
+                    peer.sendFromServer(generatedWitness),
+                ),
+            );
         }
 
         await Promise.safeAll(promises);

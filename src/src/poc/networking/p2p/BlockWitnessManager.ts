@@ -498,7 +498,7 @@ export class BlockWitnessManager extends Logger {
             return;
         }
 
-        const validWitnesses = this.validateBlockHeaderSignatures(blockWitness);
+        const validWitnesses = await this.validateBlockHeaderSignatures(blockWitness);
         if (!validWitnesses || validWitnesses.length === 0) {
             if (
                 this.config.DEBUG_LEVEL >= DebugLevel.DEBUG &&
@@ -575,17 +575,27 @@ export class BlockWitnessManager extends Logger {
             data: data,
         };
 
-        const response = await this.sendMessageToThread(ThreadTypes.RPC, message);
+        // Cap the RPC wait at 15s instead of inheriting the 240s thread-level
+        // timeout. Validation runs in a 3-slot pool (MAX_CONCURRENT_WITNESS_
+        // VALIDATIONS); without this, a single stalled RPC thread can pin all
+        // three slots for 240s and effectively halt peer-witness ingestion for
+        // four minutes — which is what manifests as "witnesses: 0" downstream.
+        const RPC_TIMEOUT_MS = 15_000;
+        const response = await Promise.race([
+            this.sendMessageToThread(ThreadTypes.RPC, message),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), RPC_TIMEOUT_MS)),
+        ]);
+
         if (!response) {
-            throw new Error('Failed to get block data at height.');
+            throw new Error('Failed to get block data at height (RPC timeout or no reply).');
         }
 
         return response;
     }
 
-    private validateBlockHeaderSignatures(
+    private async validateBlockHeaderSignatures(
         blockWitness: IBlockHeaderWitness,
-    ): OPNetBlockWitness[] | undefined {
+    ): Promise<OPNetBlockWitness[] | undefined> {
         const blockChecksumHash: Uint8Array = this.generateBlockHeaderChecksumHash(blockWitness);
         const validatorWitnesses: OPNetBlockWitness[] = blockWitness.validatorWitnesses;
 
@@ -593,25 +603,40 @@ export class BlockWitnessManager extends Logger {
             return;
         }
 
-        return this.validateOPNetWitnesses(blockChecksumHash, validatorWitnesses);
+        return await this.validateOPNetWitnesses(blockChecksumHash, validatorWitnesses);
     }
 
-    private validateOPNetWitnesses(
+    private async validateOPNetWitnesses(
         blockChecksumHash: Uint8Array,
         witnesses: OPNetBlockWitness[],
-    ): OPNetBlockWitness[] {
+    ): Promise<OPNetBlockWitness[]> {
         if (witnesses.length === 0) return [];
         if (witnesses.length > this.MAXIMUM_WITNESSES_PER_MESSAGE) {
             // reduce the number of witnesses to MAXIMUM_WITNESSES_PER_MESSAGE.
             witnesses = witnesses.slice(0, this.MAXIMUM_WITNESSES_PER_MESSAGE);
         }
 
-        return witnesses.filter((witness) => {
-            return this.identity.verifyAcknowledgment(
-                this.identity.mergeDataAndWitness(blockChecksumHash, witness.timestamp.toBigInt()),
-                witness,
-            );
-        });
+        // ML-DSA verify is sync CPU work (~tens of ms per signature). A batch
+        // of 20 would block the worker's event loop for hundreds of ms, during
+        // which inbound `WITNESS_PEER_DATA` messages and `WITNESS_HEIGHT_UPDATE`
+        // broadcasts queue in the mailbox and the P2P thread sees stalled
+        // replies. Yielding between each verify lets other messages interleave.
+        const valid: OPNetBlockWitness[] = [];
+        for (const witness of witnesses) {
+            if (
+                this.identity.verifyAcknowledgment(
+                    this.identity.mergeDataAndWitness(
+                        blockChecksumHash,
+                        witness.timestamp.toBigInt(),
+                    ),
+                    witness,
+                )
+            ) {
+                valid.push(witness);
+            }
+            await new Promise<void>((resolve) => setImmediate(resolve));
+        }
+        return valid;
     }
 
     private abs(a: bigint): bigint {

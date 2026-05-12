@@ -106,33 +106,44 @@ export class PoC extends Logger {
         return this.sendMessageToAllThreads(threadType, m);
     }
 
-    private async onBlockProcessed(m: BlockProcessedMessage): Promise<ThreadData> {
-        // Wait for previous block to finish so height + proof are always in order.
-        // Use catch so a failed broadcast doesn't permanently jam the lock.
-        await this.blockProcessedLock.catch(() => {});
-
-        // Broadcast height to ALL witness instances
-        this.blockProcessedLock = this.sendMessageToAllThreads(ThreadTypes.WITNESS, {
-            type: MessageType.WITNESS_HEIGHT_UPDATE,
-            data: { blockNumber: m.data.blockNumber },
-        });
-
-        try {
-            await this.blockProcessedLock;
-        } catch (e: unknown) {
-            this.error(`Failed to broadcast height update: ${(e as Error).stack}`);
-        }
-
-        // Round-robin proof generation to ONE witness instance
-        void this.sendMessageToThread(ThreadTypes.WITNESS, {
-            type: MessageType.WITNESS_BLOCK_PROCESSED,
-            data: m.data,
-        }).catch((e: unknown) => {
-            this.error(`Failed to dispatch WITNESS_BLOCK_PROCESSED: ${(e as Error).stack}`);
-        });
-
-        // Update consensus height on this thread
+    private onBlockProcessed(m: BlockProcessedMessage): ThreadData {
+        // Acknowledge the indexer immediately. The witness fan-out (height
+        // broadcast + proof-gen dispatch) is CPU-heavy on the receiver side
+        // (ML-DSA signing can block the witness thread's event loop). If we
+        // awaited it before replying, a single slow witness would chain into
+        // a 240s task timeout on the indexer side and back up every following
+        // block notification — exactly the indexer→p2p timeout symptom we hit.
+        //
+        // Local consensus height is updated synchronously so reads on this
+        // thread see the latest block right away.
         this.p2p.updateConsensusHeight(m.data.blockNumber);
+
+        // Chain the witness fan-out behind the previous block so ordering
+        // (height update before proof dispatch) is still preserved. The chain
+        // runs entirely in the background; failures don't poison subsequent
+        // iterations because of the `.catch(() => {})` between links.
+        const previous = this.blockProcessedLock;
+        this.blockProcessedLock = (async () => {
+            await previous.catch(() => {});
+
+            try {
+                await this.sendMessageToAllThreads(ThreadTypes.WITNESS, {
+                    type: MessageType.WITNESS_HEIGHT_UPDATE,
+                    data: { blockNumber: m.data.blockNumber },
+                });
+            } catch (e: unknown) {
+                this.error(`Failed to broadcast height update: ${(e as Error).stack}`);
+            }
+
+            try {
+                await this.sendMessageToThread(ThreadTypes.WITNESS, {
+                    type: MessageType.WITNESS_BLOCK_PROCESSED,
+                    data: m.data,
+                });
+            } catch (e: unknown) {
+                this.error(`Failed to dispatch WITNESS_BLOCK_PROCESSED: ${(e as Error).stack}`);
+            }
+        })();
 
         return {};
     }
