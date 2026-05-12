@@ -106,31 +106,28 @@ export class PoC extends Logger {
         return this.sendMessageToAllThreads(threadType, m);
     }
 
-    private onBlockProcessed(m: BlockProcessedMessage): ThreadData {
+    private async onBlockProcessed(m: BlockProcessedMessage): Promise<ThreadData> {
+        await this.blockProcessedLock.catch(() => {});
+
+        this.blockProcessedLock = this.sendMessageToAllThreads(ThreadTypes.WITNESS, {
+            type: MessageType.WITNESS_HEIGHT_UPDATE,
+            data: { blockNumber: m.data.blockNumber },
+        });
+
+        try {
+            await this.blockProcessedLock;
+        } catch (e: unknown) {
+            this.error(`Failed to broadcast height update: ${(e as Error).stack}`);
+        }
+
+        void this.sendMessageToThread(ThreadTypes.WITNESS, {
+            type: MessageType.WITNESS_BLOCK_PROCESSED,
+            data: m.data,
+        }).catch((e: unknown) => {
+            this.error(`Failed to dispatch WITNESS_BLOCK_PROCESSED: ${(e as Error).stack}`);
+        });
+
         this.p2p.updateConsensusHeight(m.data.blockNumber);
-
-        const previous = this.blockProcessedLock;
-        this.blockProcessedLock = (async () => {
-            await previous.catch(() => {});
-
-            try {
-                await this.sendMessageToAllThreads(ThreadTypes.WITNESS, {
-                    type: MessageType.WITNESS_HEIGHT_UPDATE,
-                    data: { blockNumber: m.data.blockNumber },
-                });
-            } catch (e: unknown) {
-                this.error(`Failed to broadcast height update: ${(e as Error).stack}`);
-            }
-
-            try {
-                await this.sendMessageToThread(ThreadTypes.WITNESS, {
-                    type: MessageType.WITNESS_BLOCK_PROCESSED,
-                    data: m.data,
-                });
-            } catch (e: unknown) {
-                this.error(`Failed to dispatch WITNESS_BLOCK_PROCESSED: ${(e as Error).stack}`);
-            }
-        })();
 
         return {};
     }
