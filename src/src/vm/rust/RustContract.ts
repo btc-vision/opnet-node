@@ -3,6 +3,7 @@ import {
     ContractManager,
     EnvironmentVariablesRequest,
     ExitDataResponse,
+    HardForkRequest,
 } from '@btc-vision/op-vm';
 import { Blockchain } from '../Blockchain.js';
 import { RustContractBinding } from './RustContractBindings.js';
@@ -153,6 +154,7 @@ export class RustContract {
             BigInt(this.params.gasMax.toString()),
             BigInt(this.params.memoryPagesUsed.toString()),
             this.params.network,
+            OPNetConsensus.consensus.CONSENSUS as unknown as HardForkRequest,
             this.params.isDebugMode,
             //false,
         );
