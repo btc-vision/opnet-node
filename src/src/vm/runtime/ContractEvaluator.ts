@@ -366,18 +366,18 @@ export class ContractEvaluator extends Logger {
         const reader: BinaryReader = new BinaryReader(data);
         const pointer: bigint = reader.readU256();
 
-        let wasCold: boolean = false;
+        let wasWarm: boolean = true;
         let pointerResponse: MemorySlotData<bigint> | undefined = evaluation.getStorage(pointer);
         if (pointerResponse === undefined) {
             pointerResponse = (await this.getStorageState(evaluation, pointer, false)) || 0n;
 
             evaluation.addToStorage(pointer, pointerResponse);
-            wasCold = true;
+            wasWarm = false;
         }
 
         const response: BinaryWriter = new BinaryWriter();
         response.writeU256(pointerResponse);
-        response.writeBoolean(wasCold);
+        response.writeBoolean(wasWarm);
 
         return response.getBuffer();
     }
@@ -388,9 +388,12 @@ export class ContractEvaluator extends Logger {
         const pointer: bigint = reader.readU256();
         const value: bigint = reader.readU256();
 
+        const pointerResponse: MemorySlotData<bigint> | undefined = evaluation.getStorage(pointer);
+        const wasWarm = pointerResponse !== undefined;
+
         evaluation.setStorage(pointer, value);
 
-        return new Uint8Array([1]);
+        return new Uint8Array([wasWarm ? 1 : 0]);
     }
 
     /** Call a contract */
