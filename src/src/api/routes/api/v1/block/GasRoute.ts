@@ -88,6 +88,11 @@ export class GasRoute extends Route<Routes.GAS, JSONRpcMethods.GAS, BlockGasInfo
         if (this.isInitialized) this.fetchFee();
     }
 
+    public override onReorg(): void {
+        this.cachedBlock = undefined;
+        this.cacheBlockFee = undefined;
+    }
+
     protected initialize(): void {
         setTimeout(() => {
             this.isInitialized = true;

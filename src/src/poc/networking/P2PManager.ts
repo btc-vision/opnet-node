@@ -309,21 +309,30 @@ export class P2PManager extends Logger {
         super.info(...args);
     }
 
-    public async broadcastTransaction(data: OPNetBroadcastData): Promise<OPNetBroadcastResponse> {
-        if (this.knownMempoolIdentifiers.has(data.id) && data.id) {
+    public broadcastTransaction(data: OPNetBroadcastData): OPNetBroadcastResponse {
+        try {
+            if (this.knownMempoolIdentifiers.has(data.id) && data.id) {
+                return {
+                    peers: 0,
+                };
+            }
+
+            if (data.id) this.knownMempoolIdentifiers.add(data.id);
+
+            return {
+                peers: this.queueMempoolTransactionBroadcast({
+                    transaction: this.normalizeBroadcastBytes(data.raw),
+                    psbt: data.psbt,
+                }),
+            };
+        } catch (e) {
+            const details = e instanceof Error ? e.message : String(e);
+            this.warn(`Failed to queue mempool transaction broadcast ${data.id}: ${details}`);
+
             return {
                 peers: 0,
             };
         }
-
-        if (data.id) this.knownMempoolIdentifiers.add(data.id);
-
-        return {
-            peers: await this.broadcastMempoolTransaction({
-                transaction: data.raw,
-                psbt: data.psbt,
-            }),
-        };
     }
 
     public async getOPNetPeers(): Promise<OPNetPeerInfo[]> {
@@ -538,26 +547,55 @@ export class P2PManager extends Logger {
         });
     }
 
-    private async broadcastMempoolTransaction(transaction: ITransactionPacket): Promise<number> {
+    private queueMempoolTransactionBroadcast(transaction: ITransactionPacket): number {
         const PEER_BROADCAST_TIMEOUT_MS = 8_000;
 
-        const broadcastPromises: Promise<void>[] = [];
+        let broadcastCount = 0;
         for (const [peerIdStr, peer] of this.peers.entries()) {
             if (!peer.isAuthenticated) continue;
+            broadcastCount++;
 
-            broadcastPromises.push(
-                this.runPeerOp(
+            void this
+                .runPeerOp(
                     peerIdStr,
                     PEER_BROADCAST_TIMEOUT_MS,
                     'Mempool broadcast',
-                    peer.broadcastMempoolTransaction(transaction),
-                ),
-            );
+                    () => peer.broadcastMempoolTransaction(transaction),
+                )
+                .catch((e: unknown) => {
+                    const details = e instanceof Error ? e.message : String(e);
+                    this.warn(`Mempool broadcast worker failed for ${peerIdStr}: ${details}`);
+                });
         }
 
-        await Promise.safeAll(broadcastPromises);
+        return broadcastCount;
+    }
 
-        return broadcastPromises.length;
+    private normalizeBroadcastBytes(raw: unknown): Uint8Array {
+        if (raw instanceof Uint8Array) {
+            return raw;
+        }
+
+        if (raw instanceof ArrayBuffer) {
+            return new Uint8Array(raw);
+        }
+
+        if (ArrayBuffer.isView(raw)) {
+            return new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength);
+        }
+
+        if (raw && typeof raw === 'object') {
+            const entries = Object.entries(raw as Record<string, unknown>);
+            const numericEntries = entries
+                .filter(([key, value]) => /^\d+$/.test(key) && typeof value === 'number')
+                .sort(([a], [b]) => Number(a) - Number(b));
+
+            if (numericEntries.length > 0) {
+                return Uint8Array.from(numericEntries.map(([, value]) => value as number));
+            }
+        }
+
+        throw new Error(`Invalid broadcast transaction bytes: ${typeof raw}`);
     }
 
     /**
@@ -572,7 +610,7 @@ export class P2PManager extends Logger {
         peerIdStr: string,
         timeoutMs: number,
         opName: string,
-        op: Promise<unknown>,
+        op: () => Promise<unknown>,
     ): Promise<void> {
         return new Promise<void>((resolve) => {
             let settled = false;
@@ -589,7 +627,23 @@ export class P2PManager extends Logger {
                 resolve();
             }, timeoutMs);
 
-            op.then(
+            let promise: Promise<unknown>;
+            try {
+                promise = op();
+            } catch (err) {
+                settled = true;
+                clearTimeout(timer);
+
+                if (Config.DEV_MODE) {
+                    const details = err instanceof Error ? err.message : String(err);
+                    this.warn(`${opName} to peer ${peerIdStr} failed: ${details}`);
+                }
+
+                resolve();
+                return;
+            }
+
+            promise.then(
                 () => {
                     if (settled) return;
                     settled = true;
@@ -629,7 +683,7 @@ export class P2PManager extends Logger {
                     peerIdStr,
                     PEER_WITNESS_REQUEST_TIMEOUT_MS,
                     'Witness sync request',
-                    peer.requestBlockWitnessesFromPeer(blockNumber),
+                    () => peer.requestBlockWitnessesFromPeer(blockNumber),
                 ),
             );
         }
@@ -679,7 +733,7 @@ export class P2PManager extends Logger {
                     peerIdStr,
                     PEER_WITNESS_TIMEOUT_MS,
                     'Witness broadcast',
-                    peer.sendFromServer(generatedWitness),
+                    () => peer.sendFromServer(generatedWitness),
                 ),
             );
         }
@@ -1131,7 +1185,7 @@ export class P2PManager extends Logger {
                 id: id,
             };
 
-            await this.broadcastTransaction(broadcastData);
+            this.broadcastTransaction(broadcastData);
         } catch (e) {
             if (Config.DEV_MODE) {
                 this.error(`Error while broadcasting transaction: ${(e as Error).message}`);

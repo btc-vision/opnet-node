@@ -55,7 +55,7 @@ export class PoC extends Logger {
                 return this.onBlockProcessed(m as BlockProcessedMessage);
             }
             case MessageType.RPC_METHOD: {
-                return await this.handleRPCMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
+                return this.handleRPCMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
             }
             case MessageType.GET_PEERS: {
                 return await this.handleGetPeerMessage();
@@ -79,12 +79,10 @@ export class PoC extends Logger {
         return { peers };
     }
 
-    private async handleRPCMessage(
-        m: RPCMessage<BitcoinRPCThreadMessageType>,
-    ): Promise<ThreadData> {
+    private handleRPCMessage(m: RPCMessage<BitcoinRPCThreadMessageType>): ThreadData {
         switch (m.data.rpcMethod) {
             case BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET: {
-                return await this.p2p.broadcastTransaction(m.data.data as OPNetBroadcastData);
+                return this.p2p.broadcastTransaction(m.data.data as OPNetBroadcastData);
             }
             default: {
                 throw new Error(`Unknown RPC method: ${m.data.rpcMethod} received in PoC.`);

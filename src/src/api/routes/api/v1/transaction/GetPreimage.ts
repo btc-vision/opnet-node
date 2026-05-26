@@ -46,6 +46,11 @@ export class GetPreimage extends Route<
         }
     }
 
+    public override onReorg(): void {
+        this.lastBlockHeight = undefined;
+        this.invalidateCache();
+    }
+
     protected initialize(): void {}
 
     /**

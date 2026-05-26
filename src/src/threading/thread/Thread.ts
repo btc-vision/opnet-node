@@ -125,6 +125,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                 const hasTaskId = m.taskId !== undefined && m.taskId !== null;
                 if (!hasTaskId) {
                     m.taskId = this.generateTaskId();
+                    const taskId = m.taskId;
 
                     const sentAt = Date.now();
                     const portIndex = destThreadType
@@ -134,17 +135,19 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                     const timeout = setTimeout(() => {
                         const ageMs = Date.now() - sentAt;
                         const inflight = this.tasks.size;
+                        const trace = this.stringifyThreadTrace(m.data);
                         this.warn(
-                            `[B] Thread task ${m.taskId} timed out after ${ageMs}ms. (Thread: ${threadId}, ThreadType: ${this.threadType} -> ${destThreadType ?? 'unknown'} portIdx=${portIndex}, msgType=${m.type}, inflight=${inflight}) - Trace: ${JSON.stringify(m.data)}`,
+                            `[B] Thread task ${taskId} timed out after ${ageMs}ms. (Thread: ${threadId}, ThreadType: ${this.threadType} -> ${destThreadType ?? 'unknown'} portIdx=${portIndex}, msgType=${m.type}, inflight=${inflight}) - Trace: ${trace}`,
                         );
 
                         if (Config.DEV.SAVE_TIMEOUTS_TO_FILE) {
                             fs.appendFileSync(
                                 './thread-timeouts.log',
-                                `[B] Thread task ${m.taskId} timed out after ${ageMs}ms. (Thread: ${threadId}, ThreadType: ${this.threadType} -> ${destThreadType ?? 'unknown'} portIdx=${portIndex}, msgType=${m.type}, inflight=${inflight}) - Trace: ${JSON.stringify(m)}\n`,
+                                `[B] Thread task ${taskId} timed out after ${ageMs}ms. (Thread: ${threadId}, ThreadType: ${this.threadType} -> ${destThreadType ?? 'unknown'} portIdx=${portIndex}, msgType=${m.type}, inflight=${inflight}) - Trace: ${this.stringifyThreadTrace(m)}\n`,
                             );
                         }
 
+                        this.tasks.delete(taskId);
                         resolve(null);
                     }, 240_000);
 
@@ -168,6 +171,46 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                 reject(e as Error);
             }
         });
+    }
+
+    private stringifyThreadTrace(value: unknown): string {
+        try {
+            return JSON.stringify(value, (_key, currentValue: unknown) => {
+                if (typeof currentValue === 'bigint') {
+                    return currentValue.toString();
+                }
+
+                if (currentValue instanceof Uint8Array) {
+                    return this.formatBytesForTrace(currentValue);
+                }
+
+                if (currentValue instanceof ArrayBuffer) {
+                    return this.formatBytesForTrace(new Uint8Array(currentValue));
+                }
+
+                return currentValue;
+            });
+        } catch (e) {
+            const details = e instanceof Error ? e.message : String(e);
+            return `[unserializable trace: ${details}]`;
+        }
+    }
+
+    private formatBytesForTrace(bytes: Uint8Array): {
+        type: string;
+        byteLength: number;
+        hex: string;
+        truncated: boolean;
+    } {
+        const maxHexChars = 256;
+        const hex = Buffer.from(bytes).toString('hex');
+
+        return {
+            type: bytes.constructor.name,
+            byteLength: bytes.byteLength,
+            hex: hex.length > maxHexChars ? hex.slice(0, maxHexChars) : hex,
+            truncated: hex.length > maxHexChars,
+        };
     }
 
     protected abstract init(): Promise<void> | void;

@@ -24,6 +24,7 @@ import { WSManager } from './websocket/WebSocketManager.js';
 import { Handlers } from './websocket/handlers/HandlerRegistry.js';
 import { IEpochDocument } from '../db/documents/interfaces/IEpochDocument.js';
 import { IPluginOpcodeInfo, IPluginRouteInfo } from '../plugins/interfaces/IPluginMessages.js';
+import { ReorgDetector } from './reorg/ReorgDetector.js';
 
 Globals.register();
 
@@ -65,6 +66,8 @@ export class Server extends Logger {
 
     private lastMiningEpoch: bigint = 0n;
     private lastFinalizedEpoch: bigint = -1n;
+
+    private readonly reorgDetector: ReorgDetector = new ReorgDetector();
 
     private readonly pluginRoutes: Map<string, IPluginRouteInfo[]> = new Map();
     private readonly pluginOpcodes: Map<string, IPluginOpcodeInfo[]> = new Map();
@@ -299,11 +302,37 @@ export class Server extends Logger {
             throw new Error(`Block header not found at height ${height}.`);
         }
 
+        const newTip = {
+            height: BigInt(header.height || '0'),
+            hash: header.hash,
+            previousBlockHash: header.previousBlockHash,
+        };
+        const previousTip = this.reorgDetector.lastObservedTip;
+        const reorged = this.reorgDetector.observe(newTip);
+
+        if (reorged) {
+            this.warn(
+                `Reorg detected by API thread: tip moved from ${previousTip?.height}/${previousTip?.hash} to ${newTip.height}/${newTip.hash}. Clearing per-route caches.`,
+            );
+
+            this.notifyAllRoutesOfReorg();
+        }
+
         for (const route of Object.values(DefinedRoutes)) {
             route.onBlockChange(height, header);
         }
 
         this.notifyWebsocketsOfBlockChange(height, header);
+    }
+
+    private notifyAllRoutesOfReorg(): void {
+        for (const route of Object.values(DefinedRoutes)) {
+            try {
+                route.onReorg();
+            } catch (e) {
+                this.error(`Error notifying route of reorg: ${(e as Error).message}`);
+            }
+        }
     }
 
     private notifyAllRoutesOfMiningEpochChange(newMiningEpoch: bigint): void {
