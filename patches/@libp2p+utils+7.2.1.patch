@@ -1,0 +1,21 @@
+diff --git a/node_modules/@libp2p/utils/dist/src/abstract-message-stream.js b/node_modules/@libp2p/utils/dist/src/abstract-message-stream.js
+index 8ae9dfa..fe4252c 100644
+--- a/node_modules/@libp2p/utils/dist/src/abstract-message-stream.js
++++ b/node_modules/@libp2p/utils/dist/src/abstract-message-stream.js
+@@ -363,7 +363,15 @@ export class AbstractMessageStream extends TypedEventEmitter {
+                 this.writeBuffer.consume(toSend.byteLength);
+                 // sending data can cause buffers to fill up, events to be emitted and
+                 // this method to be invoked again
+-                const sendResult = this.sendData(toSend);
++                let sendResult;
++                try {
++                    sendResult = this.sendData(toSend);
++                }
++                catch (err) {
++                    this.writeBuffer.prepend(willSend);
++                    this.abort(err);
++                    throw err;
++                }
+                 canSendMore = sendResult.canSendMore;
+                 sentBytes += sendResult.sentBytes;
+                 if (sendResult.sentBytes !== willSend.byteLength) {
