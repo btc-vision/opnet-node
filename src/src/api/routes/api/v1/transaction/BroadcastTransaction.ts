@@ -62,6 +62,7 @@ export class BroadcastTransaction extends Route<
             let parsedData: Uint8Array = fromHex(data);
             const tx = Transaction.fromBuffer(Uint8Array.from(parsedData));
             const txHash = tx.getId();
+            btrace('API.BroadcastTransaction.getData', `REQUEST RECEIVED txHash=${txHash} -> step 1: verify via MEMPOOL`);
             const verification: BroadcastResponse | undefined = await this.verifyOPNetTransaction(
                 parsedData,
                 txHash,
@@ -277,9 +278,16 @@ export class BroadcastTransaction extends Route<
                 } as BroadcastOPNetRequest,
             };
 
-        return (await ServerThread.sendMessageToThread(ThreadTypes.MEMPOOL, currentBlockMsg)) as
+        btrace('API.verifyOPNetTransaction', `SEND -> MEMPOOL id=${id} (awaiting reply, this runs BEFORE broadcast)`);
+        const res = (await ServerThread.sendMessageToThread(ThreadTypes.MEMPOOL, currentBlockMsg)) as
             | BroadcastResponse
             | undefined;
+        btrace(
+            'API.verifyOPNetTransaction',
+            `GOT REPLY <- MEMPOOL id=${id} response=${res === undefined ? 'undefined/null(timeout?)' : 'ok'}`,
+        );
+
+        return res;
     }
 
     private getDecodedParams(

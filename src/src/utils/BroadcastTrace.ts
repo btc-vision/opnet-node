@@ -1,4 +1,5 @@
 import { threadId } from 'worker_threads';
+import fs from 'fs';
 
 /**
  * Flip this to false (or delete the call sites) once the broadcast / block
@@ -6,6 +7,39 @@ import { threadId } from 'worker_threads';
  * whole lot can be grepped or stripped in one pass.
  */
 export const BCAST_TRACE_ENABLED = true;
+
+/**
+ * When set, every trace line is ALSO appended to this file (in addition to
+ * stdout). All worker threads append to the same file; O_APPEND keeps each
+ * single-line write atomic, so lines from different threads interleave cleanly
+ * without corrupting each other. Relative to the process cwd (the node starts
+ * with `cd build`, so this lands at build/btrace.log). Set to '' to disable
+ * file output and keep stdout only.
+ */
+const BCAST_TRACE_FILE: string = './btrace.log';
+
+let stream: fs.WriteStream | undefined;
+let streamFailed: boolean = false;
+
+function getStream(): fs.WriteStream | undefined {
+    if (!BCAST_TRACE_FILE || streamFailed) {
+        return undefined;
+    }
+
+    if (!stream) {
+        try {
+            stream = fs.createWriteStream(BCAST_TRACE_FILE, { flags: 'a' });
+            stream.on('error', () => {
+                streamFailed = true;
+            });
+        } catch {
+            streamFailed = true;
+            return undefined;
+        }
+    }
+
+    return stream;
+}
 
 /**
  * High-visibility, cross-thread trace line. Each entry carries an epoch-ms
@@ -20,9 +54,19 @@ export function btrace(tag: string, message: string, data?: unknown): void {
 
     const now = Date.now();
     const suffix = data === undefined ? '' : ` :: ${safeStringify(data)}`;
+    const line = `[BTRACE t=${now} tid=${threadId}] ${tag} | ${message}${suffix}`;
 
     // eslint-disable-next-line no-console
-    console.log(`[BTRACE t=${now} tid=${threadId}] ${tag} | ${message}${suffix}`);
+    console.log(line);
+
+    const s = getStream();
+    if (s) {
+        try {
+            s.write(`${line}\n`);
+        } catch {
+            streamFailed = true;
+        }
+    }
 }
 
 function safeStringify(value: unknown): string {

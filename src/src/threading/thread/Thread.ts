@@ -45,6 +45,7 @@ const TRACED_THREAD_TYPES: ReadonlySet<ThreadTypes> = new Set<ThreadTypes>([
     ThreadTypes.WITNESS,
     ThreadTypes.INDEXER,
     ThreadTypes.BROADCAST,
+    ThreadTypes.MEMPOOL,
 ]);
 
 const shouldTrace = (
