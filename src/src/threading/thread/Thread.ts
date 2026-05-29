@@ -388,10 +388,23 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
             this.error(`Error processing event message. {Details: ${e}}`);
         }
 
-        if (m.taskId && response != undefined) {
+        // A request (anything carrying a taskId that is not itself a reply) MUST
+        // be answered exactly once. Previously a reply was only sent when the
+        // handler returned a defined value, so any handler that returned
+        // undefined or threw left the caller's sendMessage() hanging on its
+        // 240s timeout — which pins concurrency slots/locks and cascades into
+        // node-wide stalls (witness validation starvation, api->p2p timeouts).
+        // THREAD_RESPONSE is excluded: it is the reply itself, handled above by
+        // onThreadResponse, and re-replying would bounce a dead taskId back.
+        const isRequest =
+            m.taskId !== undefined &&
+            m.taskId !== null &&
+            m.type !== MessageType.THREAD_RESPONSE;
+
+        if (isRequest) {
             const resp: ThreadMessageResponse = {
                 type: MessageType.THREAD_RESPONSE,
-                data: response,
+                data: response ?? {},
                 taskId: m.taskId,
                 toServer: false,
             };
