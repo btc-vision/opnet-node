@@ -10,4 +10,5 @@ export enum ThreadTypes {
     SYNCHRONISATION = `sync`,
     PLUGIN = `plugin`,
     WITNESS = `witness`,
+    BROADCAST = `broadcast`,
 }

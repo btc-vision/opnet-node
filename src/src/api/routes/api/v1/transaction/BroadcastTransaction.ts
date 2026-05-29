@@ -246,13 +246,14 @@ export class BroadcastTransaction extends Route<
                 } as BroadcastOPNetRequest,
             };
 
-        btrace('API.broadcastOPNetTransaction', `SEND -> P2P id=${id} bytes=${data.length} (awaiting reply)`);
-        const res = (await ServerThread.sendMessageToThread(ThreadTypes.P2P, currentBlockMsg)) as
-            | BroadcastResponse
-            | undefined;
+        btrace('API.broadcastOPNetTransaction', `SEND -> BROADCAST id=${id} bytes=${data.length} (awaiting reply)`);
+        const res = (await ServerThread.sendMessageToThread(
+            ThreadTypes.BROADCAST,
+            currentBlockMsg,
+        )) as BroadcastResponse | undefined;
         btrace(
             'API.broadcastOPNetTransaction',
-            `GOT REPLY <- P2P id=${id} response=${res === undefined ? 'undefined/null(timeout?)' : JSON.stringify(res)}`,
+            `GOT REPLY <- BROADCAST id=${id} response=${res === undefined ? 'undefined/null(timeout?)' : JSON.stringify(res)}`,
         );
 
         return res;

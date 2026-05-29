@@ -33,6 +33,29 @@ const isTracedMessageType = (type: MessageType): boolean =>
     type !== MessageType.UNLINK_THREAD &&
     type !== MessageType.SET_MESSAGE_PORT;
 
+/**
+ * Only these thread types are involved in the stalls we are hunting (broadcast
+ * = api->p2p, block-processed = indexer->p2p, witness = p2p<->witness). The
+ * api<->rpc `call` simulation traffic is healthy and extremely high volume, so
+ * a message is only traced if at least one of its endpoints is in this set.
+ * This is what keeps the [BTRACE] stream from drowning in RPC call spam.
+ */
+const TRACED_THREAD_TYPES: ReadonlySet<ThreadTypes> = new Set<ThreadTypes>([
+    ThreadTypes.P2P,
+    ThreadTypes.WITNESS,
+    ThreadTypes.INDEXER,
+    ThreadTypes.BROADCAST,
+]);
+
+const shouldTrace = (
+    localType: ThreadTypes,
+    otherType: ThreadTypes | undefined,
+    msgType: MessageType,
+): boolean =>
+    isTracedMessageType(msgType) &&
+    (TRACED_THREAD_TYPES.has(localType) ||
+        (otherType !== undefined && TRACED_THREAD_TYPES.has(otherType)));
+
 export type SendMessageToThreadFunction = (
     threadType: ThreadTypes,
     m: ThreadMessageBase<MessageType>,
@@ -167,11 +190,13 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                         timeout: timeout,
                         resolve: resolve,
                         port: port,
+                        destThreadType: destThreadType,
+                        sentAt: sentAt,
                     };
 
                     this.tasks.set(m.taskId, task);
 
-                    if (isTracedMessageType(m.type)) {
+                    if (shouldTrace(this.threadType, destThreadType, m.type)) {
                         btrace(
                             `Thread[${this.threadType}#${threadId}]`,
                             `SEND -> dest=${destThreadType ?? 'unknown'} msgType=${m.type} taskId=${taskId} portIdx=${portIndex} (awaiting reply, 240s timeout armed)`,
@@ -401,7 +426,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
     ): Promise<void> {
         let response: ThreadData | undefined;
 
-        const traced = isTracedMessageType(m.type);
+        const traced = shouldTrace(this.threadType, threadType, m.type);
         if (traced) {
             btrace(
                 `Thread[${this.threadType}#${threadId}]`,
@@ -482,10 +507,13 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                 clearTimeout(task.timeout);
                 task.resolve(m.data);
 
-                btrace(
-                    `Thread[${this.threadType}#${threadId}]`,
-                    `RESOLVED reply taskId=${m.taskId} (caller's sendMessage promise settled)`,
-                );
+                if (shouldTrace(this.threadType, task.destThreadType, m.type)) {
+                    const elapsed = task.sentAt !== undefined ? Date.now() - task.sentAt : -1;
+                    btrace(
+                        `Thread[${this.threadType}#${threadId}]`,
+                        `RESOLVED reply from=${task.destThreadType ?? 'unknown'} taskId=${m.taskId} after ${elapsed}ms (caller's sendMessage promise settled)`,
+                    );
+                }
             } else {
                 this.error(`Thread response task not found. {TaskId: ${m.taskId}}`);
             }
