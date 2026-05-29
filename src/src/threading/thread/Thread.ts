@@ -17,9 +17,21 @@ import { Config } from '../../config/Config.js';
 import fs from 'fs';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
 import { FastNumberMap } from '../../utils/fast/FastNumberMap.js';
+import { btrace } from '../../utils/BroadcastTrace.js';
 
 const genRanHex = (size: number) =>
     [...(Array(size) as number[])].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+
+/**
+ * Control-plane messages (link setup / teardown / port handoff) are extremely
+ * chatty and uninteresting for the broadcast/block-processed stall hunt. Only
+ * trace data-plane traffic so the [BTRACE] stream stays readable.
+ */
+const isTracedMessageType = (type: MessageType): boolean =>
+    type !== MessageType.LINK_THREAD &&
+    type !== MessageType.LINK_THREAD_REQUEST &&
+    type !== MessageType.UNLINK_THREAD &&
+    type !== MessageType.SET_MESSAGE_PORT;
 
 export type SendMessageToThreadFunction = (
     threadType: ThreadTypes,
@@ -158,6 +170,13 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                     };
 
                     this.tasks.set(m.taskId, task);
+
+                    if (isTracedMessageType(m.type)) {
+                        btrace(
+                            `Thread[${this.threadType}#${threadId}]`,
+                            `SEND -> dest=${destThreadType ?? 'unknown'} msgType=${m.type} taskId=${taskId} portIdx=${portIndex} (awaiting reply, 240s timeout armed)`,
+                        );
+                    }
                 }
 
                 if (port) {
@@ -382,10 +401,25 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
     ): Promise<void> {
         let response: ThreadData | undefined;
 
+        const traced = isTracedMessageType(m.type);
+        if (traced) {
+            btrace(
+                `Thread[${this.threadType}#${threadId}]`,
+                `RECV from=${threadType} msgType=${m.type} taskId=${m.taskId ?? 'none'} -> dispatching handler`,
+            );
+        }
+
         try {
             response = await this.onLinkMessageInternal(threadType, m);
         } catch (e) {
             this.error(`Error processing event message. {Details: ${e}}`);
+        }
+
+        if (traced) {
+            btrace(
+                `Thread[${this.threadType}#${threadId}]`,
+                `HANDLER DONE from=${threadType} msgType=${m.type} taskId=${m.taskId ?? 'none'} responded=${response !== undefined}`,
+            );
         }
 
         // A request (anything carrying a taskId that is not itself a reply) MUST
@@ -408,6 +442,13 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                 taskId: m.taskId,
                 toServer: false,
             };
+
+            if (traced) {
+                btrace(
+                    `Thread[${this.threadType}#${threadId}]`,
+                    `REPLY -> from=${threadType} msgType=${m.type} taskId=${m.taskId ?? 'none'} posting THREAD_RESPONSE`,
+                );
+            }
 
             await this.sendMessage(resp, messagePort);
         }
@@ -440,6 +481,11 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
 
                 clearTimeout(task.timeout);
                 task.resolve(m.data);
+
+                btrace(
+                    `Thread[${this.threadType}#${threadId}]`,
+                    `RESOLVED reply taskId=${m.taskId} (caller's sendMessage promise settled)`,
+                );
             } else {
                 this.error(`Thread response task not found. {TaskId: ${m.taskId}}`);
             }

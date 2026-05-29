@@ -59,6 +59,7 @@ import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transa
 import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { shuffleArray } from '../../utils/shuffleArray.js';
+import { btrace } from '../../utils/BroadcastTrace.js';
 import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
 import { noise } from '@chainsafe/libp2p-noise';
 import { CID } from 'multiformats/cid';
@@ -310,8 +311,10 @@ export class P2PManager extends Logger {
     }
 
     public broadcastTransaction(data: OPNetBroadcastData): OPNetBroadcastResponse {
+        btrace('P2PManager.broadcastTransaction', `ENTER id=${data.id}`);
         try {
             if (this.knownMempoolIdentifiers.has(data.id) && data.id) {
+                btrace('P2PManager.broadcastTransaction', `id=${data.id} ALREADY KNOWN, returning peers=0`);
                 return {
                     peers: 0,
                 };
@@ -319,14 +322,19 @@ export class P2PManager extends Logger {
 
             if (data.id) this.knownMempoolIdentifiers.add(data.id);
 
+            btrace('P2PManager.broadcastTransaction', `id=${data.id} normalizing bytes + queueing fan-out`);
+            const peers = this.queueMempoolTransactionBroadcast({
+                transaction: this.normalizeBroadcastBytes(data.raw),
+                psbt: data.psbt,
+            });
+            btrace('P2PManager.broadcastTransaction', `id=${data.id} queued, peers=${peers}`);
+
             return {
-                peers: this.queueMempoolTransactionBroadcast({
-                    transaction: this.normalizeBroadcastBytes(data.raw),
-                    psbt: data.psbt,
-                }),
+                peers,
             };
         } catch (e) {
             const details = e instanceof Error ? e.message : String(e);
+            btrace('P2PManager.broadcastTransaction', `id=${data.id} THREW: ${details}`);
             this.warn(`Failed to queue mempool transaction broadcast ${data.id}: ${details}`);
 
             return {

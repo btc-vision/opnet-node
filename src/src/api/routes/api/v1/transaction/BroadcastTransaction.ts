@@ -14,6 +14,7 @@ import { RPCMessage } from '../../../../../threading/interfaces/thread-messages/
 import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { MessageType } from '../../../../../threading/enum/MessageType.js';
 import { ServerThread } from '../../../../ServerThread.js';
+import { btrace } from '../../../../../utils/BroadcastTrace.js';
 import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.js';
 import { BroadcastResponse } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { BroadcastOPNetRequest } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
@@ -245,9 +246,16 @@ export class BroadcastTransaction extends Route<
                 } as BroadcastOPNetRequest,
             };
 
-        return (await ServerThread.sendMessageToThread(ThreadTypes.P2P, currentBlockMsg)) as
+        btrace('API.broadcastOPNetTransaction', `SEND -> P2P id=${id} bytes=${data.length} (awaiting reply)`);
+        const res = (await ServerThread.sendMessageToThread(ThreadTypes.P2P, currentBlockMsg)) as
             | BroadcastResponse
             | undefined;
+        btrace(
+            'API.broadcastOPNetTransaction',
+            `GOT REPLY <- P2P id=${id} response=${res === undefined ? 'undefined/null(timeout?)' : JSON.stringify(res)}`,
+        );
+
+        return res;
     }
 
     private async verifyOPNetTransaction(

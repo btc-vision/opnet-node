@@ -10,6 +10,7 @@ import { RPCMessage } from '../threading/interfaces/thread-messages/messages/api
 import { BitcoinRPCThreadMessageType } from '../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { OPNetBroadcastData } from '../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 import { IBlockHeaderWitness } from './networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
+import { btrace } from '../utils/BroadcastTrace.js';
 
 export class PoC extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -50,6 +51,7 @@ export class PoC extends Logger {
     public async handleBitcoinIndexerMessage(
         m: ThreadMessageBase<MessageType>,
     ): Promise<ThreadData> {
+        btrace('PoC.handleBitcoinIndexerMessage', `ENTER msgType=${m.type}`);
         switch (m.type) {
             case MessageType.BLOCK_PROCESSED: {
                 return this.onBlockProcessed(m as BlockProcessedMessage);
@@ -80,9 +82,18 @@ export class PoC extends Logger {
     }
 
     private handleRPCMessage(m: RPCMessage<BitcoinRPCThreadMessageType>): ThreadData {
+        btrace('PoC.handleRPCMessage', `ENTER rpcMethod=${m.data.rpcMethod}`);
         switch (m.data.rpcMethod) {
             case BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET: {
-                return this.p2p.broadcastTransaction(m.data.data as OPNetBroadcastData);
+                const data = m.data.data as OPNetBroadcastData;
+                btrace('PoC.handleRPCMessage', `BROADCAST_TRANSACTION_OPNET id=${data.id}`);
+                const result = this.p2p.broadcastTransaction(data);
+                btrace(
+                    'PoC.handleRPCMessage',
+                    `broadcastTransaction RETURNED id=${data.id}`,
+                    result,
+                );
+                return result;
             }
             default: {
                 throw new Error(`Unknown RPC method: ${m.data.rpcMethod} received in PoC.`);
@@ -105,7 +116,11 @@ export class PoC extends Logger {
     }
 
     private async onBlockProcessed(m: BlockProcessedMessage): Promise<ThreadData> {
+        const block = m.data.blockNumber;
+        btrace('PoC.onBlockProcessed', `ENTER block=${block} -> awaiting previous blockProcessedLock`);
+
         await this.blockProcessedLock.catch(() => {});
+        btrace('PoC.onBlockProcessed', `block=${block} previous lock released, sending WITNESS_HEIGHT_UPDATE to ALL witness threads`);
 
         this.blockProcessedLock = this.sendMessageToAllThreads(ThreadTypes.WITNESS, {
             type: MessageType.WITNESS_HEIGHT_UPDATE,
@@ -114,10 +129,13 @@ export class PoC extends Logger {
 
         try {
             await this.blockProcessedLock;
+            btrace('PoC.onBlockProcessed', `block=${block} WITNESS_HEIGHT_UPDATE round-trip COMPLETE`);
         } catch (e: unknown) {
+            btrace('PoC.onBlockProcessed', `block=${block} WITNESS_HEIGHT_UPDATE FAILED`);
             this.error(`Failed to broadcast height update: ${(e as Error).stack}`);
         }
 
+        btrace('PoC.onBlockProcessed', `block=${block} dispatching WITNESS_BLOCK_PROCESSED (fire-and-forget)`);
         void this.sendMessageToThread(ThreadTypes.WITNESS, {
             type: MessageType.WITNESS_BLOCK_PROCESSED,
             data: m.data,
@@ -127,6 +145,7 @@ export class PoC extends Logger {
 
         this.p2p.updateConsensusHeight(m.data.blockNumber);
 
+        btrace('PoC.onBlockProcessed', `block=${block} RETURNING ack to indexer`);
         return {};
     }
 }

@@ -61,37 +61,60 @@ class RPCManager extends Logger {
     }
 
     protected async onMessage(message: string): Promise<void> {
+        let taskId: string | undefined;
         try {
             const data = JSON.parse(message) as { taskId: string; data: object; type: string };
+            taskId = data.taskId;
 
-            if (data.type === 'call') {
-                let result: EvaluatedResult | CallRequestError | undefined =
-                    await this.onCallRequest(data.data as CallRequestData);
-
-                if (result && !('error' in result)) {
-                    result = Object.assign(result, {
-                        result: result.result ? toHex(result.result) : '',
-                        revert: result.revert ? toHex(result.revert) : '',
-                        changedStorage: result.changedStorage
-                            ? this.convertMapToArray(result.changedStorage)
-                            : [],
-                        loadedStorage: result.loadedStorage
-                            ? this.convertLoadedStorageToArray(result.loadedStorage)
-                            : [],
-                        events: result.events ? this.convertEventsToArray(result.events) : [],
-                        deployedContracts: result.deployedContracts
-                            ? this.convertDeployedContractsToArray(result.deployedContracts)
-                            : [],
-                    });
-                }
-
+            if (data.type !== 'call') {
+                // Unknown request type. Still answer so the parent's task
+                // resolves instead of waiting out its full 120s timeout.
                 this.send({
-                    taskId: data.taskId,
-                    data: result,
+                    taskId,
+                    data: { error: `Unknown request type: ${data.type}` },
+                });
+                return;
+            }
+
+            let result: EvaluatedResult | CallRequestError | undefined =
+                await this.onCallRequest(data.data as CallRequestData);
+
+            if (result && !('error' in result)) {
+                result = Object.assign(result, {
+                    result: result.result ? toHex(result.result) : '',
+                    revert: result.revert ? toHex(result.revert) : '',
+                    changedStorage: result.changedStorage
+                        ? this.convertMapToArray(result.changedStorage)
+                        : [],
+                    loadedStorage: result.loadedStorage
+                        ? this.convertLoadedStorageToArray(result.loadedStorage)
+                        : [],
+                    events: result.events ? this.convertEventsToArray(result.events) : [],
+                    deployedContracts: result.deployedContracts
+                        ? this.convertDeployedContractsToArray(result.deployedContracts)
+                        : [],
                 });
             }
+
+            this.send({
+                taskId,
+                data: result,
+            });
         } catch (e) {
             this.error(`Failed to process message. ${e}`);
+
+            // onCallRequest only catches throws from inside its own inner try;
+            // getNextVMManager() (VM pool exhaustion) runs outside it, and a
+            // malformed JSON.parse throws before we even dispatch. Either way,
+            // if we already have a taskId the parent is blocked on its 120s
+            // timeout waiting for a reply that the code above never sent — so
+            // answer with the error here instead of letting it hang.
+            if (taskId !== undefined) {
+                this.send({
+                    taskId,
+                    data: { error: e instanceof Error ? e.message : String(e) },
+                });
+            }
         }
     }
 
