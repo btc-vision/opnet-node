@@ -148,6 +148,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
                         : response.result,
                 revert: revertData,
                 deployedContracts: [],
+                updatedContracts: [],
             };
         } else {
             return {

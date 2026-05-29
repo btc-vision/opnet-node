@@ -755,6 +755,13 @@ export class VMMongoStorage extends VMStorage {
         await this.contractRepository.setContract(contractData);
     }
 
+    public async updateContractBytecode(contractData: ContractInformation): Promise<void> {
+        if (!this.contractRepository) {
+            throw new Error('Repository not initialized');
+        }
+        await this.contractRepository.updateContractBytecode(contractData);
+    }
+
     public async getContractAt(
         contractAddress: string,
         height?: bigint,

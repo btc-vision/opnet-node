@@ -142,6 +142,8 @@ export abstract class VMStorage extends Logger {
 
     public abstract setContractAt(contractData: ContractInformation): Promise<void>;
 
+    public abstract updateContractBytecode(contractData: ContractInformation): Promise<void>;
+
     public abstract init(): Promise<void>;
 
     public abstract getLatestBlock(): Promise<BlockHeaderAPIBlockDocument | undefined>;

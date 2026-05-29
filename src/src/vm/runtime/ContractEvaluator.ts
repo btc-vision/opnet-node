@@ -85,6 +85,10 @@ export class ContractEvaluator extends Logger {
         throw new Error('Method not implemented. [deployContract]');
     }
 
+    public persistContractUpdate(_contract: ContractInformation): Promise<void> {
+        throw new Error('Method not implemented. [persistContractUpdate]');
+    }
+
     public getStorage(
         _address: Address,
         _pointer: StoragePointer,
@@ -242,6 +246,14 @@ export class ContractEvaluator extends Logger {
 
         // We deploy contract at the end of the transaction. This is on purpose, so we can revert more easily.
         await Promise.safeAll(deploymentPromises);
+
+        if (evaluation.updatedContracts.size > 0) {
+            const updatePromises: Promise<void>[] = [];
+            for (const contractInfo of evaluation.updatedContracts.values()) {
+                updatePromises.push(this.persistContractUpdate(contractInfo));
+            }
+            await Promise.safeAll(updatePromises);
+        }
     }
 
     private async calculateGasCostStore(evaluation: ContractEvaluation): Promise<void> {
@@ -490,6 +502,7 @@ export class ContractEvaluator extends Logger {
             memoryPagesUsed: evaluation.memoryPagesUsed,
 
             deployedContracts: evaluation.deployedContracts,
+            updatedContracts: evaluation.updatedContracts,
             storage: evaluation.storage,
             preloadStorage: evaluation.preloadStorage,
 
@@ -611,6 +624,11 @@ export class ContractEvaluator extends Logger {
         let usedGas: bigint = evaluation.gasUsed;
 
         try {
+            // Fail-fast depth check: the ContractEvaluation constructor will also
+            // increment when isUpdate=true, so MAXIMUM_UPDATE_DEPTH must be 2 to
+            // permit a single update. This mirrors the deployment pattern and
+            // rejects recursive updates before doing authorization / bytecode
+            // loading work.
             evaluation.incrementContractUpdates();
 
             const reader = new BinaryReader(data);
