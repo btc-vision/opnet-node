@@ -38,6 +38,11 @@ export class LatestEpoch extends Route<
         this.cacheTimestamp = Date.now();
     }
 
+    public override onReorg(): void {
+        this.cachedEpoch = undefined;
+        this.cacheTimestamp = 0;
+    }
+
     protected initialize(): void {}
 
     /**

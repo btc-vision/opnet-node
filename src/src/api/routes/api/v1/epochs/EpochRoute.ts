@@ -52,6 +52,11 @@ export abstract class EpochRoute<T extends Routes> extends Route<
         this.currentEpochData = this.convertEpochToAPIResult(epochData);
     }
 
+    public override onReorg(): void {
+        this.cachedEpochs.clear();
+        this.currentEpochData = undefined;
+    }
+
     protected async getCachedEpochData(
         includeSubmissions: boolean,
         epochNumber?: SafeBigInt,

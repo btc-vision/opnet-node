@@ -59,6 +59,11 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         };
     }
 
+    public override onReorg(): void {
+        this.cachedBlocks.clear();
+        this.currentBlockData = undefined;
+    }
+
     protected async getCachedBlockData(
         includeTransactions: boolean,
         height?: SafeBigInt,
