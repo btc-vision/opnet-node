@@ -37,6 +37,7 @@ import {
     TestMempoolAcceptRequest,
 } from '../../../threading/interfaces/thread-messages/messages/api/PackageRequest.js';
 import { RPCSubWorkerManager } from './RPCSubWorkerManager.js';
+import { installBitcoinRPCTimeout } from '../RPCTimeout.js';
 import { PointerStorageMap } from '../../../vm/evaluated/EvaluatedResult.js';
 import { NetEvent } from '@btc-vision/transaction';
 import { BlockHeaderValidator } from '../../../vm/BlockHeaderValidator.js';
@@ -68,6 +69,11 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
     protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
 
     protected async init(): Promise<void> {
+        // Bound every Bitcoin Core RPC call so an unresponsive node fails fast
+        // instead of leaving fetch() promises (and the data they pin) hanging
+        // forever. Must run before any RPC call is made.
+        installBitcoinRPCTimeout();
+
         await this.vmStorage.init();
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
 

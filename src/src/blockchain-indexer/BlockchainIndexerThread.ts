@@ -4,6 +4,7 @@ import { ThreadData } from '../threading/interfaces/ThreadData.js';
 import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
 import { Thread } from '../threading/thread/Thread.js';
 import { BlockIndexer } from './processor/BlockIndexer.js';
+import { installBitcoinRPCTimeout } from './rpc/RPCTimeout.js';
 
 export class BlockchainIndexerThread extends Thread<ThreadTypes.INDEXER> {
     public readonly threadType: ThreadTypes.INDEXER = ThreadTypes.INDEXER;
@@ -20,6 +21,11 @@ export class BlockchainIndexerThread extends Thread<ThreadTypes.INDEXER> {
 
     protected init(): Promise<void> | void {
         this.log(`Starting up blockchain indexer thread...`);
+
+        // Bound time-to-first-byte so an unresponsive Bitcoin Core fails fast.
+        // bodyTimeout is disabled (0): this worker streams large blocks via
+        // getblockbatch and must not abort a slow large-body download mid-stream.
+        installBitcoinRPCTimeout(undefined, 0);
 
         this.blockIndexer.sendMessageToThread = this.sendMessageToThread.bind(this);
         this.blockIndexer.sendMessageToAllThreads = this.sendMessageToAllThreads.bind(this);

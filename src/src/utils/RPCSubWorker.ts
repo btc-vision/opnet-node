@@ -4,6 +4,7 @@ import { Config } from '../config/Config.js';
 import { Logger } from '@btc-vision/bsi-common';
 import { fromBase64, fromHex, toBase64, toHex } from '@btc-vision/bitcoin';
 import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
+import { installBitcoinRPCTimeout } from '../blockchain-indexer/rpc/RPCTimeout.js';
 import {
     CallRequestData,
     CallRequestResponse,
@@ -52,6 +53,10 @@ class RPCManager extends Logger {
 
     public async init(): Promise<void> {
         this.listenToEvents();
+
+        // Fail fast if Bitcoin Core stops responding instead of leaving fetch()
+        // promises hanging forever and leaking the data they pin.
+        installBitcoinRPCTimeout();
 
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
         await this.vmStorage.init();

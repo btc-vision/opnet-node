@@ -27,6 +27,8 @@ export class GasRoute extends Route<Routes.GAS, JSONRpcMethods.GAS, BlockGasInfo
         | null
         | Promise<FeeMessageResponse | undefined | null>;
 
+    private lastGoodFee: FeeMessageResponse | undefined;
+
     private fetchFeeInterval: number = 1000 * 30;
     private isInitialized: boolean = false;
 
@@ -139,11 +141,21 @@ export class GasRoute extends Route<Routes.GAS, JSONRpcMethods.GAS, BlockGasInfo
     }
 
     private fetchFee(): void {
-        this.cacheBlockFee = this.requestMempoolFee().catch((err: unknown) => {
-            this.warn(`Failed to fetch mempool fee data: ${err}`);
+        this.cacheBlockFee = this.requestMempoolFee()
+            .then((fee) => {
+                if (fee) this.lastGoodFee = fee;
 
-            return null;
-        });
+                return fee;
+            })
+            .catch((err: unknown) => {
+                this.warn(`Failed to fetch mempool fee data: ${err}`);
+
+                // Serve the last good value rather than nulling the cache; a null
+                // forces getData() to re-fetch on every request, which turns a
+                // mempool hiccup into a request stampede against the mempool thread.
+                // Only fall back to null on a cold start where no fee was ever fetched.
+                return this.lastGoodFee ?? null;
+            });
     }
 
     private async cacheResponse(

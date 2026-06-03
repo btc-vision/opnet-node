@@ -67,6 +67,10 @@ export class Server extends Logger {
     private lastMiningEpoch: bigint = 0n;
     private lastFinalizedEpoch: bigint = -1n;
 
+    // Reorg detection state. The API thread does not receive CHAIN_REORG
+    // messages from the indexer; it only sees inProgressBlock updates via
+    // MongoDB polling. The detector compares each observed tip to the
+    // previous one and signals when route caches need to be wiped.
     private readonly reorgDetector: ReorgDetector = new ReorgDetector();
 
     private readonly pluginRoutes: Map<string, IPluginRouteInfo[]> = new Map();

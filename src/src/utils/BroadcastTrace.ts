@@ -6,7 +6,7 @@ import fs from 'fs';
  * processed stall has been located. Every trace line is tagged [BTRACE] so the
  * whole lot can be grepped or stripped in one pass.
  */
-export const BCAST_TRACE_ENABLED = true;
+export const BCAST_TRACE_ENABLED = false;
 
 /**
  * When set, every trace line is ALSO appended to this file (in addition to
