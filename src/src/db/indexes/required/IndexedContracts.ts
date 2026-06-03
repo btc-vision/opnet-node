@@ -8,11 +8,15 @@ export class IndexedContracts extends IndexedCollection<OPNetCollections.Contrac
 
     public getIndexes(): IndexDescription[] {
         return [
-            { key: { contractAddress: 1 }, name: 'contractAddress_1', unique: true },
+            {
+                key: { contractAddress: 1, blockHeight: -1 },
+                name: 'contractAddress_blockHeight',
+                unique: true,
+            },
             { key: { p2trAddress: 1 }, name: 'p2trAddress_1' },
             {
-                key: { contractPublicKey: 1 },
-                name: 'contractPublicKey_1',
+                key: { contractPublicKey: 1, blockHeight: -1 },
+                name: 'contractPublicKey_blockHeight',
                 unique: true,
             },
             { key: { blockHeight: 1 }, name: 'blockHeight_1' },
