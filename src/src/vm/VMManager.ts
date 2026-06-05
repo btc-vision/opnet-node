@@ -1130,10 +1130,6 @@ export class VMManager extends Logger {
             throw new Error('OP_NET: Contract not found for update.');
         }
 
-        if (!evaluation.msgSender.equals(currentContractInfo.deployerAddress)) {
-            throw new Error('OP_NET: Only the original deployer can update this contract.');
-        }
-
         if (sourceAddress.equals(evaluation.contractAddress)) {
             throw new Error('OP_NET: Contract cannot use itself as update source.');
         }
@@ -1175,9 +1171,7 @@ export class VMManager extends Logger {
         return { bytecodeLength: sourceContractInfo.bytecode.byteLength };
     }
 
-    private async persistContractUpdate(
-        contractInformation: ContractInformation,
-    ): Promise<void> {
+    private async persistContractUpdate(contractInformation: ContractInformation): Promise<void> {
         if (this.isExecutor) {
             return;
         }
@@ -1186,9 +1180,7 @@ export class VMManager extends Logger {
             !contractInformation.deployedTransactionId ||
             !contractInformation.deployedTransactionHash
         ) {
-            throw new Error(
-                'Transaction id or hash not found. [persistContractUpdate]',
-            );
+            throw new Error('Transaction id or hash not found. [persistContractUpdate]');
         }
 
         this.contractCache.delete(contractInformation.contractPublicKey);
