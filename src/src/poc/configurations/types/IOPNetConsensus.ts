@@ -33,6 +33,12 @@ export interface EpochPatches {
     readonly GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT: bigint;
 }
 
+export interface DisabledContractMethodRule {
+    readonly ENABLE_AT_BLOCK: bigint;
+    readonly SELECTORS: readonly number[];
+    readonly ERROR: string;
+}
+
 export interface IOPNetConsensus<T extends Consensus> {
     /** Information about the consensus */
     // The consensus type.
@@ -114,6 +120,12 @@ export interface IOPNetConsensus<T extends Consensus> {
             // The consensus is enabled for this network.
             readonly [key in ChainIds]?: {
                 readonly [key in BitcoinNetwork]?: SpecialContracts;
+            };
+        };
+
+        readonly DISABLED_METHODS: {
+            readonly [key in ChainIds]?: {
+                readonly [key in BitcoinNetwork]?: readonly DisabledContractMethodRule[];
             };
         };
     };

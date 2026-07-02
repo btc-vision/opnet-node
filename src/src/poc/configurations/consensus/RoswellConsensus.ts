@@ -16,6 +16,11 @@ const RoswellConsensusRules: ConsensusRules = new ConsensusRules();
 RoswellConsensusRules.insertFlag(ConsensusRules.UNSAFE_QUANTUM_SIGNATURES_ALLOWED);
 // RoswellConsensusRules.insertFlag(ConsensusRules.CONTRACT_UPDATES_ALLOWED);
 
+const DISABLE_OP20_SIGNATURE_ALLOWANCE_BLOCK = 956_297n;
+const OP20_APPROVE_BY_SIGNATURE_SELECTOR = 0x459c188c;
+const OP20_INCREASE_ALLOWANCE_BY_SIGNATURE_SELECTOR = 0x37778848;
+const OP20_DECREASE_ALLOWANCE_BY_SIGNATURE_SELECTOR = 0x5d6ee26c;
+
 export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     /** Information about the consensus */
     CONSENSUS: Consensus.Roswell,
@@ -129,6 +134,22 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
                 [BitcoinNetwork.testnet]: SPECIAL_CONTRACTS_ROSWELL_TESTNET,
                 [BitcoinNetwork.testnet4]: SPECIAL_CONTRACTS_ROSWELL_TESTNET4,
                 [BitcoinNetwork.regtest]: SPECIAL_CONTRACTS_ROSWELL_REGTEST,
+            },
+        },
+
+        DISABLED_METHODS: {
+            [ChainIds.Bitcoin]: {
+                [BitcoinNetwork.mainnet]: [
+                    {
+                        ENABLE_AT_BLOCK: DISABLE_OP20_SIGNATURE_ALLOWANCE_BLOCK,
+                        SELECTORS: [
+                            OP20_APPROVE_BY_SIGNATURE_SELECTOR,
+                            OP20_INCREASE_ALLOWANCE_BY_SIGNATURE_SELECTOR,
+                            OP20_DECREASE_ALLOWANCE_BY_SIGNATURE_SELECTOR,
+                        ],
+                        ERROR: 'Method disabled',
+                    },
+                ],
             },
         },
     },

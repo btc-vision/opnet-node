@@ -1,4 +1,5 @@
 import {
+    DisabledContractMethodRule,
     EpochPatches,
     IOPNetConsensus,
     IOPNetConsensusObj,
@@ -146,6 +147,28 @@ class OPNetConsensusConfiguration extends Logger {
         return network[address];
     }
 
+    public disabledContractMethodError(
+        blockHeight: bigint,
+        calldata: Uint8Array,
+    ): string | undefined {
+        if (calldata.length < 4) {
+            return;
+        }
+
+        const selector = OPNetConsensusConfiguration.readSelector(calldata);
+        const rules = this.disabledContractMethodRules();
+        for (let i = 0; i < rules.length; i++) {
+            const rule = rules[i];
+            if (!rule || blockHeight < rule.ENABLE_AT_BLOCK) {
+                continue;
+            }
+
+            if (rule.SELECTORS.includes(selector)) {
+                return rule.ERROR;
+            }
+        }
+    }
+
     public isConsensusBlock(): boolean {
         return this.consensus.GENERIC.NEXT_CONSENSUS_BLOCK === this.blockHeight;
     }
@@ -212,6 +235,26 @@ class OPNetConsensusConfiguration extends Logger {
         for (const callback of this.consensusUpgradeCallbacks) {
             callback(nextConsensusName, wasReady);
         }
+    }
+
+    private disabledContractMethodRules(): readonly DisabledContractMethodRule[] {
+        const chain = this.consensus.CONTRACTS.DISABLED_METHODS[Config.BITCOIN.CHAIN_ID];
+        if (!chain) {
+            return [];
+        }
+
+        const network = chain[Config.BITCOIN.NETWORK];
+        if (!network) {
+            return [];
+        }
+
+        return network;
+    }
+
+    private static readSelector(calldata: Uint8Array): number {
+        const view = new DataView(calldata.buffer, calldata.byteOffset, calldata.byteLength);
+
+        return view.getUint32(0, false);
     }
 
     /**
