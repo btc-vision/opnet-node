@@ -419,30 +419,23 @@ export class SubmitEpochRoute extends Route<
     /**
      * Sliding-window rate limit keyed by mldsaPublicKey. Throws once a key
      * exceeds RATE_LIMIT_MAX_PER_WINDOW submissions within RATE_LIMIT_WINDOW_MS.
-     * When the tracked-key set is full it first drops keys with no recent
-     * activity, then rejects new keys outright, so a flood of distinct keys
-     * cannot grow the map without bound.
+     * When a NEW key would overflow the tracked-key set, the oldest-inserted
+     * entry is evicted in O(1) (Map preserves insertion order). This bounds the
+     * map without an O(n) sweep per request and, unlike rejecting the newcomer,
+     * never starves a legitimate new key under a flood of distinct keys.
      */
     private enforceSubmissionRateLimit(mldsaPublicKey: string): void {
         const now = Date.now();
         const windowStart = now - SubmitEpochRoute.RATE_LIMIT_WINDOW_MS;
         const key = mldsaPublicKey.startsWith('0x') ? mldsaPublicKey.slice(2) : mldsaPublicKey;
 
-        if (this.submissionTimestamps.size >= SubmitEpochRoute.RATE_LIMIT_MAX_TRACKED_KEYS) {
-            for (const [trackedKey, timestamps] of this.submissionTimestamps) {
-                const kept = timestamps.filter((t) => t > windowStart);
-                if (kept.length === 0) {
-                    this.submissionTimestamps.delete(trackedKey);
-                } else {
-                    this.submissionTimestamps.set(trackedKey, kept);
-                }
-            }
-
-            if (
-                this.submissionTimestamps.size >= SubmitEpochRoute.RATE_LIMIT_MAX_TRACKED_KEYS &&
-                !this.submissionTimestamps.has(key)
-            ) {
-                throw new Error('Epoch submission rate limit exceeded. Try again shortly.');
+        if (
+            !this.submissionTimestamps.has(key) &&
+            this.submissionTimestamps.size >= SubmitEpochRoute.RATE_LIMIT_MAX_TRACKED_KEYS
+        ) {
+            const oldest = this.submissionTimestamps.keys().next().value;
+            if (oldest !== undefined) {
+                this.submissionTimestamps.delete(oldest);
             }
         }
 
@@ -473,8 +466,8 @@ export class SubmitEpochRoute extends Route<
             throw new Error('Epoch number is required');
         }
 
-        if (!params.mldsaPublicKey) {
-            throw new Error('MLDSA public key is required');
+        if (!params.mldsaPublicKey || typeof params.mldsaPublicKey !== 'string') {
+            throw new Error('MLDSA public key is required and must be a hex string');
         }
 
         if (!params.checksumRoot) {
