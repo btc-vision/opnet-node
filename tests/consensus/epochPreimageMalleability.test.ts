@@ -3,7 +3,7 @@ import crypto from 'crypto';
 
 // EpochValidator transitively imports OPNetConsensus/Config; mock them so the
 // module loads in isolation. NOTE: the functions under test (calculatePreimage,
-// countMatchingBits) do NOT read consensus/config at runtime — they are pure.
+// countMatchingBits) do NOT read consensus/config at runtime, they are pure.
 vi.mock('../../src/src/poc/configurations/OPNetConsensus.js', () => ({
     OPNetConsensus: {
         consensus: { EPOCH: { BLOCKS_PER_EPOCH: 5n, MIN_DIFFICULTY: 35 } },
@@ -40,7 +40,7 @@ function score(checksumRoot: Uint8Array, pubkey: Uint8Array, salt: Uint8Array): 
     return validator.countMatchingBits(hash, targetHashFor(checksumRoot));
 }
 
-describe('epoch preimage — sanity of the primitives', () => {
+describe('epoch preimage, sanity of the primitives', () => {
     it('countMatchingBits(x, x) === 160 (SHA1 = 20 bytes * 8)', () => {
         const h = SHA1.hashBuffer(rand(32));
         expect(validator.countMatchingBits(h, h)).toBe(160);
@@ -50,7 +50,7 @@ describe('epoch preimage — sanity of the primitives', () => {
         const checksumRoot = rand(32);
         const pubkey = rand(32);
         let best = 0;
-        // 2000 random tries — an honest miner grinding salt.
+        // 2000 random tries, an honest miner grinding salt.
         for (let i = 0; i < 2000; i++) {
             best = Math.max(best, score(checksumRoot, pubkey, rand(32)));
         }
@@ -59,7 +59,7 @@ describe('epoch preimage — sanity of the primitives', () => {
     });
 });
 
-describe('ATTACK 1 — salt = mldsaPublicKey cancels the XOR => preimage == checksumRoot => 160/160 for free', () => {
+describe('ATTACK 1, salt = mldsaPublicKey cancels the XOR => preimage == checksumRoot => 160/160 for free', () => {
     it('yields the maximum 160 matching bits with zero work, for a 32-byte checksumRoot', () => {
         const checksumRoot = rand(32);
         const pubkey = rand(32);
@@ -82,7 +82,7 @@ describe('ATTACK 1 — salt = mldsaPublicKey cancels the XOR => preimage == chec
     });
 });
 
-describe('ATTACK 2 — XOR malleability: re-attribute ANY victim solution to attacker key with zero work', () => {
+describe('ATTACK 2, XOR malleability: re-attribute ANY victim solution to attacker key with zero work', () => {
     it('salt_A = pubkey_A XOR pubkey_V XOR salt_V reproduces the victim difficulty under the attacker key', () => {
         const checksumRoot = rand(32);
 
@@ -152,14 +152,14 @@ describe('concatenated preimage (useConcatenatedPreimage = true) kills both atta
     });
 });
 
-describe('height gating — usesConcatenatedPreimage flips at PREIMAGE_CONCAT_PATCH_BLOCK_HEIGHT (mocked 1_000_000)', () => {
+describe('height gating, usesConcatenatedPreimage flips at PREIMAGE_CONCAT_PATCH_BLOCK_HEIGHT (mocked 1_000_000)', () => {
     it('legacy XOR before activation, concatenated at/after activation', () => {
         expect(EpochValidator.usesConcatenatedPreimage(999_995n)).toBe(false);
         expect(EpochValidator.usesConcatenatedPreimage(1_000_000n)).toBe(true);
         expect(EpochValidator.usesConcatenatedPreimage(1_000_005n)).toBe(true);
     });
 
-    it('calculatePreimage default (no flag) stays on legacy XOR — unchanged for historical epochs', () => {
+    it('calculatePreimage default (no flag) stays on legacy XOR, unchanged for historical epochs', () => {
         const checksumRoot = rand(32);
         const pubkey = rand(32);
         // salt = pubkey still yields 160 under legacy (proves default path is untouched)

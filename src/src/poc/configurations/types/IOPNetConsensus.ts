@@ -138,6 +138,21 @@ export interface IOPNetConsensus<T extends Consensus> {
                 readonly [key in BitcoinNetwork]?: readonly DisabledContractMethodRule[];
             };
         };
+
+        /**
+         * Block height at/after which the storage-state merkle leaf binds the
+         * contract address, hash(address || pointer || value) instead of just
+         * hash(pointer || value), so a proof for (pointer,value) can no longer be
+         * replayed across contracts. This changes the committed storageRoot, so it
+         * is a HARD FORK: the value MUST be a future block (ahead of the tip) and
+         * MUST match the client-side verifier (@btc-vision/opnet). An undefined or
+         * unreached height keeps the legacy (address-less) leaf.
+         */
+        readonly STATE_PROOF_ADDRESS_BINDING: {
+            readonly [key in ChainIds]?: {
+                readonly [key in BitcoinNetwork]?: bigint;
+            };
+        };
     };
 
     readonly COMPRESSION: {

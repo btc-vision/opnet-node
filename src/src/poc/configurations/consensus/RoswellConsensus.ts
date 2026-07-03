@@ -77,7 +77,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
                 [BitcoinNetwork.testnet]: {
                     GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT: 12583n,
                     // CONFIRM before deploy: testnet EARLY_MINING is disabled, so the
-                    // XOR flaw is exploitable now — set this to the next reachable
+                    // XOR flaw is exploitable now, set this to the next reachable
                     // testnet epoch boundary.
                     PREIMAGE_CONCAT_PATCH_BLOCK_HEIGHT: 15_000n,
                 },
@@ -167,6 +167,20 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
                         ERROR: 'Method disabled',
                     },
                 ],
+            },
+        },
+
+        // HARD FORK, changes the committed storageRoot at/after this height by
+        // binding the contract address into the state merkle leaf. CONFIRM before
+        // deploy: each height MUST be a FUTURE block (ahead of that network's tip),
+        // and the client-side verifier (@btc-vision/opnet, @btc-vision/transaction)
+        // must ship the matching change for the same networks/heights. regtest = 0
+        // (from genesis, fresh dev chains).
+        STATE_PROOF_ADDRESS_BINDING: {
+            [ChainIds.Bitcoin]: {
+                [BitcoinNetwork.mainnet]: 960_000n,
+                [BitcoinNetwork.testnet]: 15_000n,
+                [BitcoinNetwork.regtest]: 0n,
             },
         },
     },

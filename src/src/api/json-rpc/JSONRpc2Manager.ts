@@ -380,7 +380,7 @@ export class JSONRpc2Manager extends Logger {
     /**
      * Recursively detect MongoDB operator/path injection in request params: any object key
      * starting with "$" (an operator) or containing "." (a nested path). Values are never
-     * inspected — only keys — so legitimate hex/base64/address string values are unaffected.
+     * inspected, only keys, so legitimate hex/base64/address string values are unaffected.
      * The depth cap bounds work on hostile deeply-nested payloads.
      */
     private static hasForbiddenParamKey(value: unknown, depth: number = 0): boolean {

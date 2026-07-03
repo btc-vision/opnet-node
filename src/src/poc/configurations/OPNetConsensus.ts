@@ -51,6 +51,20 @@ class OPNetConsensusConfiguration extends Logger {
         return networkConfig;
     }
 
+    /**
+     * Whether the storage-state merkle leaf binds the contract address at the
+     * given block height, hash(address || pointer || value). Returns false (the
+     * legacy address-less leaf) when the network has no configured activation
+     * height or the height has not been reached.
+     */
+    public bindsContractAddressInStateProof(blockHeight: bigint): boolean {
+        const chain =
+            OPNetConsensus.consensus.CONTRACTS.STATE_PROOF_ADDRESS_BINDING[Config.BITCOIN.CHAIN_ID];
+        const activation = chain?.[Config.BITCOIN.NETWORK];
+
+        return activation !== undefined && blockHeight >= activation;
+    }
+
     public get allowUnsafeSignatures(): boolean {
         if (!this.#consensus) {
             throw new Error('Consensus not set.');
