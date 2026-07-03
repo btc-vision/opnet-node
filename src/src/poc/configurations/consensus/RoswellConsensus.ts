@@ -17,9 +17,12 @@ RoswellConsensusRules.insertFlag(ConsensusRules.UNSAFE_QUANTUM_SIGNATURES_ALLOWE
 // RoswellConsensusRules.insertFlag(ConsensusRules.CONTRACT_UPDATES_ALLOWED);
 
 const DISABLE_OP20_SIGNATURE_ALLOWANCE_BLOCK = 956_297n;
+const DISABLE_SET_APPROVAL_FOR_ALL_SIGNATURE_BLOCK = 956_423n;
 const OP20_APPROVE_BY_SIGNATURE_SELECTOR = 0x459c188c;
 const OP20_INCREASE_ALLOWANCE_BY_SIGNATURE_SELECTOR = 0x37778848;
 const OP20_DECREASE_ALLOWANCE_BY_SIGNATURE_SELECTOR = 0x5d6ee26c;
+// setApprovalForAllBySignature(bytes32,bytes32,address,bool,uint64,bytes)
+const OP721_SET_APPROVAL_FOR_ALL_BY_SIGNATURE_SELECTOR = 0x7cf1e343;
 
 export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     /** Information about the consensus */
@@ -66,12 +69,21 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
             [ChainIds.Bitcoin]: {
                 [BitcoinNetwork.mainnet]: {
                     GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT: 943452n, //943432n
+                    // CONFIRM before deploy: must be a future height, a multiple of
+                    // BLOCKS_PER_EPOCH (5), and before the EARLY_MINING whitelist
+                    // expiry (1_000_069) so the fix is live before open mining.
+                    PREIMAGE_CONCAT_PATCH_BLOCK_HEIGHT: 990_000n,
                 },
                 [BitcoinNetwork.testnet]: {
                     GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT: 12583n,
+                    // CONFIRM before deploy: testnet EARLY_MINING is disabled, so the
+                    // XOR flaw is exploitable now — set this to the next reachable
+                    // testnet epoch boundary.
+                    PREIMAGE_CONCAT_PATCH_BLOCK_HEIGHT: 15_000n,
                 },
                 [BitcoinNetwork.regtest]: {
                     GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT: 0n,
+                    PREIMAGE_CONCAT_PATCH_BLOCK_HEIGHT: 0n,
                 },
             },
         },
@@ -147,6 +159,11 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
                             OP20_INCREASE_ALLOWANCE_BY_SIGNATURE_SELECTOR,
                             OP20_DECREASE_ALLOWANCE_BY_SIGNATURE_SELECTOR,
                         ],
+                        ERROR: 'Method disabled',
+                    },
+                    {
+                        ENABLE_AT_BLOCK: DISABLE_SET_APPROVAL_FOR_ALL_SIGNATURE_BLOCK,
+                        SELECTORS: [OP721_SET_APPROVAL_FOR_ALL_BY_SIGNATURE_SELECTOR],
                         ERROR: 'Method disabled',
                     },
                 ],

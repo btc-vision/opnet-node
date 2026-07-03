@@ -124,7 +124,7 @@ export class UTXOsRoute extends Route<
                 blockHash = null;
             }
         } else {
-            blockHash = params.address;
+            blockHash = typeof params.address === 'string' ? params.address : null;
         }
 
         return blockHash;

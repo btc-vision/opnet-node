@@ -143,10 +143,12 @@ export class EpochManager extends Logger {
         }
 
         // Reuse the static calculatePreimage method from EpochValidator
+        const epochStartBlock = currentEpoch * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
         const preimage = EpochValidator.calculatePreimage(
             pendingTarget.checksumRoot,
             submission.mldsaPublicKey,
             submission.salt,
+            EpochValidator.usesConcatenatedPreimage(epochStartBlock),
         );
 
         // Calculate SHA-1 of the preimage
@@ -589,7 +591,12 @@ export class EpochManager extends Logger {
             throw new Error(`Invalid salt length: ${salt.length}. Expected 32 bytes.`);
         }
 
-        const solution = EpochValidator.calculatePreimage(checksumRoot, mldsaPublicKey, salt);
+        const solution = EpochValidator.calculatePreimage(
+            checksumRoot,
+            mldsaPublicKey,
+            salt,
+            EpochValidator.usesConcatenatedPreimage(startBlock),
+        );
         const solutionHash = SHA1.hashBuffer(solution);
         const matchingBits = this.epochValidator.countMatchingBits(solutionHash, targetHash);
 

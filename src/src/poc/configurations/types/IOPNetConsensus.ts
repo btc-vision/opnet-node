@@ -31,6 +31,16 @@ export interface EarlyMiningConfig {
 
 export interface EpochPatches {
     readonly GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT: bigint;
+
+    /**
+     * Block height at which the epoch mining preimage switches from the legacy
+     * malleable XOR construction (checksumRoot ^ publicKey ^ salt) to the
+     * non-malleable concatenation (checksumRoot || publicKey || salt), still
+     * hashed with SHA-1. Must be a multiple of EPOCH.BLOCKS_PER_EPOCH so no epoch
+     * straddles the switch, and MUST match the activation height used by
+     * @btc-vision/transaction and the mining pool.
+     */
+    readonly PREIMAGE_CONCAT_PATCH_BLOCK_HEIGHT: bigint;
 }
 
 export interface DisabledContractMethodRule {

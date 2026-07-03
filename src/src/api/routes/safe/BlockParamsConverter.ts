@@ -47,7 +47,7 @@ export class BlockParamsConverter {
                 blockHash = null;
             }
         } else {
-            blockHash = params.blockHash;
+            blockHash = typeof params.blockHash === 'string' ? params.blockHash : null;
         }
 
         return blockHash;

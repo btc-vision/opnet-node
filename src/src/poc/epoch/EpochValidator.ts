@@ -63,6 +63,7 @@ export class EpochValidator extends Logger {
         checksumRoot: Uint8Array,
         mldsaPublicKey: Uint8Array,
         salt: Uint8Array,
+        useConcatenatedPreimage: boolean = false,
     ): Uint8Array {
         const target32 = new Uint8Array(32);
         const pubKey32 = new Uint8Array(32);
@@ -72,12 +73,51 @@ export class EpochValidator extends Logger {
         pubKey32.set(mldsaPublicKey.subarray(0, Math.min(32, mldsaPublicKey.length)));
         salt32.set(salt.subarray(0, Math.min(32, salt.length)));
 
+        if (useConcatenatedPreimage) {
+            return EpochValidator.concatenatePreimage(target32, pubKey32, salt32);
+        }
+
         const preimage = new Uint8Array(32);
         for (let i = 0; i < 32; i++) {
             preimage[i] = target32[i] ^ pubKey32[i] ^ salt32[i];
         }
 
         return preimage;
+    }
+
+    /**
+     * Non-malleable mining preimage: the 96-byte concatenation
+     * checksumRoot || mldsaPublicKey || salt. The caller still hashes it with
+     * SHA-1 exactly like the legacy preimage, so the proof-of-work primitive is
+     * unchanged. The old XOR let a miner set salt == mldsaPublicKey to force
+     * preimage == checksumRoot (max difficulty for free) and let anyone
+     * re-attribute a solution to another key via salt' = key' ^ key ^ salt.
+     * Concatenation puts the key in its own segment that salt cannot cancel.
+     * Must stay identical to @btc-vision/transaction and the mining pool.
+     */
+    public static concatenatePreimage(
+        checksumRoot: Uint8Array,
+        mldsaPublicKey: Uint8Array,
+        salt: Uint8Array,
+    ): Uint8Array {
+        const message = new Uint8Array(96);
+        message.set(checksumRoot.subarray(0, 32), 0);
+        message.set(mldsaPublicKey.subarray(0, 32), 32);
+        message.set(salt.subarray(0, 32), 64);
+
+        return message;
+    }
+
+    /**
+     * Whether the given epoch (identified by its start block) uses the
+     * non-malleable concatenated preimage. Gated on the epoch start block so
+     * every submission for an epoch agrees regardless of which block it lands in.
+     */
+    public static usesConcatenatedPreimage(epochStartBlock: bigint): boolean {
+        return (
+            epochStartBlock >=
+            OPNetConsensus.consensusEpochPatches.PREIMAGE_CONCAT_PATCH_BLOCK_HEIGHT
+        );
     }
 
     /**
@@ -144,10 +184,13 @@ export class EpochValidator extends Logger {
             }
 
             // Calculate the preimage
+            const epochStartBlock =
+                params.epochNumber * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
             const solution = EpochValidator.calculatePreimage(
                 epoch.checksumRoot,
                 params.mldsaPublicKey,
                 params.salt,
+                EpochValidator.usesConcatenatedPreimage(epochStartBlock),
             );
 
             // Calculate SHA-1 of the preimage

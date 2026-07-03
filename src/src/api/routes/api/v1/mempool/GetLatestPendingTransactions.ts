@@ -203,15 +203,19 @@ export class GetLatestPendingTransactions extends Route<
 
         if (Array.isArray(params)) {
             return {
-                address: params[0] ?? undefined,
-                addresses: params[1] ?? undefined,
+                address: typeof params[0] === 'string' ? params[0] : undefined,
+                addresses: Array.isArray(params[1])
+                    ? params[1].filter((a): a is string => typeof a === 'string')
+                    : undefined,
                 limit: params[2] ?? Config.API.MEMPOOL.DEFAULT_LIMIT,
             };
         }
 
         return {
-            address: params.address,
-            addresses: params.addresses,
+            address: typeof params.address === 'string' ? params.address : undefined,
+            addresses: Array.isArray(params.addresses)
+                ? params.addresses.filter((a): a is string => typeof a === 'string')
+                : undefined,
             limit: params.limit ?? Config.API.MEMPOOL.DEFAULT_LIMIT,
         };
     }
