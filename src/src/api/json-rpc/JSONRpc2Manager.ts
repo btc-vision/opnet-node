@@ -266,6 +266,27 @@ export class JSONRpc2Manager extends Logger {
         const params: JSONRpc2RequestParams<JSONRpcMethods> =
             requestData.params as JSONRpc2RequestParams<JSONRpcMethods>;
 
+        // Reject MongoDB operator/path injection globally, before params reach any route.
+        // Any key starting with "$" or containing "." would be interpreted by MongoDB as an
+        // operator ($gt/$ne/$regex/$where) or a nested path, turning a lookup value into a query.
+        if (JSONRpc2Manager.hasForbiddenParamKey(params)) {
+            const error = {
+                code: JSONRPCErrorCode.INVALID_PARAMS,
+                message: 'Invalid params: object keys must not start with "$" or contain "."',
+            };
+
+            if (sendErrorOnError) {
+                this.sendErrorResponse(error, res, requestData.id);
+                return;
+            }
+
+            return {
+                jsonrpc: JSONRpc2Manager.RPC_VERSION,
+                id: requestData.id ?? null,
+                error,
+            };
+        }
+
         if (Config.DEV.DEBUG_API_CALLS) {
             this.debugBright(
                 `JSON-RPC requested method: ${requestData.method} - ${JSON.stringify(params)}`,
@@ -354,6 +375,41 @@ export class JSONRpc2Manager extends Logger {
             typeofParams !== 'object' ||
             !(Array.isArray(requestData.params) || typeof requestData.params === 'object')
         );
+    }
+
+    /**
+     * Recursively detect MongoDB operator/path injection in request params: any object key
+     * starting with "$" (an operator) or containing "." (a nested path). Values are never
+     * inspected — only keys — so legitimate hex/base64/address string values are unaffected.
+     * The depth cap bounds work on hostile deeply-nested payloads.
+     */
+    private static hasForbiddenParamKey(value: unknown, depth: number = 0): boolean {
+        if (depth > 64 || value === null || typeof value !== 'object') {
+            return false;
+        }
+
+        if (Array.isArray(value)) {
+            for (const item of value) {
+                if (JSONRpc2Manager.hasForbiddenParamKey(item, depth + 1)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        const record = value as Record<string, unknown>;
+        for (const key of Object.keys(record)) {
+            if (key.length !== 0 && (key.charCodeAt(0) === 0x24 || key.includes('.'))) {
+                return true;
+            }
+
+            if (JSONRpc2Manager.hasForbiddenParamKey(record[key], depth + 1)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private buildInternalError(msg: string = 'Internal error'): JSONRpcResultError<JSONRpcMethods> {

@@ -63,7 +63,11 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
             deletedAtBlock: { $gte: this.bigIntToLong(blockHeight) },
         };
 
-        await this.updateMany(criteriaSpent, { deletedAtBlock: undefined }, currentSession);
+        // Explicit null (not undefined): { $set: { field: undefined } } is silently
+        // dropped when the Mongo client runs with ignoreUndefined:true, which would
+        // leave reorged-back UTXOs permanently marked spent. null is what the current
+        // default already stores and reads (deletedAtBlock: null) match it.
+        await this.updateMany(criteriaSpent, { deletedAtBlock: null }, currentSession);
     }
 
     public async deleteTransactionsInRange(
@@ -87,7 +91,11 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
             },
         };
 
-        await this.updateMany(criteriaSpent, { deletedAtBlock: undefined }, currentSession);
+        // Explicit null (not undefined): { $set: { field: undefined } } is silently
+        // dropped when the Mongo client runs with ignoreUndefined:true, which would
+        // leave reorged-back UTXOs permanently marked spent. null is what the current
+        // default already stores and reads (deletedAtBlock: null) match it.
+        await this.updateMany(criteriaSpent, { deletedAtBlock: null }, currentSession);
     }
 
     public async insertTransactions(transactions: ProcessUnspentTransactionList): Promise<void> {
