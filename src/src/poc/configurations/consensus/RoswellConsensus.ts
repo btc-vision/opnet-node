@@ -14,7 +14,7 @@ import { ConsensusRules } from '../../../vm/consensus/ConsensusRules.js';
 
 const RoswellConsensusRules: ConsensusRules = new ConsensusRules();
 RoswellConsensusRules.insertFlag(ConsensusRules.UNSAFE_QUANTUM_SIGNATURES_ALLOWED);
-// RoswellConsensusRules.insertFlag(ConsensusRules.CONTRACT_UPDATES_ALLOWED);
+RoswellConsensusRules.insertFlag(ConsensusRules.CONTRACT_UPDATES_ALLOWED);
 
 const DISABLE_OP20_SIGNATURE_ALLOWANCE_BLOCK = 956_297n;
 const DISABLE_SET_APPROVAL_FOR_ALL_SIGNATURE_BLOCK = 956_423n;
@@ -282,9 +282,13 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         ENABLE_ACCESS_LIST: false,
 
         /**
-         * The maximum amount of contract updates in a single transaction
+         * The maximum depth counter value for contract updates.
+         * Each update increments the counter TWICE (fail-fast check in
+         * updateContractFromAddressRaw + auto-increment in the ContractEvaluation
+         * constructor when isUpdate=true). A value of 2 therefore permits exactly
+         * one update per transaction. Mirrors MAXIMUM_DEPLOYMENT_DEPTH semantics.
          */
-        MAXIMUM_UPDATE_DEPTH: 1,
+        MAXIMUM_UPDATE_DEPTH: 2,
     },
 
     VM: {

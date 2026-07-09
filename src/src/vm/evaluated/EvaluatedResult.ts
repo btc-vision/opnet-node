@@ -17,6 +17,7 @@ export interface EvaluatedResult {
     readonly specialGasUsed: bigint;
     revert?: Uint8Array | undefined;
     readonly deployedContracts: ContractInformation[];
+    readonly updatedContracts: ContractInformation[];
 }
 
 export type SafeEvaluatedResult = Omit<

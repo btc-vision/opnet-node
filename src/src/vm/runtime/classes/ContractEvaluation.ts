@@ -65,6 +65,7 @@ export class ContractEvaluation implements ExecutionParameters {
     public readonly storage: AddressMap<PointerStorage>;
     public readonly preloadStorage: AddressMap<PointerStorage>;
     public readonly deployedContracts: AddressMap<ContractInformation>;
+    public readonly updatedContracts: AddressMap<ContractInformation>;
     public readonly touchedAddresses: AddressMap<boolean>;
 
     public callStack: AddressStack;
@@ -97,6 +98,7 @@ export class ContractEvaluation implements ExecutionParameters {
         this.blockNumber = params.blockNumber;
         this.blockMedian = params.blockMedian;
         this.deployedContracts = params.deployedContracts || new AddressMap();
+        this.updatedContracts = params.updatedContracts || new AddressMap();
         this.isDeployment = params.isDeployment || false;
         this.isUpdate = params.isUpdate || false;
         this.memoryPagesUsed = params.memoryPagesUsed || 0n;
@@ -351,6 +353,7 @@ export class ContractEvaluation implements ExecutionParameters {
         const events: AddressMap<NetEvent[]> = this.revert ? new AddressMap() : this.events;
         const result = this.revert ? new Uint8Array(1) : this.result;
         const deployedContracts = this.revert ? [] : this.deployedContracts;
+        const updatedContracts = this.revert ? [] : this.updatedContracts;
 
         const resp: EvaluatedResult = {
             changedStorage: modifiedStorage,
@@ -360,6 +363,7 @@ export class ContractEvaluation implements ExecutionParameters {
             gasUsed: this.gasUsed,
             specialGasUsed: this.specialGasUsed,
             deployedContracts: Array.from(deployedContracts.values()),
+            updatedContracts: Array.from(updatedContracts.values()),
         };
 
         if (this._revert) {
@@ -375,6 +379,10 @@ export class ContractEvaluation implements ExecutionParameters {
         }
 
         this.deployedContracts.set(contract.contractPublicKey, contract);
+    }
+
+    public addUpdatedContractInformation(contract: ContractInformation): void {
+        this.updatedContracts.set(contract.contractPublicKey, contract);
     }
 
     public deployedContract(address: Address): boolean {

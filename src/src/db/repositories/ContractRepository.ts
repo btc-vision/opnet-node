@@ -97,7 +97,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
             criteria.blockHeight = { $lte: DataConverter.toDecimal128(height) };
         }
 
-        const contract = await this.queryOne(criteria, currentSession);
+        const contract = await this.queryOne(criteria, currentSession, { blockHeight: -1 });
         if (!contract) {
             return;
         }
@@ -148,6 +148,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
                 contractPublicKey: 1,
             },
             currentSession,
+            { blockHeight: -1 },
         );
 
         if (!contract) {
@@ -174,6 +175,13 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         await this.insert(contract.toDocument(), currentSession);
     }
 
+    public async updateContractBytecode(
+        contract: ContractInformation,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        await this.insert(contract.toDocument(), currentSession);
+    }
+
     public async getContractFromTweakedPubKey(
         contractPublicKey: string,
         height?: bigint,
@@ -194,7 +202,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
             criteria.blockHeight = { $lte: DataConverter.toDecimal128(height) };
         }
 
-        const contract = await this.queryOne(criteria, currentSession);
+        const contract = await this.queryOne(criteria, currentSession, { blockHeight: -1 });
         if (!contract) {
             return;
         }
@@ -219,7 +227,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
             criteria.blockHeight = { $lte: DataConverter.toDecimal128(height) };
         }
 
-        const contract = await this.queryOne(criteria, currentSession);
+        const contract = await this.queryOne(criteria, currentSession, { blockHeight: -1 });
         if (!contract) {
             return;
         }

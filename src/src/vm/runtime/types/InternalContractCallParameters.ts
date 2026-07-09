@@ -41,6 +41,7 @@ export interface InternalContractCallParameters {
     readonly preloadStorage: AddressMap<PointerStorage>;
 
     readonly deployedContracts?: AddressMap<ContractInformation>;
+    readonly updatedContracts?: AddressMap<ContractInformation>;
     readonly touchedAddresses?: AddressMap<boolean>;
 
     readonly inputs: StrippedTransactionInput[];
@@ -82,6 +83,7 @@ export interface ExecutionParameters {
     readonly storage: AddressMap<PointerStorage>;
     readonly preloadStorage: AddressMap<PointerStorage>;
     readonly deployedContracts: AddressMap<ContractInformation> | undefined;
+    readonly updatedContracts: AddressMap<ContractInformation> | undefined;
 
     readonly touchedAddresses: AddressMap<boolean> | undefined;
     readonly callStack: AddressStack | undefined;

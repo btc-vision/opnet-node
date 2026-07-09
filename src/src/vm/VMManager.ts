@@ -523,6 +523,7 @@ export class VMManager extends Logger {
                 mldsaLoadCounter: new MutableNumber(),
 
                 deployedContracts: deployedContracts,
+                updatedContracts: undefined,
                 callStack: undefined,
                 touchedAddresses: undefined,
 
@@ -900,6 +901,18 @@ export class VMManager extends Logger {
             }
         }
 
+        if (!vmEvaluator && params.updatedContracts) {
+            const updatedContract = params.updatedContracts.get(params.contractAddress);
+
+            if (updatedContract) {
+                vmEvaluator = await this.getVMEvaluatorFromParams(
+                    params.contractAddress,
+                    params.blockHeight,
+                    updatedContract,
+                );
+            }
+        }
+
         if (!vmEvaluator) {
             vmEvaluator = params.allowCached
                 ? await this.getVMEvaluatorFromCache(
@@ -939,6 +952,7 @@ export class VMManager extends Logger {
             mldsaLoadCounter: params.mldsaLoadCounter,
 
             deployedContracts: params.deployedContracts,
+            updatedContracts: params.updatedContracts,
             memoryPagesUsed: params.memoryPagesUsed,
             touchedAddresses: params.touchedAddresses,
 
@@ -1101,6 +1115,82 @@ export class VMManager extends Logger {
         };
     }
 
+    private async updateContractAtAddress(
+        sourceAddress: Address,
+        evaluation: ContractEvaluation,
+    ): Promise<{ bytecodeLength: number } | undefined> {
+        if (!OPNetConsensus.allowContractUpdates()) {
+            throw new Error('OP_NET: Contract updates are not allowed in current consensus.');
+        }
+
+        const currentContractInfo = await this.getContractInformation(
+            evaluation.contractAddress,
+            evaluation.blockNumber,
+        );
+
+        if (!currentContractInfo) {
+            throw new Error('OP_NET: Contract not found for update.');
+        }
+
+        if (sourceAddress.equals(evaluation.contractAddress)) {
+            throw new Error('OP_NET: Contract cannot use itself as update source.');
+        }
+
+        let sourceContractInfo: ContractInformation | undefined =
+            evaluation.deployedContracts.get(sourceAddress);
+
+        if (!sourceContractInfo) {
+            sourceContractInfo = await this.getContractInformation(
+                sourceAddress,
+                evaluation.blockNumber,
+            );
+        }
+
+        if (!sourceContractInfo) {
+            throw new Error('OP_NET: Source contract not found.');
+        }
+
+        if (!sourceContractInfo.bytecode || sourceContractInfo.bytecode.byteLength === 0) {
+            throw new Error('OP_NET: Source contract has no bytecode.');
+        }
+
+        const updatedContractInfo = new ContractInformation(
+            evaluation.blockNumber,
+            currentContractInfo.contractAddress,
+            currentContractInfo.contractPublicKey,
+            sourceContractInfo.bytecode,
+            currentContractInfo.wasCompressed,
+            evaluation.transactionId || alloc(32),
+            evaluation.transactionHash || alloc(32),
+            currentContractInfo.deployerPubKey,
+            currentContractInfo.contractSeed,
+            currentContractInfo.contractSaltHash,
+            currentContractInfo.deployerAddress,
+        );
+
+        evaluation.addUpdatedContractInformation(updatedContractInfo);
+
+        return { bytecodeLength: sourceContractInfo.bytecode.byteLength };
+    }
+
+    private async persistContractUpdate(contractInformation: ContractInformation): Promise<void> {
+        if (this.isExecutor) {
+            return;
+        }
+
+        if (
+            !contractInformation.deployedTransactionId ||
+            !contractInformation.deployedTransactionHash
+        ) {
+            throw new Error('Transaction id or hash not found. [persistContractUpdate]');
+        }
+
+        this.contractCache.delete(contractInformation.contractPublicKey);
+        this.vmEvaluators.delete(contractInformation.contractPublicKey);
+
+        await this.vmStorage.updateContractBytecode(contractInformation);
+    }
+
     private async deployContractFromInfo(contractInformation: ContractInformation): Promise<void> {
         if (this.isExecutor) {
             // Emulators dont deploy contracts.
@@ -1143,6 +1233,8 @@ export class VMManager extends Logger {
         vmEvaluator.isContract = this.isContract.bind(this);
         vmEvaluator.callExternal = this.callExternal.bind(this);
         vmEvaluator.deployContractAtAddress = this.deployContractAtAddress.bind(this);
+        vmEvaluator.updateFromAddressJsFunction = this.updateContractAtAddress.bind(this);
+        vmEvaluator.persistContractUpdate = this.persistContractUpdate.bind(this);
         vmEvaluator.getMLDSAPublicKey = this.getMLDSAPublicKey.bind(this);
         vmEvaluator.deployContract = this.deployContractFromInfo.bind(this);
         vmEvaluator.setContractInformation(contractInformation);
