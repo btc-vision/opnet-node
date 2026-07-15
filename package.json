@@ -110,7 +110,7 @@
         "ssh2": "^1.17.0",
         "swagger-ui-express": "^5.0.1",
         "tiny-secp256k1": "^2.2.4",
-        "toml": "^4.1.1",
+        "toml": "^5.0.0",
         "typescript": "^6.0.3",
         "typescript-eslint": "^8.60.0",
         "uint8arraylist": "^3.0.2"
