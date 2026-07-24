@@ -96,7 +96,7 @@
         "datastore-level": "^13.0.1",
         "eslint-plugin-openapi": "^0.0.4",
         "express": "^5.2.1",
-        "figlet": "^1.11.3",
+        "figlet": "^1.11.0",
         "interface-datastore": "^10.0.1",
         "it-length-prefixed-stream": "^3.0.1",
         "libp2p": "^3.3.6",

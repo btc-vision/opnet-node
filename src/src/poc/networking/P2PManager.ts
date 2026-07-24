@@ -1375,7 +1375,7 @@ export class P2PManager extends Logger {
             this.notifyArt(
                 'info',
                 'OPNet Bootstrap Node',
-                'Big',
+                'Big Money-sw',
                 `\n\n\nThis node is a,\n\n\n\n\n`,
                 `\n\nThis node is running in bootstrap mode. This means it will not connect to other peers automatically. It will only accept incoming connections.\n`,
                 `This node bitcoin address is ${this.identity.pubKey} or ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,

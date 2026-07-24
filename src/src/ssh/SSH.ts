@@ -171,7 +171,14 @@ export class SSH extends Logger {
     }
 
     private generateBanner(): string {
-        return this.notifyArt(false, 'info', `OPNet`, 'Big', this.sshMsgPrefix, 'v1.0.0\n');
+        return this.notifyArt(
+            false,
+            'info',
+            `OPNet`,
+            'Big Money-sw',
+            this.sshMsgPrefix,
+            'v1.0.0\n',
+        );
     }
 
     private ssh2Configs(): ServerConfig {
