@@ -11,7 +11,7 @@ import path from 'path';
 
 const require = createRequire(import.meta.url);
 const tsgoPkg = require.resolve('@typescript/native-preview/package.json');
-const tsgoBin = path.join(path.dirname(tsgoPkg), 'bin', 'tsgo.js');
+const tsgoBin = path.join(path.dirname(tsgoPkg), 'bin', 'tsgo');
 
 process.on('uncaughtException', function (err) {
     console.log('Caught exception: ', err);
@@ -181,15 +181,10 @@ const buildESM = gulp.series(lintSources, compileTs);
 // build/ subdirectory that may contain user-authored files (btc.conf, etc.).
 export function clean() {
     return gulp
-        .src(
-            [
-                './build/index.js',
-                './build/index.d.ts',
-                './build/src',
-                './tsconfig.tsbuildinfo',
-            ],
-            { read: false, allowEmpty: true },
-        )
+        .src(['./build/index.js', './build/index.d.ts', './build/src', './tsconfig.tsbuildinfo'], {
+            read: false,
+            allowEmpty: true,
+        })
         .pipe(gulpClean({ allowEmpty: true }));
 }
 
