@@ -179,7 +179,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         // (from genesis, fresh dev chains).
         STATE_PROOF_ADDRESS_BINDING: {
             [ChainIds.Bitcoin]: {
-                [BitcoinNetwork.mainnet]: 960_000n,
+                [BitcoinNetwork.mainnet]: 959_366n,
                 [BitcoinNetwork.testnet]: 15_000n,
                 [BitcoinNetwork.regtest]: 0n,
             },
@@ -199,7 +199,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
         MLDSA_IDENTITY_BINDING_GUARD: {
             [ChainIds.Bitcoin]: {
-                [BitcoinNetwork.mainnet]: 959_500n,
+                [BitcoinNetwork.mainnet]: 957_378n,
                 [BitcoinNetwork.testnet]: 140_000n,
                 [BitcoinNetwork.regtest]: 0n,
             },
