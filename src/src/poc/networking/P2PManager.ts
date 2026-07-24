@@ -52,9 +52,7 @@ import {
     OPNetBroadcastResponse,
 } from '../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 import { BroadcastResponse } from '../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
-import {
-    MempoolTransactionNotificationMessage
-} from '../../threading/interfaces/thread-messages/messages/api/MempoolTransactionNotification.js';
+import { MempoolTransactionNotificationMessage } from '../../threading/interfaces/thread-messages/messages/api/MempoolTransactionNotification.js';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
@@ -314,7 +312,10 @@ export class P2PManager extends Logger {
         btrace('P2PManager.broadcastTransaction', `ENTER id=${data.id}`);
         try {
             if (this.knownMempoolIdentifiers.has(data.id) && data.id) {
-                btrace('P2PManager.broadcastTransaction', `id=${data.id} ALREADY KNOWN, returning peers=0`);
+                btrace(
+                    'P2PManager.broadcastTransaction',
+                    `id=${data.id} ALREADY KNOWN, returning peers=0`,
+                );
                 return {
                     peers: 0,
                 };
@@ -322,7 +323,10 @@ export class P2PManager extends Logger {
 
             if (data.id) this.knownMempoolIdentifiers.add(data.id);
 
-            btrace('P2PManager.broadcastTransaction', `id=${data.id} normalizing bytes + queueing fan-out`);
+            btrace(
+                'P2PManager.broadcastTransaction',
+                `id=${data.id} normalizing bytes + queueing fan-out`,
+            );
             const peers = this.queueMempoolTransactionBroadcast({
                 transaction: this.normalizeBroadcastBytes(data.raw),
                 psbt: data.psbt,
@@ -563,17 +567,12 @@ export class P2PManager extends Logger {
             if (!peer.isAuthenticated) continue;
             broadcastCount++;
 
-            void this
-                .runPeerOp(
-                    peerIdStr,
-                    PEER_BROADCAST_TIMEOUT_MS,
-                    'Mempool broadcast',
-                    () => peer.broadcastMempoolTransaction(transaction),
-                )
-                .catch((e: unknown) => {
-                    const details = e instanceof Error ? e.message : String(e);
-                    this.warn(`Mempool broadcast worker failed for ${peerIdStr}: ${details}`);
-                });
+            void this.runPeerOp(peerIdStr, PEER_BROADCAST_TIMEOUT_MS, 'Mempool broadcast', () =>
+                peer.broadcastMempoolTransaction(transaction),
+            ).catch((e: unknown) => {
+                const details = e instanceof Error ? e.message : String(e);
+                this.warn(`Mempool broadcast worker failed for ${peerIdStr}: ${details}`);
+            });
         }
 
         return broadcastCount;
@@ -737,11 +736,8 @@ export class P2PManager extends Logger {
             if (!peer.isAuthenticated) continue;
 
             promises.push(
-                this.runPeerOp(
-                    peerIdStr,
-                    PEER_WITNESS_TIMEOUT_MS,
-                    'Witness broadcast',
-                    () => peer.sendFromServer(generatedWitness),
+                this.runPeerOp(peerIdStr, PEER_WITNESS_TIMEOUT_MS, 'Witness broadcast', () =>
+                    peer.sendFromServer(generatedWitness),
                 ),
             );
         }
@@ -1220,8 +1216,7 @@ export class P2PManager extends Logger {
             };
 
         return (await this.sendMessageToThread(ThreadTypes.MEMPOOL, currentBlockMsg)) as
-            | BroadcastResponse
-            | undefined;
+            BroadcastResponse | undefined;
     }
 
     private onOPNetPeersDiscovered(peers: OPNetPeerInfo[]): void {
@@ -1798,6 +1793,7 @@ export class P2PManager extends Logger {
         }
 
         const datastore = await this.getDatastore();
+
         return (await createLibp2p({
             datastore: datastore,
             privateKey: this.privateKey,

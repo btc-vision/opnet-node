@@ -1,0 +1,13 @@
+diff --git a/node_modules/figlet/dist/node-figlet.mjs b/node_modules/figlet/dist/node-figlet.mjs
+index 6b6a49b..81dad08 100644
+--- a/node_modules/figlet/dist/node-figlet.mjs
++++ b/node_modules/figlet/dist/node-figlet.mjs
+@@ -3,7 +3,7 @@ import * as fs from "fs";
+ import * as path from "path";
+ import { fileURLToPath } from "url";
+ //#region src/node-figlet.ts
+-var moduleDirname = typeof __dirname !== "undefined" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
++var moduleDirname = path.dirname(fileURLToPath(import.meta.url));
+ var fontPath = path.join(moduleDirname, "/../fonts/");
+ var nodeFiglet = figlet;
+ nodeFiglet.defaults({ fontPath });

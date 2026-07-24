@@ -153,6 +153,53 @@ export interface IOPNetConsensus<T extends Consensus> {
                 readonly [key in BitcoinNetwork]?: bigint;
             };
         };
+
+        /**
+         * Block height at which @btc-vision/op-vm 1.1.0 takes over from 1.0.0.
+         * Blocks strictly BELOW this height are replayed on the pinned 1.0.0
+         * runtime, which is the only way to reproduce the state they originally
+         * committed; the height itself and everything above run on the current
+         * runtime. 1.1.0 changes execution semantics, so this is a HARD FORK and
+         * the value MUST match every other node.
+         *
+         * A network with NO entry has no 1.0.0 history and always uses the
+         * current runtime. This is deliberately the opposite default from
+         * STATE_PROOF_ADDRESS_BINDING above: an unconfigured network must never
+         * silently fall back to a superseded VM.
+         */
+        readonly OP_VM_LATEST_ACTIVATION: {
+            readonly [key in ChainIds]?: {
+                readonly [key in BitcoinNetwork]?: bigint;
+            };
+        };
+
+        /**
+         * Block height at which ML-DSA identity binding is enforced.
+         *
+         * An OPNet identity is literally the 32 bytes of `hashedPublicKey`
+         * (Address.setMldsaKey stores a 32-byte input verbatim), and a link
+         * request's Schnorr signature only proves the sender owns the BITCOIN
+         * key being linked; it proves nothing about the claimed hash. From this
+         * height two rules apply:
+         *
+         *  1. A NEW link must reveal the ML-DSA public key and a valid ML-DSA
+         *     signature over it. Without the reveal nothing ties `hashedPublicKey`
+         *     to a key the sender actually holds, so any unclaimed 32-byte value
+         *     could be adopted as an identity. Re-linking an already linked key is
+         *     unaffected, so existing wallets keep working.
+         *  2. A link may not claim a `hashedPublicKey` that is already a deployed
+         *     contract address. Contract addresses share that same 32-byte space
+         *     and are never written to the ML-DSA store, so no uniqueness check
+         *     could see them.
+         *
+         * Rejecting these changes which transactions are valid, so this is a
+         * HARD FORK and every node must use the same height.
+         */
+        readonly MLDSA_IDENTITY_BINDING_GUARD: {
+            readonly [key in ChainIds]?: {
+                readonly [key in BitcoinNetwork]?: bigint;
+            };
+        };
     };
 
     readonly COMPRESSION: {

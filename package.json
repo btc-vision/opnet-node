@@ -1,7 +1,7 @@
 {
     "type": "module",
     "name": "@btc-vision/opnet-node",
-    "version": "1.0.7",
+    "version": "1.1.0",
     "description": "Bitcoin Smart Contracts Node",
     "main": "build/index.js",
     "scripts": {
@@ -42,7 +42,8 @@
         },
         "jsonpath-plus": "^10.4.0",
         "interface-datastore": "^10.0.1",
-        "@libp2p/utils": "7.2.1"
+        "@libp2p/utils": "7.2.1",
+        "uint8arraylist": "^3.0.2"
     },
     "dependencies": {
         "@asyncapi/generator": "^3.3.0",
@@ -55,11 +56,12 @@
         "@btc-vision/ecpair": "^4.0.5",
         "@btc-vision/hyper-express": "^6.17.4",
         "@btc-vision/logger": "^1.0.8",
-        "@btc-vision/op-vm": "^1.0.0",
+        "@btc-vision/op-vm": "^1.1.0",
+        "@btc-vision/op-vm-legacy": "npm:@btc-vision/op-vm@1.0.0",
         "@btc-vision/plugin-sdk": "^1.0.1",
         "@btc-vision/post-quantum": "^0.5.3",
         "@btc-vision/rust-merkle-tree": "^1.0.2",
-        "@btc-vision/transaction": "^1.8.8",
+        "@btc-vision/transaction": "^1.8.9",
         "@btc-vision/uwebsockets.js": "^20.57.0",
         "@chainsafe/libp2p-noise": "^17.0.0",
         "@chainsafe/libp2p-quic": "^2.1.1",

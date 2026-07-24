@@ -1,11 +1,9 @@
 import {
     BitcoinNetworkRequest,
-    ContractManager,
     EnvironmentVariablesRequest,
     ExitDataResponse,
-    HardForkRequest,
 } from '@btc-vision/op-vm';
-import { Blockchain } from '../Blockchain.js';
+import { OPVMContractManager, OPVMRuntime } from '../OPVMRuntime.js';
 import { RustContractBinding } from './RustContractBindings.js';
 import { BinaryWriter, SELECTOR_BYTE_LENGTH, U32_BYTE_LENGTH } from '@btc-vision/transaction';
 import { getChainId } from './ChainIdHex.js';
@@ -21,7 +19,8 @@ export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly network: BitcoinNetworkRequest;
     readonly isDebugMode: boolean;
 
-    readonly contractManager: ContractManager;
+    /** The op-vm build this contract must execute on, chosen by block height. */
+    readonly runtime: OPVMRuntime;
 }
 
 export class RustContract {
@@ -30,11 +29,13 @@ export class RustContract {
 
     private gasUsed: bigint = 0n;
 
-    private readonly contractManager: ContractManager;
+    private readonly runtime: OPVMRuntime;
+    private readonly contractManager: OPVMContractManager;
 
     constructor(params: ContractParameters) {
         this._params = params;
-        this.contractManager = params.contractManager;
+        this.runtime = params.runtime;
+        this.contractManager = params.runtime.contractManager;
     }
 
     private _id?: bigint;
@@ -47,7 +48,7 @@ export class RustContract {
         if (this._id == null) {
             this._id = BigInt(this.contractManager.reserveId().toString());
 
-            Blockchain.registerBinding({
+            this.runtime.registerBinding({
                 id: this._id,
                 load: this.params.load,
                 store: this.params.store,
@@ -146,18 +147,16 @@ export class RustContract {
         if (this._id == null) throw new Error('Contract is not instantiated');
         if (this._instantiated) return;
 
-        this.contractManager.instantiate(
-            BigInt(this._id.toString()),
-            this.params.address,
-            Buffer.copyBytesFrom(this.params.bytecode),
-            BigInt(this.params.gasUsed.toString()),
-            BigInt(this.params.gasMax.toString()),
-            BigInt(this.params.memoryPagesUsed.toString()),
-            this.params.network,
-            OPNetConsensus.consensus.CONSENSUS as unknown as HardForkRequest,
-            this.params.isDebugMode,
-            //false,
-        );
+        this.runtime.instantiateContract({
+            reservedId: BigInt(this._id.toString()),
+            address: this.params.address,
+            bytecode: Buffer.copyBytesFrom(this.params.bytecode),
+            gasUsed: BigInt(this.params.gasUsed.toString()),
+            gasMax: BigInt(this.params.gasMax.toString()),
+            memoryPagesUsed: BigInt(this.params.memoryPagesUsed.toString()),
+            network: this.params.network,
+            isDebugMode: this.params.isDebugMode,
+        });
 
         this._instantiated = true;
     }
@@ -183,7 +182,7 @@ export class RustContract {
         if (this.disposed) return;
         this._disposed = true;
 
-        Blockchain.removeBinding(this._id);
+        this.runtime.removeBinding(this._id);
         this.contractManager.destroyContract(this._id);
 
         if (deadlock) {
@@ -219,34 +218,29 @@ export class RustContract {
         if (this.enableDebug) console.log('Setting environment', environmentVariables);
 
         try {
-            this.contractManager.setEnvironmentVariables(
-                this.id,
-                Object.preventExtensions(
-                    Object.freeze(
-                        Object.seal({
-                            blockNumber: BigInt(environmentVariables.blockNumber.toString()),
-                            blockMedianTime: BigInt(
-                                environmentVariables.blockMedianTime.toString(),
-                            ),
-                            blockHash: Uint8Array.from(environmentVariables.blockHash),
-                            txId: Uint8Array.from(environmentVariables.txId),
-                            txHash: Uint8Array.from(environmentVariables.txHash),
-                            contractAddress: Uint8Array.from(environmentVariables.contractAddress),
-                            contractDeployer: Uint8Array.from(
-                                environmentVariables.contractDeployer,
-                            ),
-                            caller: Uint8Array.from(environmentVariables.caller),
-                            origin: Uint8Array.from(environmentVariables.origin),
-                            chainId: getChainId(this.params.network),
-                            protocolId: OPNetConsensus.consensus.PROTOCOL_ID,
-                            consensusFlags: BigInt(environmentVariables.consensusFlags.toString()),
-                            originTweakedPublicKey: Uint8Array.from(
-                                environmentVariables.originTweakedPublicKey,
-                            ),
-                        }),
-                    ),
+            const obj = Object.preventExtensions(
+                Object.freeze(
+                    Object.seal({
+                        blockNumber: BigInt(environmentVariables.blockNumber.toString()),
+                        blockMedianTime: BigInt(environmentVariables.blockMedianTime.toString()),
+                        blockHash: Uint8Array.from(environmentVariables.blockHash),
+                        txId: Uint8Array.from(environmentVariables.txId),
+                        txHash: Uint8Array.from(environmentVariables.txHash),
+                        contractAddress: Uint8Array.from(environmentVariables.contractAddress),
+                        contractDeployer: Uint8Array.from(environmentVariables.contractDeployer),
+                        caller: Uint8Array.from(environmentVariables.caller),
+                        origin: Uint8Array.from(environmentVariables.origin),
+                        chainId: getChainId(this.params.network),
+                        protocolId: OPNetConsensus.consensus.PROTOCOL_ID,
+                        consensusFlags: BigInt(environmentVariables.consensusFlags.toString()),
+                        originTweakedPublicKey: Uint8Array.from(
+                            environmentVariables.originTweakedPublicKey,
+                        ),
+                    }),
                 ),
             );
+
+            this.contractManager.setEnvironmentVariables(this.id, obj);
         } catch (e) {
             if (this.enableDebug) console.log('Error in setEnvironment', e);
 

@@ -827,7 +827,7 @@ export class ContractEvaluator extends Logger {
                 : false;
 
         return {
-            contractManager: Blockchain.contractManager,
+            runtime: Blockchain.runtimeForBlock(evaluation.blockNumber),
             address: evaluation.contractAddressStr,
             bytecode: this.bytecode,
             network: NetworkConverter.networkToBitcoinNetwork(this.network),

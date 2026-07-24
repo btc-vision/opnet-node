@@ -731,6 +731,20 @@ export class VMManager extends Logger {
         );
 
         if (!exists) {
+            // A NEW identity may not be created without revealing the ML-DSA public
+            // key and a signature over it. This path is only reachable with
+            // verifyRequest === false, i.e. publicKey === null, so nothing here
+            // proves the sender knows a preimage for `hashedPublicKey`; the link
+            // request's Schnorr signature only proves ownership of the Bitcoin key.
+            // Without this, any unclaimed 32-byte value could be adopted as an
+            // identity. Re-linking an ALREADY linked key still succeeds (exists ===
+            // true), so existing wallets are unaffected.
+            if (OPNetConsensus.enforcesMLDSAIdentityBinding(this.vmBitcoinBlock.height)) {
+                throw new Error(
+                    'OP_NET: A new ML-DSA link must reveal the public key and a valid ML-DSA signature.',
+                );
+            }
+
             this.mldsaToStore.set(address, {
                 exposePublicKey: false,
                 data: mldsaPublicKey,
@@ -813,12 +827,49 @@ export class VMManager extends Logger {
         return { address, hashedAddress, tweakedAddress };
     }
 
+    /**
+     * An OPNet identity IS the 32 bytes of `hashedPublicKey`: Address stores a
+     * 32-byte input verbatim rather than hashing it, and `_from` is built as
+     * `new Address(hashedPublicKey, legacyKey)`. The link request's Schnorr
+     * signature only proves the sender controls the Bitcoin key being linked, so
+     * the claimed hash itself is unauthenticated whenever the ML-DSA public key
+     * is not revealed (`verifyRequest === false`).
+     *
+     * Contract addresses occupy the same 32-byte space and are never written to
+     * the ML-DSA store, so none of the uniqueness checks in
+     * validateMLDSALinkRequest / mldsaPublicKeyExists can see them. Linking a
+     * contract's address therefore succeeded and every later interaction from
+     * that Bitcoin key resolved `caller` to the contract, letting the sender move
+     * the contract's OP20 balance.
+     *
+     * Refuse to bind an identity that is already a deployed contract.
+     */
+    private async assertNotContractAddress(hashedPublicKey: Uint8Array): Promise<void> {
+        if (!OPNetConsensus.enforcesMLDSAIdentityBinding(this.vmBitcoinBlock.height)) {
+            return;
+        }
+
+        const claimed = new Address(hashedPublicKey);
+        const contract = await this.vmStorage.getContractAt(
+            claimed.toHex(),
+            this.vmBitcoinBlock.height,
+        );
+
+        if (contract) {
+            throw new Error(
+                `OP_NET: ML-DSA link request may not claim a deployed contract address (${claimed.toHex()}).`,
+            );
+        }
+    }
+
     private async shouldInsertMLDSAKey(
         hashedPublicKey: Uint8Array,
         legacyPublicKey: Uint8Array,
         level: MLDSASecurityLevel,
         isExpose: boolean = false,
     ): Promise<boolean> {
+        await this.assertNotContractAddress(hashedPublicKey);
+
         // Verify it does not exist in the database.
         const exists = await this.vmStorage.mldsaPublicKeyExists(hashedPublicKey, legacyPublicKey);
 

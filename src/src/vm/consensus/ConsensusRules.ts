@@ -1,3 +1,24 @@
+/**
+ * Consensus rule bitfield.
+ *
+ * This value is sent verbatim to op-vm as a u64, in two places:
+ *   - `ContractManager.instantiate()` arg 10 — read before the module is compiled
+ *   - `ContractManager.setEnvironmentVariables()` `consensusFlags` — read at runtime
+ *
+ * op-vm names the same bits differently (`ConsensusFlags` in
+ * `src/domain/runner/constants/consensus_flags.rs`), so the mapping is:
+ *
+ *   bit 0 (0b001)  UNSAFE_QUANTUM_SIGNATURES_ALLOWED  <->  ALLOW_CLASSICAL_SIGNATURES
+ *   bit 1 (0b010)  CONTRACT_UPDATES_ALLOWED           <->  UPDATE_CONTRACT_BY_ADDRESS
+ *   bit 2 (0b100)  STRICT_MEMORY_METERING             <->  STRICT_MEMORY_METERING
+ *
+ * Bits 0 and 1 are consumed at runtime by the VM's import functions. Bit 2 is
+ * consumed at *compile* time and cannot be changed after instantiation: it
+ * selects dynamic memory style, the strict metering middleware, the pre-compile
+ * bytecode/module validators (which is what enforces MAX_TABLE_ELEMENTS and
+ * MAX_PAGES), and the compiled-artifact cache key. Enabling it changes gas
+ * outcomes for existing contracts, so it must be activated at a fork height.
+ */
 export class ConsensusRules {
     // Flag constants
     public static readonly NONE: bigint = 0b00000000n;
@@ -5,7 +26,8 @@ export class ConsensusRules {
     public static readonly UNSAFE_QUANTUM_SIGNATURES_ALLOWED: bigint = 0b00000001n;
     public static readonly CONTRACT_UPDATES_ALLOWED: bigint = 0b00000010n;
 
-    public static readonly RESERVED_FLAG_2: bigint = 0b00000100n;
+    /** Enables op-vm's strict memory/table limits and metering. Compile-time only. */
+    public static readonly STRICT_MEMORY_METERING: bigint = 0b00000100n;
 
     private value: bigint;
 

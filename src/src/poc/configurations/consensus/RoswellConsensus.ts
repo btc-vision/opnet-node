@@ -14,6 +14,7 @@ import { ConsensusRules } from '../../../vm/consensus/ConsensusRules.js';
 
 const RoswellConsensusRules: ConsensusRules = new ConsensusRules();
 RoswellConsensusRules.insertFlag(ConsensusRules.UNSAFE_QUANTUM_SIGNATURES_ALLOWED);
+RoswellConsensusRules.insertFlag(ConsensusRules.STRICT_MEMORY_METERING);
 // RoswellConsensusRules.insertFlag(ConsensusRules.CONTRACT_UPDATES_ALLOWED);
 
 const DISABLE_OP20_SIGNATURE_ALLOWANCE_BLOCK = 956_297n;
@@ -180,6 +181,26 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
             [ChainIds.Bitcoin]: {
                 [BitcoinNetwork.mainnet]: 960_000n,
                 [BitcoinNetwork.testnet]: 15_000n,
+                [BitcoinNetwork.regtest]: 0n,
+            },
+        },
+
+        // HARD FORK. Blocks below these heights are replayed on @btc-vision/op-vm
+        // 1.0.0; the height itself and above run the current op-vm. Mainnet 0..959316
+        // and testnet 0..139692 were produced by 1.0.0 and can only be reproduced by
+        // it. regtest is 0 so dev chains never touch 1.0.0.
+        OP_VM_LATEST_ACTIVATION: {
+            [ChainIds.Bitcoin]: {
+                [BitcoinNetwork.mainnet]: 959_317n,
+                [BitcoinNetwork.testnet]: 139_693n,
+                [BitcoinNetwork.regtest]: 0n,
+            },
+        },
+
+        MLDSA_IDENTITY_BINDING_GUARD: {
+            [ChainIds.Bitcoin]: {
+                [BitcoinNetwork.mainnet]: 959_500n,
+                [BitcoinNetwork.testnet]: 140_000n,
                 [BitcoinNetwork.regtest]: 0n,
             },
         },

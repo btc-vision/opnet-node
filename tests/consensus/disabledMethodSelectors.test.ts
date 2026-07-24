@@ -14,13 +14,40 @@ vi.mock('../../src/src/config/Config.js', () => ({
 }));
 
 import { OPNetConsensus } from '../../src/src/poc/configurations/OPNetConsensus.js';
+import { ChainIds } from '../../src/src/config/enums/ChainIds.js';
+import { BitcoinNetwork } from '../../src/src/config/network/BitcoinNetwork.js';
 
-const DISABLED_AT_BLOCK = 956_298n;
 const METHOD_DISABLED_ERROR = 'Method disabled';
 const APPROVE_BY_SIGNATURE_SELECTOR = 0x459c188c;
 const INCREASE_ALLOWANCE_BY_SIGNATURE_SELECTOR = 0x37778848;
 const DECREASE_ALLOWANCE_BY_SIGNATURE_SELECTOR = 0x5d6ee26c;
 const UNKNOWN_SELECTOR = 0xffffffff;
+
+/**
+ * Read the activation height out of the consensus config rather than repeating
+ * it. A hardcoded copy previously drifted one block ahead of
+ * DISABLE_OP20_SIGNATURE_ALLOWANCE_BLOCK, so "one block before activation" was
+ * actually the activation block itself and the test failed. The concrete height
+ * is still pinned by its own assertion below, so a consensus change has to be
+ * deliberate.
+ */
+function activationBlockFor(selector: number): bigint {
+    const rules =
+        OPNetConsensus.consensus.CONTRACTS.DISABLED_METHODS[ChainIds.Bitcoin]?.[
+            BitcoinNetwork.mainnet
+        ];
+
+    const rule = rules?.find((r) => r.SELECTORS.includes(selector));
+    if (!rule) {
+        throw new Error(`No disabled-method rule configured for selector ${selector}`);
+    }
+
+    return rule.ENABLE_AT_BLOCK;
+}
+
+// Resolved in beforeAll: OPNetConsensus.consensus throws until setBlockHeight()
+// has selected a consensus, so this cannot be computed at module scope.
+let DISABLED_AT_BLOCK: bigint;
 
 function calldataWithSelector(selector: number): Uint8Array {
     const calldata = new Uint8Array(8);
@@ -38,6 +65,12 @@ function calldataWithSelector(selector: number): Uint8Array {
 describe('disabled consensus method selectors', () => {
     beforeAll(() => {
         OPNetConsensus.setBlockHeight(1n);
+
+        DISABLED_AT_BLOCK = activationBlockFor(APPROVE_BY_SIGNATURE_SELECTOR);
+    });
+
+    it('activates at the height committed in RoswellConsensus', () => {
+        expect(DISABLED_AT_BLOCK).toBe(956_297n);
     });
 
     it('does not disable configured selectors before the activation block', () => {
