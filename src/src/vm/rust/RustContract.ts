@@ -25,7 +25,7 @@ export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
 }
 
 export class RustContract {
-    private readonly enableDebug: boolean = true;
+    private readonly enableDebug: boolean = false;
     private readonly enableDisposeLog: boolean = false;
 
     private gasUsed: bigint = 0n;
