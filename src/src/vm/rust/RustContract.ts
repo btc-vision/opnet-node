@@ -8,7 +8,6 @@ import { RustContractBinding } from './RustContractBindings.js';
 import { BinaryWriter, SELECTOR_BYTE_LENGTH, U32_BYTE_LENGTH } from '@btc-vision/transaction';
 import { getChainId } from './ChainIdHex.js';
 import { OPNetConsensus } from '../../poc/configurations/OPNetConsensus.js';
-import fs from 'fs';
 
 export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly address: string;
@@ -148,22 +147,6 @@ export class RustContract {
         if (this._id == null) throw new Error('Contract is not instantiated');
         if (this._instantiated) return;
 
-        fs.writeFileSync(
-            './debug.bin',
-            `instanciate -> ${JSON.stringify([
-                BigInt(this._id.toString()),
-                this.params.address,
-                Buffer.copyBytesFrom(this.params.bytecode).toHex(),
-                BigInt(this.params.gasUsed.toString()),
-                BigInt(this.params.gasMax.toString()),
-                BigInt(this.params.memoryPagesUsed.toString()),
-                this.params.network,
-                OPNetConsensus.consensus.CONSENSUS,
-                this.runtime.version,
-                this.params.isDebugMode,
-            ])}\n`,
-        );
-
         this.runtime.instantiateContract({
             reservedId: BigInt(this._id.toString()),
             address: this.params.address,
@@ -215,8 +198,6 @@ export class RustContract {
         if (this.enableDebug) console.log('execute', calldata);
 
         try {
-            fs.writeFileSync('./debug.bin', `calldata -> ${calldata.toHex()}\n`);
-
             const result = await this.contractManager.execute(
                 this.id,
                 Buffer.copyBytesFrom(calldata),
@@ -258,8 +239,6 @@ export class RustContract {
                     }),
                 ),
             );
-
-            fs.writeFileSync('./debug.bin', `set env -> ${JSON.stringify(obj, null, 4)}\n`);
 
             this.contractManager.setEnvironmentVariables(this.id, obj);
         } catch (e) {
