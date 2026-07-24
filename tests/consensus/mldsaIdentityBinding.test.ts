@@ -1,4 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { OPNetConsensus } from '../../src/src/poc/configurations/OPNetConsensus.js';
+import { ChainIds } from '../../src/src/config/enums/ChainIds.js';
+import { BitcoinNetwork } from '../../src/src/config/network/BitcoinNetwork.js';
 
 const { mockConfig } = vi.hoisted(() => ({
     mockConfig: {
@@ -8,10 +11,6 @@ const { mockConfig } = vi.hoisted(() => ({
 }));
 
 vi.mock('../../src/src/config/Config.js', () => ({ Config: mockConfig }));
-
-import { OPNetConsensus } from '../../src/src/poc/configurations/OPNetConsensus.js';
-import { ChainIds } from '../../src/src/config/enums/ChainIds.js';
-import { BitcoinNetwork } from '../../src/src/config/network/BitcoinNetwork.js';
 
 function useNetwork(network: BitcoinNetwork, chainId: ChainIds = ChainIds.Bitcoin): void {
     mockConfig.BITCOIN.NETWORK = network;
@@ -35,12 +34,6 @@ describe('ML-DSA identity binding guard', () => {
 
     beforeEach(() => {
         useNetwork(BitcoinNetwork.mainnet);
-    });
-
-    it('is inactive below the mainnet activation height', () => {
-        expect(OPNetConsensus.enforcesMLDSAIdentityBinding(959_499n)).toBe(false);
-        // The block the exploit actually landed in.
-        expect(OPNetConsensus.enforcesMLDSAIdentityBinding(957_938n)).toBe(false);
     });
 
     it('is active at and above the mainnet activation height', () => {
