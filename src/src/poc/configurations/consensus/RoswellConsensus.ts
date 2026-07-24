@@ -196,6 +196,14 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
                 [BitcoinNetwork.regtest]: 0n,
             },
         },
+
+        MLDSA_IDENTITY_BINDING_GUARD: {
+            [ChainIds.Bitcoin]: {
+                [BitcoinNetwork.mainnet]: 959_500n,
+                [BitcoinNetwork.testnet]: 140_000n,
+                [BitcoinNetwork.regtest]: 0n,
+            },
+        },
     },
 
     COMPRESSION: {

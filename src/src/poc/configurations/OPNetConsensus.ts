@@ -86,6 +86,24 @@ class OPNetConsensusConfiguration extends Logger {
         return blockHeight < activation ? OPVMVersion.Legacy : OPVMVersion.Latest;
     }
 
+    /**
+     * Whether an ML-DSA link request is forbidden from claiming a
+     * `hashedPublicKey` that is already a deployed contract address.
+     *
+     * A network with no configured height enforces the guard from genesis: a
+     * chain with no pre-fork history cannot have relied on the broken behaviour,
+     * and defaulting an unconfigured network to "exploitable" is never correct.
+     */
+    public enforcesMLDSAIdentityBinding(blockHeight: bigint): boolean {
+        const chain =
+            OPNetConsensus.consensus.CONTRACTS.MLDSA_IDENTITY_BINDING_GUARD[
+                Config.BITCOIN.CHAIN_ID
+            ];
+        const activation = chain?.[Config.BITCOIN.NETWORK];
+
+        return activation === undefined || blockHeight >= activation;
+    }
+
     public get allowUnsafeSignatures(): boolean {
         if (!this.#consensus) {
             throw new Error('Consensus not set.');

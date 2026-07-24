@@ -25,6 +25,20 @@ export default defineConfig({
         testTimeout: 30000,
         hookTimeout: 30000,
         pool: 'forks',
+        server: {
+            deps: {
+                // @btc-vision/op-vm is installed as `file:../op-vm`, so it resolves
+                // through a symlink pointing outside the project root. Vite inlines
+                // linked packages by default and rewrites import.meta.url when it
+                // does, which breaks the package's own native-binary lookup
+                // ("Could not find native module for linux-x64") even though the
+                // .node file is present. Externalise it so Node loads it directly.
+                // Both spellings matter: the specifier is @btc-vision/op-vm, but the
+                // symlink resolves to /root/op-vm/index.js, which contains no
+                // @btc-vision segment for a specifier-shaped pattern to match.
+                external: [/@btc-vision[\\/]op-vm/, /[\\/]op-vm[\\/]/],
+            },
+        },
     },
     forks: {
         singleFork: true,
