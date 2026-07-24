@@ -1,11 +1,9 @@
 import {
     BitcoinNetworkRequest,
-    ContractManager,
     EnvironmentVariablesRequest,
     ExitDataResponse,
-    HardForkRequest,
 } from '@btc-vision/op-vm';
-import { Blockchain } from '../Blockchain.js';
+import { OPVMContractManager, OPVMRuntime } from '../OPVMRuntime.js';
 import { RustContractBinding } from './RustContractBindings.js';
 import { BinaryWriter, SELECTOR_BYTE_LENGTH, U32_BYTE_LENGTH } from '@btc-vision/transaction';
 import { getChainId } from './ChainIdHex.js';
@@ -22,7 +20,8 @@ export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly network: BitcoinNetworkRequest;
     readonly isDebugMode: boolean;
 
-    readonly contractManager: ContractManager;
+    /** The op-vm build this contract must execute on, chosen by block height. */
+    readonly runtime: OPVMRuntime;
 }
 
 export class RustContract {
@@ -31,11 +30,13 @@ export class RustContract {
 
     private gasUsed: bigint = 0n;
 
-    private readonly contractManager: ContractManager;
+    private readonly runtime: OPVMRuntime;
+    private readonly contractManager: OPVMContractManager;
 
     constructor(params: ContractParameters) {
         this._params = params;
-        this.contractManager = params.contractManager;
+        this.runtime = params.runtime;
+        this.contractManager = params.runtime.contractManager;
     }
 
     private _id?: bigint;
@@ -48,7 +49,7 @@ export class RustContract {
         if (this._id == null) {
             this._id = BigInt(this.contractManager.reserveId().toString());
 
-            Blockchain.registerBinding({
+            this.runtime.registerBinding({
                 id: this._id,
                 load: this.params.load,
                 store: this.params.store,
@@ -157,26 +158,22 @@ export class RustContract {
                 BigInt(this.params.gasMax.toString()),
                 BigInt(this.params.memoryPagesUsed.toString()),
                 this.params.network,
-                OPNetConsensus.consensus.CONSENSUS as unknown as HardForkRequest,
+                OPNetConsensus.consensus.CONSENSUS,
+                this.runtime.version,
                 this.params.isDebugMode,
-                false,
-                OPNetConsensus.consensusRules.asBigInt(),
             ])}\n`,
         );
 
-        this.contractManager.instantiate(
-            BigInt(this._id.toString()),
-            this.params.address,
-            Buffer.copyBytesFrom(this.params.bytecode),
-            BigInt(this.params.gasUsed.toString()),
-            BigInt(this.params.gasMax.toString()),
-            BigInt(this.params.memoryPagesUsed.toString()),
-            this.params.network,
-            OPNetConsensus.consensus.CONSENSUS as unknown as HardForkRequest,
-            this.params.isDebugMode,
-            false, // bypassCache
-            OPNetConsensus.consensusRules.asBigInt(), // consensusFlags
-        );
+        this.runtime.instantiateContract({
+            reservedId: BigInt(this._id.toString()),
+            address: this.params.address,
+            bytecode: Buffer.copyBytesFrom(this.params.bytecode),
+            gasUsed: BigInt(this.params.gasUsed.toString()),
+            gasMax: BigInt(this.params.gasMax.toString()),
+            memoryPagesUsed: BigInt(this.params.memoryPagesUsed.toString()),
+            network: this.params.network,
+            isDebugMode: this.params.isDebugMode,
+        });
 
         this._instantiated = true;
     }
@@ -202,7 +199,7 @@ export class RustContract {
         if (this.disposed) return;
         this._disposed = true;
 
-        Blockchain.removeBinding(this._id);
+        this.runtime.removeBinding(this._id);
         this.contractManager.destroyContract(this._id);
 
         if (deadlock) {

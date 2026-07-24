@@ -42,7 +42,8 @@
         },
         "jsonpath-plus": "^10.4.0",
         "interface-datastore": "^10.0.1",
-        "@libp2p/utils": "7.2.1"
+        "@libp2p/utils": "7.2.1",
+        "uint8arraylist": "^3.0.2"
     },
     "dependencies": {
         "@asyncapi/generator": "^3.3.0",
@@ -56,6 +57,7 @@
         "@btc-vision/hyper-express": "^6.17.4",
         "@btc-vision/logger": "^1.0.8",
         "@btc-vision/op-vm": "file:../op-vm",
+        "@btc-vision/op-vm-legacy": "npm:@btc-vision/op-vm@1.0.0",
         "@btc-vision/plugin-sdk": "^1.0.1",
         "@btc-vision/post-quantum": "^0.5.3",
         "@btc-vision/rust-merkle-tree": "^1.0.2",
@@ -96,7 +98,7 @@
         "datastore-level": "^13.0.1",
         "eslint-plugin-openapi": "^0.0.4",
         "express": "^5.2.1",
-        "figlet": "^1.11.0",
+        "figlet": "^1.11.3",
         "interface-datastore": "^10.0.1",
         "it-length-prefixed-stream": "^3.0.1",
         "libp2p": "^3.3.6",
@@ -111,7 +113,7 @@
         "swagger-ui-express": "^5.0.1",
         "tiny-secp256k1": "^2.2.4",
         "toml": "^5.0.0",
-        "typescript": "^6.0.3",
+        "typescript": "^7.0.2",
         "typescript-eslint": "^8.65.0",
         "uint8arraylist": "^3.0.2"
     },

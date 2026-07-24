@@ -153,6 +153,25 @@ export interface IOPNetConsensus<T extends Consensus> {
                 readonly [key in BitcoinNetwork]?: bigint;
             };
         };
+
+        /**
+         * Block height at which @btc-vision/op-vm 1.1.0 takes over from 1.0.0.
+         * Blocks strictly BELOW this height are replayed on the pinned 1.0.0
+         * runtime, which is the only way to reproduce the state they originally
+         * committed; the height itself and everything above run on the current
+         * runtime. 1.1.0 changes execution semantics, so this is a HARD FORK and
+         * the value MUST match every other node.
+         *
+         * A network with NO entry has no 1.0.0 history and always uses the
+         * current runtime. This is deliberately the opposite default from
+         * STATE_PROOF_ADDRESS_BINDING above: an unconfigured network must never
+         * silently fall back to a superseded VM.
+         */
+        readonly OP_VM_LATEST_ACTIVATION: {
+            readonly [key in ChainIds]?: {
+                readonly [key in BitcoinNetwork]?: bigint;
+            };
+        };
     };
 
     readonly COMPRESSION: {

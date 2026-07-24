@@ -11,6 +11,7 @@ import { Logger } from '@btc-vision/bsi-common';
 import { Config } from '../../config/Config.js';
 import { SpecialContract } from './types/SpecialContracts.js';
 import { ConsensusRules } from '../../vm/consensus/ConsensusRules.js';
+import { OPVMVersion } from '../../vm/rust/versions/OPVMVersion.js';
 
 class OPNetConsensusConfiguration extends Logger {
     private blockHeight: bigint = 0n;
@@ -63,6 +64,26 @@ class OPNetConsensusConfiguration extends Logger {
         const activation = chain?.[Config.BITCOIN.NETWORK];
 
         return activation !== undefined && blockHeight >= activation;
+    }
+
+    /**
+     * Which op-vm build must execute the given block. Blocks strictly below the
+     * configured activation height replay on the pinned 1.0.0 runtime; the
+     * activation height itself and everything above run the current one.
+     *
+     * A network with no configured height has no 1.0.0 history and always uses
+     * the current runtime.
+     */
+    public opVmVersionForBlock(blockHeight: bigint): OPVMVersion {
+        const chain =
+            OPNetConsensus.consensus.CONTRACTS.OP_VM_LATEST_ACTIVATION[Config.BITCOIN.CHAIN_ID];
+        const activation = chain?.[Config.BITCOIN.NETWORK];
+
+        if (activation === undefined) {
+            return OPVMVersion.Latest;
+        }
+
+        return blockHeight < activation ? OPVMVersion.Legacy : OPVMVersion.Latest;
     }
 
     public get allowUnsafeSignatures(): boolean {

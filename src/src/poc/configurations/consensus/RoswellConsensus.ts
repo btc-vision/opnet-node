@@ -183,6 +183,18 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
                 [BitcoinNetwork.regtest]: 0n,
             },
         },
+
+        // HARD FORK. Blocks below these heights are replayed on @btc-vision/op-vm
+        // 1.0.0; the height itself and above run the current op-vm. Mainnet 0..959316
+        // and testnet 0..139692 were produced by 1.0.0 and can only be reproduced by
+        // it. regtest is 0 so dev chains never touch 1.0.0.
+        OP_VM_LATEST_ACTIVATION: {
+            [ChainIds.Bitcoin]: {
+                [BitcoinNetwork.mainnet]: 959_317n,
+                [BitcoinNetwork.testnet]: 139_693n,
+                [BitcoinNetwork.regtest]: 0n,
+            },
+        },
     },
 
     COMPRESSION: {
