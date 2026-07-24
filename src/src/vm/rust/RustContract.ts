@@ -159,6 +159,8 @@ export class RustContract {
                 this.params.network,
                 OPNetConsensus.consensus.CONSENSUS as unknown as HardForkRequest,
                 this.params.isDebugMode,
+                false,
+                OPNetConsensus.consensusRules.asBigInt(),
             ])}\n`,
         );
 
@@ -172,6 +174,8 @@ export class RustContract {
             this.params.network,
             OPNetConsensus.consensus.CONSENSUS as unknown as HardForkRequest,
             this.params.isDebugMode,
+            false, // bypassCache
+            OPNetConsensus.consensusRules.asBigInt(), // consensusFlags
         );
 
         this._instantiated = true;
