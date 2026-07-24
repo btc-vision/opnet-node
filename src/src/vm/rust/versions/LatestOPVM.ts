@@ -66,6 +66,8 @@ function createLatestBackend(host: OPVMHostFunctions): OPVMBackend {
                 args.network,
                 toHardFork(OPNetConsensus.consensus.CONSENSUS),
                 args.isDebugMode,
+                false, // bypassCache
+                OPNetConsensus.consensusRules.asBigInt(), // consensusFlags
             );
         },
     };

@@ -1800,7 +1800,6 @@ export class P2PManager extends Logger {
             transports: [tcp(this.p2pConfigurations.tcpConfiguration)],
             connectionEncrypters: [noise()],
             connectionGater: this.getConnectionGater(),
-            // @ts-expect-error sdfs df  gdsfgdfsgsd fgdfs g
             streamMuxers: [yamux(this.p2pConfigurations.yamuxConfiguration)],
             addresses: this.p2pConfigurations.listeningConfiguration,
             peerDiscovery: peerDiscovery as unknown as ((
