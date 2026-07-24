@@ -33,6 +33,10 @@ export class LatestBlock extends Route<
         this.cachedBlock = `0x${BigInt(blockHeader.height || '0').toString(16)}`;
     }
 
+    public override onReorg(): void {
+        this.cachedBlock = undefined;
+    }
+
     protected initialize(): void {}
 
     /**

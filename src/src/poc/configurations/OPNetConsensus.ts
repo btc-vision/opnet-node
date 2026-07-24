@@ -1,4 +1,5 @@
 import {
+    DisabledContractMethodRule,
     EpochPatches,
     IOPNetConsensus,
     IOPNetConsensusObj,
@@ -48,6 +49,20 @@ class OPNetConsensusConfiguration extends Logger {
         }
 
         return networkConfig;
+    }
+
+    /**
+     * Whether the storage-state merkle leaf binds the contract address at the
+     * given block height, hash(address || pointer || value). Returns false (the
+     * legacy address-less leaf) when the network has no configured activation
+     * height or the height has not been reached.
+     */
+    public bindsContractAddressInStateProof(blockHeight: bigint): boolean {
+        const chain =
+            OPNetConsensus.consensus.CONTRACTS.STATE_PROOF_ADDRESS_BINDING[Config.BITCOIN.CHAIN_ID];
+        const activation = chain?.[Config.BITCOIN.NETWORK];
+
+        return activation !== undefined && blockHeight >= activation;
     }
 
     public get allowUnsafeSignatures(): boolean {
@@ -146,6 +161,28 @@ class OPNetConsensusConfiguration extends Logger {
         return network[address];
     }
 
+    public disabledContractMethodError(
+        blockHeight: bigint,
+        calldata: Uint8Array,
+    ): string | undefined {
+        if (calldata.length < 4) {
+            return;
+        }
+
+        const selector = OPNetConsensusConfiguration.readSelector(calldata);
+        const rules = this.disabledContractMethodRules();
+        for (let i = 0; i < rules.length; i++) {
+            const rule = rules[i];
+            if (!rule || blockHeight < rule.ENABLE_AT_BLOCK) {
+                continue;
+            }
+
+            if (rule.SELECTORS.includes(selector)) {
+                return rule.ERROR;
+            }
+        }
+    }
+
     public isConsensusBlock(): boolean {
         return this.consensus.GENERIC.NEXT_CONSENSUS_BLOCK === this.blockHeight;
     }
@@ -212,6 +249,26 @@ class OPNetConsensusConfiguration extends Logger {
         for (const callback of this.consensusUpgradeCallbacks) {
             callback(nextConsensusName, wasReady);
         }
+    }
+
+    private disabledContractMethodRules(): readonly DisabledContractMethodRule[] {
+        const chain = this.consensus.CONTRACTS.DISABLED_METHODS[Config.BITCOIN.CHAIN_ID];
+        if (!chain) {
+            return [];
+        }
+
+        const network = chain[Config.BITCOIN.NETWORK];
+        if (!network) {
+            return [];
+        }
+
+        return network;
+    }
+
+    private static readSelector(calldata: Uint8Array): number {
+        const view = new DataView(calldata.buffer, calldata.byteOffset, calldata.byteLength);
+
+        return view.getUint32(0, false);
     }
 
     /**

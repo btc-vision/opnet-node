@@ -80,6 +80,13 @@ export abstract class Route<
 
     public onEpochFinalized(_finalizedEpochNumber: bigint, _epochData: IEpochDocument): void {}
 
+    /**
+     * Called when the API thread detects a chain reorganisation. Routes that
+     * cache anything keyed by block height or hash must invalidate it here:
+     * the storage has rewound, and any pre-reorg entries are now lying.
+     */
+    public onReorg(): void {}
+
     public abstract getData(params?: JSONRpc2RequestParams<R>): Promise<U> | U;
 
     public getDataRPC(

@@ -6,6 +6,7 @@ import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { MessageType } from '../../threading/enum/MessageType.js';
 import { ChainSynchronisation } from './classes/ChainSynchronisation.js';
+import { installBitcoinRPCTimeout } from '../rpc/RPCTimeout.js';
 
 export class SynchronisationThread extends Thread<ThreadTypes.SYNCHRONISATION> {
     public readonly threadType: ThreadTypes.SYNCHRONISATION = ThreadTypes.SYNCHRONISATION;
@@ -24,6 +25,11 @@ export class SynchronisationThread extends Thread<ThreadTypes.SYNCHRONISATION> {
 
     protected async init(): Promise<void> {
         this.log(`Starting up blockchain indexer thread...`);
+
+        // Bound time-to-first-byte so an unresponsive Bitcoin Core fails fast.
+        // bodyTimeout is disabled (0): this worker streams large blocks via
+        // getblockbatch and must not abort a slow large-body download mid-stream.
+        installBitcoinRPCTimeout(undefined, 0);
 
         this.blockchainNotifier.sendMessageToThread = this.sendMessageToThread.bind(this);
 

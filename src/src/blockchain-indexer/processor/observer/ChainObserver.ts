@@ -10,6 +10,7 @@ import { Db } from 'mongodb';
 import { Config } from '../../../config/Config.js';
 import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
 import { IBlockHeaderBlockDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { isRPCWarmupError, rpcWarmupDelay } from '../../rpc/RPCWarmup.js';
 
 export class ChainObserver extends Logger {
     public readonly logColor: string = '#5eff00';
@@ -116,6 +117,11 @@ export class ChainObserver extends Logger {
         this._blockchainRepository = new BlockchainInfoRepository(this.db);
         this._blocks = new BlockRepository(this.db);
 
+        // Wait for Bitcoin Core to finish warming up before the first sync(): while
+        // warming up every getBlockCount()/getChainInfo() call throws RPC_IN_WARMUP,
+        // which would otherwise reject out of init() and crash-loop the thread.
+        await this.waitForChainReady();
+
         await this.sync();
 
         // Set initial consensus from database.
@@ -211,6 +217,34 @@ export class ChainObserver extends Logger {
             this.network,
             Number(this.pendingBlockHeight + 1n),
         );
+    }
+
+    /**
+     * Poll Bitcoin Core until it answers. While the node is warming up
+     * (RPC_IN_WARMUP) getBlockCount() throws; we wait and retry rather than
+     * letting the rejection propagate out of init() and crash-loop the thread.
+     * Any other error is genuinely fatal and is rethrown so the supervisor can
+     * respawn the thread instead of us spinning forever.
+     */
+    private async waitForChainReady(): Promise<void> {
+        for (;;) {
+            try {
+                const chainHeight = await this.rpcClient.getBlockCount();
+                if (chainHeight != null) {
+                    return;
+                }
+            } catch (e) {
+                const message = e instanceof Error ? e.message : String(e);
+
+                if (!isRPCWarmupError(message)) {
+                    throw e;
+                }
+
+                this.warn(`Bitcoin Core is still warming up (${message}). Waiting...`);
+            }
+
+            await rpcWarmupDelay();
+        }
     }
 
     private async fetchChainHeight(): Promise<bigint> {

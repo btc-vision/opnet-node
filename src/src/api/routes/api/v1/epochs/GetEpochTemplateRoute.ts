@@ -67,6 +67,12 @@ export class GetEpochTemplateRoute extends Route<
         }
     }
 
+    public override onReorg(): void {
+        this.cachedTemplatePromise = undefined;
+        this.cacheValidForEpoch = undefined;
+        this.cacheTimestamp = undefined;
+    }
+
     protected async initialize(): Promise<void> {
         if (!this.storage) {
             throw new Error('Storage not initialized for GetEpochTemplate route');

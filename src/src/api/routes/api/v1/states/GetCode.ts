@@ -137,7 +137,8 @@ export class GetCode extends Route<
             onlyBytecode = params.onlyBytecode ?? false;
         }
 
-        if (!address || address.length < 20) throw new Error(`Invalid address specified.`);
+        if (typeof address !== 'string' || address.length < 20)
+            throw new Error(`Invalid address specified.`);
 
         const startsWith =
             address.startsWith('0x') && (address.length === 66 || address.length === 132);

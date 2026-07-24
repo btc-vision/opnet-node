@@ -189,6 +189,8 @@ export class ContractEvaluator extends Logger {
         try {
             const evaluation = new ContractEvaluation(params);
             try {
+                this.ensureMethodEnabled(evaluation);
+
                 const loadedContract = this.loadContractFromBytecode(evaluation);
                 if (loadedContract) throw new Error('OP_NET: Invalid contract bytecode.');
 
@@ -327,6 +329,16 @@ export class ContractEvaluator extends Logger {
             }
         } catch {
             return evaluation.paidMaximum;
+        }
+    }
+
+    private ensureMethodEnabled(evaluation: ContractEvaluation): void {
+        const disabledMethodError = OPNetConsensus.disabledContractMethodError(
+            evaluation.blockNumber,
+            evaluation.calldata,
+        );
+        if (disabledMethodError) {
+            throw new Error(disabledMethodError);
         }
     }
 

@@ -286,7 +286,7 @@ export class BroadcastTransactionPackage extends Route<
         };
 
         try {
-            const result = (await ServerThread.sendMessageToThread(ThreadTypes.P2P, msg)) as
+            const result = (await ServerThread.sendMessageToThread(ThreadTypes.BROADCAST, msg)) as
                 | OPNetBroadcastResponse
                 | undefined;
 

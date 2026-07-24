@@ -31,7 +31,10 @@ export class TargetEpochRepository extends BaseRepository<ITargetEpochDocument> 
         const criteria: Partial<Filter<ITargetEpochDocument>> = {
             epochNumber: DataConverter.toDecimal128(epochNumber),
             salt: binarySalt,
-            publicKey: binaryPublicKey,
+            // Documents are stored/upserted under `mldsaPublicKey` (see saveTargetEpoch);
+            // querying `publicKey`, a field no document has, made this guard dead
+            // (count always 0), so duplicate submissions were never deduplicated.
+            mldsaPublicKey: binaryPublicKey,
         };
 
         const count = await this.count(criteria);

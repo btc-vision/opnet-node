@@ -67,6 +67,12 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
         managerTarget: './src/poc/witness/WitnessThreadManager.js',
         target: './src/poc/witness/WitnessThread.js',
     },
+
+    [ThreadTypes.BROADCAST]: {
+        maxInstance: 2,
+        managerTarget: './src/poc/broadcast/BroadcastThreadManager.js',
+        target: './src/poc/broadcast/BroadcastThread.js',
+    },
 };
 
 export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
@@ -154,6 +160,14 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
         resourceLimits: {
             maxOldGenerationSizeMb: 1024 * 2,
             maxYoungGenerationSizeMb: 1024,
+            stackSizeMb: 256,
+        },
+    },
+
+    [ThreadTypes.BROADCAST]: {
+        resourceLimits: {
+            maxOldGenerationSizeMb: 512,
+            maxYoungGenerationSizeMb: 512,
             stackSizeMb: 256,
         },
     },

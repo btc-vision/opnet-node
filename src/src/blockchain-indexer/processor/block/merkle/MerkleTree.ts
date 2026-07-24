@@ -111,7 +111,7 @@ export abstract class MerkleTree<K, V> {
 
     public abstract updateValues(address: Address, val: Map<K, V>): void;
 
-    public abstract getValues(): [Uint8Array, Uint8Array][];
+    public abstract getValues(): Uint8Array[][];
 
     protected abstract getDummyValues(): AddressMap<Map<K, V>>;
 

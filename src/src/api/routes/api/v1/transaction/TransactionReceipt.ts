@@ -148,7 +148,7 @@ export class TransactionReceipt extends Route<
             hash = params.hash;
         }
 
-        if (!hash) throw new Error(`Invalid hash.`);
+        if (typeof hash !== 'string' || !hash) throw new Error(`Invalid hash.`);
 
         return [hash];
     }

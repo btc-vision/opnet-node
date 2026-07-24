@@ -47,6 +47,9 @@ export class PoCThread extends Thread<ThreadTypes.P2P> {
             case ThreadTypes.MEMPOOL: {
                 return await this.handleBitcoinIndexerMessage(m);
             }
+            case ThreadTypes.BROADCAST: {
+                return await this.handleBitcoinIndexerMessage(m);
+            }
             case ThreadTypes.SSH: {
                 return await this.handleBitcoinIndexerMessage(m);
             }

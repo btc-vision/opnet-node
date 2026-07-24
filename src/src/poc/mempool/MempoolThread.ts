@@ -5,6 +5,7 @@ import { ThreadMessageBase } from '../../threading/interfaces/thread-messages/Th
 import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { MessageType } from '../../threading/enum/MessageType.js';
 import { Mempool } from './manager/Mempool.js';
+import { installBitcoinRPCTimeout } from '../../blockchain-indexer/rpc/RPCTimeout.js';
 
 export class MempoolThread extends Thread<ThreadTypes.MEMPOOL> {
     public readonly threadType: ThreadTypes.MEMPOOL = ThreadTypes.MEMPOOL;
@@ -20,6 +21,10 @@ export class MempoolThread extends Thread<ThreadTypes.MEMPOOL> {
     protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
 
     protected async init(): Promise<void> {
+        // Bound Bitcoin Core RPC calls made from this worker so an unresponsive
+        // node fails fast instead of leaking hung fetch() promises.
+        installBitcoinRPCTimeout();
+
         await this.mempool.init();
 
         this.mempool.sendMessageToThread = this.sendMessageToThread.bind(this);
