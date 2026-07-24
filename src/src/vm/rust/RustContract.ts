@@ -10,6 +10,7 @@ import { RustContractBinding } from './RustContractBindings.js';
 import { BinaryWriter, SELECTOR_BYTE_LENGTH, U32_BYTE_LENGTH } from '@btc-vision/transaction';
 import { getChainId } from './ChainIdHex.js';
 import { OPNetConsensus } from '../../poc/configurations/OPNetConsensus.js';
+import fs from 'fs';
 
 export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly address: string;
@@ -25,7 +26,7 @@ export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
 }
 
 export class RustContract {
-    private readonly enableDebug: boolean = false;
+    private readonly enableDebug: boolean = true;
     private readonly enableDisposeLog: boolean = false;
 
     private gasUsed: bigint = 0n;
@@ -146,6 +147,21 @@ export class RustContract {
         if (this._id == null) throw new Error('Contract is not instantiated');
         if (this._instantiated) return;
 
+        fs.writeFileSync(
+            './debug.bin',
+            `instanciate -> ${JSON.stringify([
+                BigInt(this._id.toString()),
+                this.params.address,
+                Buffer.copyBytesFrom(this.params.bytecode).toHex(),
+                BigInt(this.params.gasUsed.toString()),
+                BigInt(this.params.gasMax.toString()),
+                BigInt(this.params.memoryPagesUsed.toString()),
+                this.params.network,
+                OPNetConsensus.consensus.CONSENSUS as unknown as HardForkRequest,
+                this.params.isDebugMode,
+            ])}\n`,
+        );
+
         this.contractManager.instantiate(
             BigInt(this._id.toString()),
             this.params.address,
@@ -156,7 +172,6 @@ export class RustContract {
             this.params.network,
             OPNetConsensus.consensus.CONSENSUS as unknown as HardForkRequest,
             this.params.isDebugMode,
-            //false,
         );
 
         this._instantiated = true;
@@ -199,6 +214,8 @@ export class RustContract {
         if (this.enableDebug) console.log('execute', calldata);
 
         try {
+            fs.writeFileSync('./debug.bin', `calldata -> ${calldata.toHex()}\n`);
+
             const result = await this.contractManager.execute(
                 this.id,
                 Buffer.copyBytesFrom(calldata),
@@ -219,34 +236,31 @@ export class RustContract {
         if (this.enableDebug) console.log('Setting environment', environmentVariables);
 
         try {
-            this.contractManager.setEnvironmentVariables(
-                this.id,
-                Object.preventExtensions(
-                    Object.freeze(
-                        Object.seal({
-                            blockNumber: BigInt(environmentVariables.blockNumber.toString()),
-                            blockMedianTime: BigInt(
-                                environmentVariables.blockMedianTime.toString(),
-                            ),
-                            blockHash: Uint8Array.from(environmentVariables.blockHash),
-                            txId: Uint8Array.from(environmentVariables.txId),
-                            txHash: Uint8Array.from(environmentVariables.txHash),
-                            contractAddress: Uint8Array.from(environmentVariables.contractAddress),
-                            contractDeployer: Uint8Array.from(
-                                environmentVariables.contractDeployer,
-                            ),
-                            caller: Uint8Array.from(environmentVariables.caller),
-                            origin: Uint8Array.from(environmentVariables.origin),
-                            chainId: getChainId(this.params.network),
-                            protocolId: OPNetConsensus.consensus.PROTOCOL_ID,
-                            consensusFlags: BigInt(environmentVariables.consensusFlags.toString()),
-                            originTweakedPublicKey: Uint8Array.from(
-                                environmentVariables.originTweakedPublicKey,
-                            ),
-                        }),
-                    ),
+            const obj = Object.preventExtensions(
+                Object.freeze(
+                    Object.seal({
+                        blockNumber: BigInt(environmentVariables.blockNumber.toString()),
+                        blockMedianTime: BigInt(environmentVariables.blockMedianTime.toString()),
+                        blockHash: Uint8Array.from(environmentVariables.blockHash),
+                        txId: Uint8Array.from(environmentVariables.txId),
+                        txHash: Uint8Array.from(environmentVariables.txHash),
+                        contractAddress: Uint8Array.from(environmentVariables.contractAddress),
+                        contractDeployer: Uint8Array.from(environmentVariables.contractDeployer),
+                        caller: Uint8Array.from(environmentVariables.caller),
+                        origin: Uint8Array.from(environmentVariables.origin),
+                        chainId: getChainId(this.params.network),
+                        protocolId: OPNetConsensus.consensus.PROTOCOL_ID,
+                        consensusFlags: BigInt(environmentVariables.consensusFlags.toString()),
+                        originTweakedPublicKey: Uint8Array.from(
+                            environmentVariables.originTweakedPublicKey,
+                        ),
+                    }),
                 ),
             );
+
+            fs.writeFileSync('./debug.bin', `set env -> ${JSON.stringify(obj, null, 4)}\n`);
+
+            this.contractManager.setEnvironmentVariables(this.id, obj);
         } catch (e) {
             if (this.enableDebug) console.log('Error in setEnvironment', e);
 

@@ -960,6 +960,9 @@ export class VMManager extends Logger {
             specialContract: params.specialContract,
         };
 
+        console.dir(executionParams, { depth: 5, colors: true });
+        console.log('---------------------');
+
         // Execute the function
         const evaluation: ContractEvaluation | null = await vmEvaluator.run(executionParams);
 
