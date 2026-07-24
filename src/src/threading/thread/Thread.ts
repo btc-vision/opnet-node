@@ -17,9 +17,45 @@ import { Config } from '../../config/Config.js';
 import fs from 'fs';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
 import { FastNumberMap } from '../../utils/fast/FastNumberMap.js';
+import { btrace } from '../../utils/BroadcastTrace.js';
 
 const genRanHex = (size: number) =>
     [...(Array(size) as number[])].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+
+/**
+ * Control-plane messages (link setup / teardown / port handoff) are extremely
+ * chatty and uninteresting for the broadcast/block-processed stall hunt. Only
+ * trace data-plane traffic so the [BTRACE] stream stays readable.
+ */
+const isTracedMessageType = (type: MessageType): boolean =>
+    type !== MessageType.LINK_THREAD &&
+    type !== MessageType.LINK_THREAD_REQUEST &&
+    type !== MessageType.UNLINK_THREAD &&
+    type !== MessageType.SET_MESSAGE_PORT;
+
+/**
+ * Only these thread types are involved in the stalls we are hunting (broadcast
+ * = api->p2p, block-processed = indexer->p2p, witness = p2p<->witness). The
+ * api<->rpc `call` simulation traffic is healthy and extremely high volume, so
+ * a message is only traced if at least one of its endpoints is in this set.
+ * This is what keeps the [BTRACE] stream from drowning in RPC call spam.
+ */
+const TRACED_THREAD_TYPES: ReadonlySet<ThreadTypes> = new Set<ThreadTypes>([
+    ThreadTypes.P2P,
+    ThreadTypes.WITNESS,
+    ThreadTypes.INDEXER,
+    ThreadTypes.BROADCAST,
+    ThreadTypes.MEMPOOL,
+]);
+
+const shouldTrace = (
+    localType: ThreadTypes,
+    otherType: ThreadTypes | undefined,
+    msgType: MessageType,
+): boolean =>
+    isTracedMessageType(msgType) &&
+    (TRACED_THREAD_TYPES.has(localType) ||
+        (otherType !== undefined && TRACED_THREAD_TYPES.has(otherType)));
 
 export type SendMessageToThreadFunction = (
     threadType: ThreadTypes,
@@ -125,6 +161,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                 const hasTaskId = m.taskId !== undefined && m.taskId !== null;
                 if (!hasTaskId) {
                     m.taskId = this.generateTaskId();
+                    const taskId = m.taskId;
 
                     const sentAt = Date.now();
                     const portIndex = destThreadType
@@ -134,17 +171,19 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                     const timeout = setTimeout(() => {
                         const ageMs = Date.now() - sentAt;
                         const inflight = this.tasks.size;
+                        const trace = this.stringifyThreadTrace(m.data);
                         this.warn(
-                            `[B] Thread task ${m.taskId} timed out after ${ageMs}ms. (Thread: ${threadId}, ThreadType: ${this.threadType} -> ${destThreadType ?? 'unknown'} portIdx=${portIndex}, msgType=${m.type}, inflight=${inflight}) - Trace: ${JSON.stringify(m.data)}`,
+                            `[B] Thread task ${taskId} timed out after ${ageMs}ms. (Thread: ${threadId}, ThreadType: ${this.threadType} -> ${destThreadType ?? 'unknown'} portIdx=${portIndex}, msgType=${m.type}, inflight=${inflight}) - Trace: ${trace}`,
                         );
 
                         if (Config.DEV.SAVE_TIMEOUTS_TO_FILE) {
                             fs.appendFileSync(
                                 './thread-timeouts.log',
-                                `[B] Thread task ${m.taskId} timed out after ${ageMs}ms. (Thread: ${threadId}, ThreadType: ${this.threadType} -> ${destThreadType ?? 'unknown'} portIdx=${portIndex}, msgType=${m.type}, inflight=${inflight}) - Trace: ${JSON.stringify(m)}\n`,
+                                `[B] Thread task ${taskId} timed out after ${ageMs}ms. (Thread: ${threadId}, ThreadType: ${this.threadType} -> ${destThreadType ?? 'unknown'} portIdx=${portIndex}, msgType=${m.type}, inflight=${inflight}) - Trace: ${this.stringifyThreadTrace(m)}\n`,
                             );
                         }
 
+                        this.tasks.delete(taskId);
                         resolve(null);
                     }, 240_000);
 
@@ -152,9 +191,18 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                         timeout: timeout,
                         resolve: resolve,
                         port: port,
+                        destThreadType: destThreadType,
+                        sentAt: sentAt,
                     };
 
                     this.tasks.set(m.taskId, task);
+
+                    if (shouldTrace(this.threadType, destThreadType, m.type)) {
+                        btrace(
+                            `Thread[${this.threadType}#${threadId}]`,
+                            `SEND -> dest=${destThreadType ?? 'unknown'} msgType=${m.type} taskId=${taskId} portIdx=${portIndex} (awaiting reply, 240s timeout armed)`,
+                        );
+                    }
                 }
 
                 if (port) {
@@ -168,6 +216,46 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                 reject(e as Error);
             }
         });
+    }
+
+    private stringifyThreadTrace(value: unknown): string {
+        try {
+            return JSON.stringify(value, (_key, currentValue: unknown) => {
+                if (typeof currentValue === 'bigint') {
+                    return currentValue.toString();
+                }
+
+                if (currentValue instanceof Uint8Array) {
+                    return this.formatBytesForTrace(currentValue);
+                }
+
+                if (currentValue instanceof ArrayBuffer) {
+                    return this.formatBytesForTrace(new Uint8Array(currentValue));
+                }
+
+                return currentValue;
+            });
+        } catch (e) {
+            const details = e instanceof Error ? e.message : String(e);
+            return `[unserializable trace: ${details}]`;
+        }
+    }
+
+    private formatBytesForTrace(bytes: Uint8Array): {
+        type: string;
+        byteLength: number;
+        hex: string;
+        truncated: boolean;
+    } {
+        const maxHexChars = 256;
+        const hex = Buffer.from(bytes).toString('hex');
+
+        return {
+            type: bytes.constructor.name,
+            byteLength: bytes.byteLength,
+            hex: hex.length > maxHexChars ? hex.slice(0, maxHexChars) : hex,
+            truncated: hex.length > maxHexChars,
+        };
     }
 
     protected abstract init(): Promise<void> | void;
@@ -339,19 +427,54 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
     ): Promise<void> {
         let response: ThreadData | undefined;
 
+        const traced = shouldTrace(this.threadType, threadType, m.type);
+        if (traced) {
+            btrace(
+                `Thread[${this.threadType}#${threadId}]`,
+                `RECV from=${threadType} msgType=${m.type} taskId=${m.taskId ?? 'none'} -> dispatching handler`,
+            );
+        }
+
         try {
             response = await this.onLinkMessageInternal(threadType, m);
         } catch (e) {
             this.error(`Error processing event message. {Details: ${e}}`);
         }
 
-        if (m.taskId && response != undefined) {
+        if (traced) {
+            btrace(
+                `Thread[${this.threadType}#${threadId}]`,
+                `HANDLER DONE from=${threadType} msgType=${m.type} taskId=${m.taskId ?? 'none'} responded=${response !== undefined}`,
+            );
+        }
+
+        // A request (anything carrying a taskId that is not itself a reply) MUST
+        // be answered exactly once. Previously a reply was only sent when the
+        // handler returned a defined value, so any handler that returned
+        // undefined or threw left the caller's sendMessage() hanging on its
+        // 240s timeout — which pins concurrency slots/locks and cascades into
+        // node-wide stalls (witness validation starvation, api->p2p timeouts).
+        // THREAD_RESPONSE is excluded: it is the reply itself, handled above by
+        // onThreadResponse, and re-replying would bounce a dead taskId back.
+        const isRequest =
+            m.taskId !== undefined &&
+            m.taskId !== null &&
+            m.type !== MessageType.THREAD_RESPONSE;
+
+        if (isRequest) {
             const resp: ThreadMessageResponse = {
                 type: MessageType.THREAD_RESPONSE,
-                data: response,
+                data: response ?? {},
                 taskId: m.taskId,
                 toServer: false,
             };
+
+            if (traced) {
+                btrace(
+                    `Thread[${this.threadType}#${threadId}]`,
+                    `REPLY -> from=${threadType} msgType=${m.type} taskId=${m.taskId ?? 'none'} posting THREAD_RESPONSE`,
+                );
+            }
 
             await this.sendMessage(resp, messagePort);
         }
@@ -384,6 +507,14 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
 
                 clearTimeout(task.timeout);
                 task.resolve(m.data);
+
+                if (shouldTrace(this.threadType, task.destThreadType, m.type)) {
+                    const elapsed = task.sentAt !== undefined ? Date.now() - task.sentAt : -1;
+                    btrace(
+                        `Thread[${this.threadType}#${threadId}]`,
+                        `RESOLVED reply from=${task.destThreadType ?? 'unknown'} taskId=${m.taskId} after ${elapsed}ms (caller's sendMessage promise settled)`,
+                    );
+                }
             } else {
                 this.error(`Thread response task not found. {TaskId: ${m.taskId}}`);
             }

@@ -27,6 +27,8 @@ export type ThreadTaskCallback = {
     timeout: ReturnType<typeof setTimeout>;
     resolve: (value: ThreadData | PromiseLike<ThreadData>) => void;
     port?: MessagePort;
+    destThreadType?: ThreadTypes;
+    sentAt?: number;
 };
 
 export class Threader<T extends ThreadTypes> extends Logger {

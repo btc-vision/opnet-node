@@ -1,5 +1,5 @@
 import { AddressVerificator, BufferHelper, NetEvent } from '@btc-vision/transaction';
-import { toBase64 } from '@btc-vision/bitcoin';
+import { isHex, toBase64 } from '@btc-vision/bitcoin';
 import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
 import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareNext.js';
@@ -585,6 +585,15 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         }
 
         if (!calldata || calldata.length < 1) throw new Error(`Invalid calldata specified.`);
+
+        // Reject non-hex calldata at the edge. Otherwise it travels all the way
+        // to the RPC sub-worker before fromHex() throws "Invalid hex character
+        // at position N", costing a VM-manager round-trip and a noisy log for
+        // what is plainly a malformed request. isHex() mirrors fromHex()
+        // exactly (strips an optional 0x prefix, requires even length).
+        if (!isHex(calldata)) {
+            throw new Error(`Invalid calldata: must be a hex string.`);
+        }
 
         if (OPNetConsensus.consensus.CONTRACTS.MAXIMUM_CALLDATA_SIZE_COMPRESSED < calldata.length) {
             throw new Error(`Calldata exceeds maximum size reached.`);

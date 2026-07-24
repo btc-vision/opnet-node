@@ -22,6 +22,7 @@ import { AnyoneCanSpendRepository } from '../../../db/repositories/AnyoneCanSpen
 import { ChallengeSolution } from '../../processor/interfaces/TransactionPreimage.js';
 import { AddressMap } from '@btc-vision/transaction';
 import { getMongodbMajorVersion } from '../../../vm/storage/databases/MongoUtils.js';
+import { isRPCWarmupError, rpcWarmupDelay } from '../../rpc/RPCWarmup.js';
 
 const MAX_BLOCK_NUMBER: bigint = BigInt(Number.MAX_SAFE_INTEGER);
 
@@ -129,7 +130,39 @@ export class ChainSynchronisation extends Logger {
         this._publicKeysRepository = new PublicKeysRepository(DBManagerInstance.db);
         //this._epochRepository = new EpochRepository(DBManagerInstance.db);
 
+        // Block here until Bitcoin Core has finished warming up. Completing init()
+        // before the node can answer RPC would let the thread report "ready" while
+        // every getBlockHeight() throws, which is what was crash-looping the thread.
+        await this.waitForChainReady();
+
         await this.startSaveLoop();
+    }
+
+    /**
+     * Poll getBlockHeight() until Bitcoin Core answers. While the node is warming
+     * up (RPC_IN_WARMUP) the condition is transient and clears once the block
+     * index has loaded, so we wait and retry. Any other error is genuinely fatal
+     * (bad RPC host/credentials, etc.) and is rethrown so the supervisor can
+     * respawn the thread rather than us silently spinning forever.
+     */
+    private async waitForChainReady(): Promise<void> {
+        for (;;) {
+            try {
+                this.currentBlock = await this.rpcClient.getBlockHeight();
+
+                return;
+            } catch (e) {
+                const message = e instanceof Error ? e.message : String(e);
+
+                if (!isRPCWarmupError(message)) {
+                    throw e;
+                }
+
+                this.warn(`Bitcoin Core is still warming up (${message}). Waiting...`);
+
+                await rpcWarmupDelay();
+            }
+        }
     }
 
     public async handleMessage(m: ThreadMessageBase<MessageType>): Promise<ThreadData> {
@@ -172,10 +205,23 @@ export class ChainSynchronisation extends Logger {
     }
 
     private async startSaveLoop(): Promise<void> {
-        this.currentBlock = await this.rpcClient.getBlockHeight();
+        try {
+            this.currentBlock = await this.rpcClient.getBlockHeight();
 
-        if (this.unspentTransactionOutputs.length && !this.canSaveAfterBlock()) {
-            await this.saveUTXOs();
+            if (this.unspentTransactionOutputs.length && !this.canSaveAfterBlock()) {
+                await this.saveUTXOs();
+            }
+        } catch (e) {
+            // Never let a transient RPC failure (e.g. Bitcoin Core restarting and
+            // warming up again) reject out of this loop: the rejection would be
+            // unhandled and kill the thread. Log and retry on the next interval.
+            const message = e instanceof Error ? e.message : String(e);
+
+            if (isRPCWarmupError(message)) {
+                this.warn(`Bitcoin Core not ready during save loop (${message}). Retrying...`);
+            } else {
+                this.error(`Save loop iteration failed (${message}). Retrying...`);
+            }
         }
 
         setTimeout(() => {

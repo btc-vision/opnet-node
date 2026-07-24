@@ -31,6 +31,22 @@ export interface EarlyMiningConfig {
 
 export interface EpochPatches {
     readonly GRAFFITI_LENGTH_PATCH_BLOCK_HEIGHT: bigint;
+
+    /**
+     * Block height at which the epoch mining preimage switches from the legacy
+     * malleable XOR construction (checksumRoot ^ publicKey ^ salt) to the
+     * non-malleable concatenation (checksumRoot || publicKey || salt), still
+     * hashed with SHA-1. Must be a multiple of EPOCH.BLOCKS_PER_EPOCH so no epoch
+     * straddles the switch, and MUST match the activation height used by
+     * @btc-vision/transaction and the mining pool.
+     */
+    readonly PREIMAGE_CONCAT_PATCH_BLOCK_HEIGHT: bigint;
+}
+
+export interface DisabledContractMethodRule {
+    readonly ENABLE_AT_BLOCK: bigint;
+    readonly SELECTORS: readonly number[];
+    readonly ERROR: string;
 }
 
 export interface IOPNetConsensus<T extends Consensus> {
@@ -114,6 +130,27 @@ export interface IOPNetConsensus<T extends Consensus> {
             // The consensus is enabled for this network.
             readonly [key in ChainIds]?: {
                 readonly [key in BitcoinNetwork]?: SpecialContracts;
+            };
+        };
+
+        readonly DISABLED_METHODS: {
+            readonly [key in ChainIds]?: {
+                readonly [key in BitcoinNetwork]?: readonly DisabledContractMethodRule[];
+            };
+        };
+
+        /**
+         * Block height at/after which the storage-state merkle leaf binds the
+         * contract address, hash(address || pointer || value) instead of just
+         * hash(pointer || value), so a proof for (pointer,value) can no longer be
+         * replayed across contracts. This changes the committed storageRoot, so it
+         * is a HARD FORK: the value MUST be a future block (ahead of the tip) and
+         * MUST match the client-side verifier (@btc-vision/opnet). An undefined or
+         * unreached height keeps the legacy (address-less) leaf.
+         */
+        readonly STATE_PROOF_ADDRESS_BINDING: {
+            readonly [key in ChainIds]?: {
+                readonly [key in BitcoinNetwork]?: bigint;
             };
         };
     };

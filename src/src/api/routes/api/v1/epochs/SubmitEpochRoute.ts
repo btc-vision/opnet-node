@@ -34,6 +34,16 @@ export class SubmitEpochRoute extends Route<
 > {
     private pendingBlockHeight: bigint | undefined;
 
+    // Per-key submission rate limit. The endpoint is unauthenticated and every
+    // submission runs a signature verification, so cap how often a given
+    // mldsaPublicKey may submit. The tracked-key set is bounded so the limiter
+    // itself cannot be turned into a memory-DoS via many distinct keys.
+    private static readonly RATE_LIMIT_WINDOW_MS = 10_000;
+    private static readonly RATE_LIMIT_MAX_PER_WINDOW = 30;
+    private static readonly RATE_LIMIT_MAX_TRACKED_KEYS = 50_000;
+
+    private readonly submissionTimestamps = new Map<string, number[]>();
+
     constructor() {
         super(Routes.SUBMIT_EPOCH, RouteType.POST);
     }
@@ -245,6 +255,9 @@ export class SubmitEpochRoute extends Route<
         // Validate parameters structure and presence
         const validatedParams = this.validateSubmissionParams(params);
 
+        // Rate-limit per public key BEFORE the expensive signature verification.
+        this.enforceSubmissionRateLimit(validatedParams.mldsaPublicKey);
+
         // Validate hex string lengths before conversion
         this.validateHexStringLengths(validatedParams);
 
@@ -404,6 +417,38 @@ export class SubmitEpochRoute extends Route<
     }
 
     /**
+     * Sliding-window rate limit keyed by mldsaPublicKey. Throws once a key
+     * exceeds RATE_LIMIT_MAX_PER_WINDOW submissions within RATE_LIMIT_WINDOW_MS.
+     * When a NEW key would overflow the tracked-key set, the oldest-inserted
+     * entry is evicted in O(1) (Map preserves insertion order). This bounds the
+     * map without an O(n) sweep per request and, unlike rejecting the newcomer,
+     * never starves a legitimate new key under a flood of distinct keys.
+     */
+    private enforceSubmissionRateLimit(mldsaPublicKey: string): void {
+        const now = Date.now();
+        const windowStart = now - SubmitEpochRoute.RATE_LIMIT_WINDOW_MS;
+        const key = mldsaPublicKey.startsWith('0x') ? mldsaPublicKey.slice(2) : mldsaPublicKey;
+
+        if (
+            !this.submissionTimestamps.has(key) &&
+            this.submissionTimestamps.size >= SubmitEpochRoute.RATE_LIMIT_MAX_TRACKED_KEYS
+        ) {
+            const oldest = this.submissionTimestamps.keys().next().value;
+            if (oldest !== undefined) {
+                this.submissionTimestamps.delete(oldest);
+            }
+        }
+
+        const recent = (this.submissionTimestamps.get(key) || []).filter((t) => t > windowStart);
+        if (recent.length >= SubmitEpochRoute.RATE_LIMIT_MAX_PER_WINDOW) {
+            throw new Error('Epoch submission rate limit exceeded for this public key.');
+        }
+
+        recent.push(now);
+        this.submissionTimestamps.set(key, recent);
+    }
+
+    /**
      * Normalize parameters from array or object format
      */
     private normalizeParams(params: SubmitEpochParams): SubmitEpochParamsAsObject {
@@ -421,8 +466,8 @@ export class SubmitEpochRoute extends Route<
             throw new Error('Epoch number is required');
         }
 
-        if (!params.mldsaPublicKey) {
-            throw new Error('MLDSA public key is required');
+        if (!params.mldsaPublicKey || typeof params.mldsaPublicKey !== 'string') {
+            throw new Error('MLDSA public key is required and must be a hex string');
         }
 
         if (!params.checksumRoot) {

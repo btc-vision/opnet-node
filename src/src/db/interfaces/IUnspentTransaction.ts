@@ -15,7 +15,7 @@ export interface IUnspentTransaction {
 
     scriptPubKey: ShortScriptPubKey;
 
-    readonly deletedAtBlock?: Long;
+    readonly deletedAtBlock?: Long | null;
 }
 
 export interface ISpentTransaction {

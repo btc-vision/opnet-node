@@ -179,7 +179,9 @@ export class VMManager extends Logger {
 
         this.vmBitcoinBlock.prepare(blockId);
 
-        this.blockState = new StateMerkleTree();
+        this.blockState = new StateMerkleTree(
+            OPNetConsensus.bindsContractAddressInStateProof(blockId),
+        );
         this.receiptState = new ReceiptMerkleTree();
     }
 
@@ -1404,6 +1406,7 @@ export class VMManager extends Logger {
 
         // Verify proofs
         const isValid: boolean = await this.verifyProofs(
+            address,
             pointer,
             realValue.value,
             realValue.proofs,
@@ -1600,11 +1603,19 @@ export class VMManager extends Logger {
     }
 
     private async verifyProofs(
+        contractAddress: Address,
         encodedPointer: Uint8Array,
         value: MemoryValue,
         proofs: string[],
         blockHeight: bigint,
     ): Promise<boolean> {
+        // Assemble the leaf exactly as StateMerkleTree did when the root was
+        // committed for this block height: address-bound at/after the fork, legacy
+        // (pointer,value) before it.
+        const leaf: Uint8Array[] = OPNetConsensus.bindsContractAddressInStateProof(blockHeight)
+            ? [new Uint8Array(contractAddress), encodedPointer, value]
+            : [encodedPointer, value];
+
         if (blockHeight === this.vmBitcoinBlock.height) {
             if (!this.blockState) {
                 throw new Error('Block state not found');
@@ -1622,7 +1633,7 @@ export class VMManager extends Logger {
             // Same block.
             return this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK
                 ? true
-                : StateMerkleTree.verify(this.blockState.root, [encodedPointer, value], proofs);
+                : StateMerkleTree.verify(this.blockState.root, leaf, proofs);
         }
 
         /** We must get the block root states */
@@ -1647,7 +1658,7 @@ export class VMManager extends Logger {
         }
 
         // We must verify the proofs from the block root states.
-        return StateMerkleTree.verify(blockHeaders.storageRoot, [encodedPointer, value], proofs);
+        return StateMerkleTree.verify(blockHeaders.storageRoot, leaf, proofs);
     }
 
     private async verifyBlockAtHeight(

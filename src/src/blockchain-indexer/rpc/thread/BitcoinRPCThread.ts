@@ -7,6 +7,7 @@ import {
 import { fromHex } from '@btc-vision/bitcoin';
 import { DataConverter } from '@btc-vision/bsi-common';
 import { Config } from '../../../config/Config.js';
+import { btrace } from '../../../utils/BroadcastTrace.js';
 import {
     BlockHeaderChecksumProof,
     BlockHeaderDocument,
@@ -36,6 +37,7 @@ import {
     TestMempoolAcceptRequest,
 } from '../../../threading/interfaces/thread-messages/messages/api/PackageRequest.js';
 import { RPCSubWorkerManager } from './RPCSubWorkerManager.js';
+import { installBitcoinRPCTimeout } from '../RPCTimeout.js';
 import { PointerStorageMap } from '../../../vm/evaluated/EvaluatedResult.js';
 import { NetEvent } from '@btc-vision/transaction';
 import { BlockHeaderValidator } from '../../../vm/BlockHeaderValidator.js';
@@ -67,6 +69,11 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
     protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
 
     protected async init(): Promise<void> {
+        // Bound every Bitcoin Core RPC call so an unresponsive node fails fast
+        // instead of leaving fetch() promises (and the data they pin) hanging
+        // forever. Must run before any RPC call is made.
+        installBitcoinRPCTimeout();
+
         await this.vmStorage.init();
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
 
@@ -243,8 +250,14 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
             throw new Error('No raw transaction data provided');
         }
 
+        const rawTx = transactionData.data.rawTransaction;
+        btrace('BitcoinCore.sendRawTransaction', `ENTER -> calling Bitcoin Core sendrawtransaction`, {
+            rawTx,
+        });
+        const t0 = performance.now();
+
         const result: string | null = await this.bitcoinRPC
-            .sendRawTransaction({ hexstring: transactionData.data.rawTransaction })
+            .sendRawTransaction({ hexstring: rawTx })
             .catch((e: unknown) => {
                 const error = e as Error;
                 response.error = error.message || 'Unknown error';
@@ -252,10 +265,21 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
                 return null;
             });
 
+        const elapsed = performance.now() - t0;
         response.success = result !== null;
 
         if (result) {
             response.result = result;
+            btrace(
+                'BitcoinCore.sendRawTransaction',
+                `DONE after ${elapsed}ms -> Bitcoin Core ACCEPTED txid=${result}`,
+            );
+        } else {
+            btrace(
+                'BitcoinCore.sendRawTransaction',
+                `FAILED after ${elapsed}ms -> error=${response.error ?? 'null result'}`,
+                { rawTx },
+            );
         }
 
         return response;
@@ -264,11 +288,49 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
     private async testMempoolAccept(
         data: TestMempoolAcceptRequest,
     ): Promise<TestMempoolAcceptResult[]> {
-        return await this.bitcoinRPC.testMempoolAccept(data.data.rawtxs);
+        btrace(
+            'BitcoinCore.testMempoolAccept',
+            `ENTER -> calling Bitcoin Core testmempoolaccept (${data.data.rawtxs.length} tx)`,
+            { rawtxs: data.data.rawtxs },
+        );
+        const t0 = performance.now();
+        try {
+            const res = await this.bitcoinRPC.testMempoolAccept(data.data.rawtxs);
+            btrace(
+                'BitcoinCore.testMempoolAccept',
+                `DONE after ${performance.now() - t0}ms -> ${JSON.stringify(res)}`,
+            );
+            return res;
+        } catch (e) {
+            btrace(
+                'BitcoinCore.testMempoolAccept',
+                `ERROR after ${performance.now() - t0}ms -> ${e instanceof Error ? e.message : String(e)}`,
+            );
+            throw e;
+        }
     }
 
     private async submitPackage(data: SubmitPackageRequest): Promise<PackageResult | null> {
-        return await this.bitcoinRPC.submitPackage(data.data.packageTxs);
+        btrace(
+            'BitcoinCore.submitPackage',
+            `ENTER -> calling Bitcoin Core submitpackage (${data.data.packageTxs.length} tx)`,
+            { packageTxs: data.data.packageTxs },
+        );
+        const t0 = performance.now();
+        try {
+            const res = await this.bitcoinRPC.submitPackage(data.data.packageTxs);
+            btrace(
+                'BitcoinCore.submitPackage',
+                `DONE after ${performance.now() - t0}ms -> ${JSON.stringify(res)}`,
+            );
+            return res;
+        } catch (e) {
+            btrace(
+                'BitcoinCore.submitPackage',
+                `ERROR after ${performance.now() - t0}ms -> ${e instanceof Error ? e.message : String(e)}`,
+            );
+            throw e;
+        }
     }
 
     private getChecksumProofs(rawProofs: ChecksumProof[]): BlockHeaderChecksumProof {

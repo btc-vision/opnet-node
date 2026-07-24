@@ -14,6 +14,7 @@ import { RPCMessage } from '../../../../../threading/interfaces/thread-messages/
 import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { MessageType } from '../../../../../threading/enum/MessageType.js';
 import { ServerThread } from '../../../../ServerThread.js';
+import { btrace } from '../../../../../utils/BroadcastTrace.js';
 import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.js';
 import { BroadcastResponse } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { BroadcastOPNetRequest } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
@@ -61,6 +62,7 @@ export class BroadcastTransaction extends Route<
             let parsedData: Uint8Array = fromHex(data);
             const tx = Transaction.fromBuffer(Uint8Array.from(parsedData));
             const txHash = tx.getId();
+            btrace('API.BroadcastTransaction.getData', `REQUEST RECEIVED txHash=${txHash} -> step 1: verify via MEMPOOL`);
             const verification: BroadcastResponse | undefined = await this.verifyOPNetTransaction(
                 parsedData,
                 txHash,
@@ -245,9 +247,17 @@ export class BroadcastTransaction extends Route<
                 } as BroadcastOPNetRequest,
             };
 
-        return (await ServerThread.sendMessageToThread(ThreadTypes.P2P, currentBlockMsg)) as
-            | BroadcastResponse
-            | undefined;
+        btrace('API.broadcastOPNetTransaction', `SEND -> BROADCAST id=${id} bytes=${data.length} (awaiting reply)`);
+        const res = (await ServerThread.sendMessageToThread(
+            ThreadTypes.BROADCAST,
+            currentBlockMsg,
+        )) as BroadcastResponse | undefined;
+        btrace(
+            'API.broadcastOPNetTransaction',
+            `GOT REPLY <- BROADCAST id=${id} response=${res === undefined ? 'undefined/null(timeout?)' : JSON.stringify(res)}`,
+        );
+
+        return res;
     }
 
     private async verifyOPNetTransaction(
@@ -268,9 +278,16 @@ export class BroadcastTransaction extends Route<
                 } as BroadcastOPNetRequest,
             };
 
-        return (await ServerThread.sendMessageToThread(ThreadTypes.MEMPOOL, currentBlockMsg)) as
+        btrace('API.verifyOPNetTransaction', `SEND -> MEMPOOL id=${id} (awaiting reply, this runs BEFORE broadcast)`);
+        const res = (await ServerThread.sendMessageToThread(ThreadTypes.MEMPOOL, currentBlockMsg)) as
             | BroadcastResponse
             | undefined;
+        btrace(
+            'API.verifyOPNetTransaction',
+            `GOT REPLY <- MEMPOOL id=${id} response=${res === undefined ? 'undefined/null(timeout?)' : 'ok'}`,
+        );
+
+        return res;
     }
 
     private getDecodedParams(
