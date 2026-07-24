@@ -37,8 +37,13 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # Pinned to 11.x, not @latest. npm 12 requires
+      # ^22.22.2 || ^24.15.0 || >=26.0.0 and so refuses to install on Node 25,
+      # which package.json engines (>=24.0.0 <26.0.0) still declares supported.
+      # npm 11 supports the whole matrix. Move back to @latest only when 25.x is
+      # dropped from the matrix and engines.
       - name: Update npm
-        run: npm install -g npm@latest
+        run: npm install -g npm@^11
 
       - name: Install dependencies
         run: npm install
