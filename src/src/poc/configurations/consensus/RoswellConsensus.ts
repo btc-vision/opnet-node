@@ -14,6 +14,7 @@ import { ConsensusRules } from '../../../vm/consensus/ConsensusRules.js';
 
 const RoswellConsensusRules: ConsensusRules = new ConsensusRules();
 RoswellConsensusRules.insertFlag(ConsensusRules.UNSAFE_QUANTUM_SIGNATURES_ALLOWED);
+RoswellConsensusRules.insertFlag(ConsensusRules.STRICT_MEMORY_METERING);
 // RoswellConsensusRules.insertFlag(ConsensusRules.CONTRACT_UPDATES_ALLOWED);
 
 const DISABLE_OP20_SIGNATURE_ALLOWANCE_BLOCK = 956_297n;
