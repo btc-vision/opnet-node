@@ -104,6 +104,52 @@ class OPNetConsensusConfiguration extends Logger {
         return activation === undefined || blockHeight >= activation;
     }
 
+    /**
+     * Whether a link request that creates a NEW identity must reveal the ML-DSA
+     * public key and a signature over it.
+     *
+     * Split out of MLDSA_IDENTITY_BINDING_GUARD so the two rules can move
+     * independently; the configured heights currently match it exactly, so this
+     * reproduces the behaviour v1.1.2 already enforces.
+     *
+     * This is the ONLY rule that stops an attacker adopting a 32-byte identity
+     * they hold no preimage for -- including one that already holds a balance but
+     * has never been linked -- so it fails CLOSED: a network with no configured
+     * height enforces from genesis. It does reject the link request that
+     * `@btc-vision/transaction` below 1.8.9 builds, so clients must be on a
+     * revealing build.
+     */
+    public requiresMLDSARevealOnNewLink(blockHeight: bigint): boolean {
+        const chain =
+            OPNetConsensus.consensus.CONTRACTS.MLDSA_REVEAL_REQUIRED_ON_NEW_LINK[
+                Config.BITCOIN.CHAIN_ID
+            ];
+        const activation = chain?.[Config.BITCOIN.NETWORK];
+
+        return activation === undefined || blockHeight >= activation;
+    }
+
+    /**
+     * Whether a contract may be deployed onto an address that is already an
+     * ML-DSA identity.
+     *
+     * The mirror of {@link enforcesMLDSAIdentityBinding}, which only covers the
+     * link-then-check direction. Kept on its own height because it is a NEW rule:
+     * sharing the guard's already-passed activation would retroactively
+     * invalidate historical deployments.
+     *
+     * Fails CLOSED, like the guard it mirrors.
+     */
+    public enforcesMLDSADeployIdentityGuard(blockHeight: bigint): boolean {
+        const chain =
+            OPNetConsensus.consensus.CONTRACTS.MLDSA_DEPLOY_IDENTITY_GUARD[
+                Config.BITCOIN.CHAIN_ID
+            ];
+        const activation = chain?.[Config.BITCOIN.NETWORK];
+
+        return activation === undefined || blockHeight >= activation;
+    }
+
     public get allowUnsafeSignatures(): boolean {
         if (!this.#consensus) {
             throw new Error('Consensus not set.');

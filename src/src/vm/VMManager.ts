@@ -463,6 +463,10 @@ export class VMManager extends Logger {
             contractDeploymentTransaction,
         );
 
+        // Deploying onto an address somebody already claimed as their ML-DSA
+        // identity would hand them `caller` for this contract.
+        await this.assertNotClaimedIdentity(contractInformation.contractPublicKey);
+
         if (this.isProcessing) {
             throw new Error('Concurrency detected. (deployContract)');
         }
@@ -739,7 +743,12 @@ export class VMManager extends Logger {
             // Without this, any unclaimed 32-byte value could be adopted as an
             // identity. Re-linking an ALREADY linked key still succeeds (exists ===
             // true), so existing wallets are unaffected.
-            if (OPNetConsensus.enforcesMLDSAIdentityBinding(this.vmBitcoinBlock.height)) {
+            //
+            // Gated separately from the contract-address guard and OFF by default:
+            // not revealing is the documented default and pre-1.8.9 clients cannot
+            // reveal at all, so enforcing it rejects every new wallet's first
+            // interaction.
+            if (OPNetConsensus.requiresMLDSARevealOnNewLink(this.vmBitcoinBlock.height)) {
                 throw new Error(
                     'OP_NET: A new ML-DSA link must reveal the public key and a valid ML-DSA signature.',
                 );
@@ -858,6 +867,48 @@ export class VMManager extends Logger {
         if (contract) {
             throw new Error(
                 `OP_NET: ML-DSA link request may not claim a deployed contract address (${claimed.toHex()}).`,
+            );
+        }
+    }
+
+    /**
+     * The mirror of {@link assertNotContractAddress}.
+     *
+     * That guard asks whether a claimed hash is a contract AT THE MOMENT OF
+     * LINKING, which only catches an attacker who arrives late. Reversing the
+     * order defeats it entirely: claim the address of a contract you have not
+     * deployed YET, then deploy it. The link succeeds (nothing is there), the
+     * deployment succeeds (nothing checks the ML-DSA store), and from then on
+     * every interaction from that Bitcoin key resolves `caller` to the contract,
+     * so the attacker can move the contract's balances.
+     *
+     * No race is involved -- the deployer chooses the salt and therefore knows
+     * the resulting address before broadcasting the link -- and both halves are
+     * the attacker's own transactions, in whatever blocks they like.
+     *
+     * Refuse to deploy onto an identity somebody already holds. The pending map
+     * is consulted first because a link earlier in THIS block has not been
+     * written to storage yet.
+     */
+    private async assertNotClaimedIdentity(contractAddress: Address): Promise<void> {
+        if (!OPNetConsensus.enforcesMLDSADeployIdentityGuard(this.vmBitcoinBlock.height)) {
+            return;
+        }
+
+        if (this.mldsaToStoreByHash.has(contractAddress)) {
+            throw new Error(
+                `OP_NET: Can not deploy to an address already linked to an ML-DSA identity (${contractAddress.toHex()}).`,
+            );
+        }
+
+        const linked = await this.vmStorage.getMLDSAPublicKeyFromHash(
+            contractAddress,
+            this.vmBitcoinBlock.height,
+        );
+
+        if (linked) {
+            throw new Error(
+                `OP_NET: Can not deploy to an address already linked to an ML-DSA identity (${contractAddress.toHex()}).`,
             );
         }
     }
@@ -1100,6 +1151,10 @@ export class VMManager extends Logger {
             evaluation.contractAddress,
             contractInfo.bytecode.subarray(1), // WE DROP THE VERSION BYTE.
         );
+
+        // Same reasoning as the deployment-transaction path: an address that is
+        // already an ML-DSA identity must not become a contract.
+        await this.assertNotClaimedIdentity(deployResult);
 
         if (this.contractCache.has(deployResult)) {
             throw new Error('Contract already deployed. (cache)');

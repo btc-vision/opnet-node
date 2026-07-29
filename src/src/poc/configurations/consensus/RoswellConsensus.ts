@@ -204,6 +204,38 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
                 [BitcoinNetwork.regtest]: 0n,
             },
         },
+
+        // Identical to the guard above. This rule was split out of that flag, and
+        // these heights reproduce exactly what v1.1.2 already enforces -- do NOT
+        // move them, or the block the exploit landed in (957_938) becomes valid
+        // again and this node forks away from every released one.
+        MLDSA_REVEAL_REQUIRED_ON_NEW_LINK: {
+            [ChainIds.Bitcoin]: {
+                [BitcoinNetwork.mainnet]: 957_378n,
+                [BitcoinNetwork.testnet]: 140_000n,
+                [BitcoinNetwork.regtest]: 0n,
+            },
+        },
+
+        // The only genuinely NEW rule in this change set, so it activates AHEAD of
+        // the tip on every network rather than sharing the guard's already-passed
+        // height: turning it on retroactively could invalidate a historical
+        // deployment that landed on a claimed identity.
+        //
+        // Deliberately 960_060 on testnet/regtest too, rather than those networks'
+        // guard heights, so nothing new is enforced over already-indexed history
+        // anywhere. On chains that will not reach 960_060 this leaves the rule
+        // dormant -- acceptable because MLDSA_REVEAL_REQUIRED_ON_NEW_LINK already
+        // makes the claimed hash unchooseable, which is what blocks the attack;
+        // this guard is defence in depth. Give a network its own height to turn it
+        // on sooner.
+        MLDSA_DEPLOY_IDENTITY_GUARD: {
+            [ChainIds.Bitcoin]: {
+                [BitcoinNetwork.mainnet]: 960_060n,
+                [BitcoinNetwork.testnet]: 960_060n,
+                [BitcoinNetwork.regtest]: 960_060n,
+            },
+        },
     },
 
     COMPRESSION: {

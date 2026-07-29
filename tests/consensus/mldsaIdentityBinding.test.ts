@@ -78,4 +78,121 @@ describe('ML-DSA identity binding guard', () => {
         useNetwork(BitcoinNetwork.mainnet, ChainIds.Fractal);
         expect(OPNetConsensus.enforcesMLDSAIdentityBinding(0n)).toBe(true);
     });
+
+    /**
+     * v1.1.1 moved this height to 957_378, BELOW the exploit block, so replaying
+     * history rejects the poisoned link. Moving it forward again would revalidate
+     * block 957_938 and fork away from every released node.
+     */
+    it('pins the released mainnet height — moving it revalidates the exploit', () => {
+        const activation =
+            OPNetConsensus.consensus.CONTRACTS.MLDSA_IDENTITY_BINDING_GUARD[ChainIds.Bitcoin]?.[
+                BitcoinNetwork.mainnet
+            ];
+
+        expect(activation).toBe(957_378n);
+        expect(OPNetConsensus.enforcesMLDSAIdentityBinding(957_938n)).toBe(true);
+    });
+});
+
+/**
+ * The reveal requirement, split out of MLDSA_IDENTITY_BINDING_GUARD so the two
+ * rules can move independently.
+ *
+ * It is the only rule that stops an attacker adopting a 32-byte identity they
+ * hold no preimage for -- including one that already holds a balance but has
+ * never been linked -- so it fails CLOSED, and its heights must keep reproducing
+ * what v1.1.2 already enforced.
+ */
+describe('ML-DSA reveal requirement', () => {
+    beforeAll(() => {
+        OPNetConsensus.setBlockHeight(1n);
+    });
+
+    beforeEach(() => {
+        useNetwork(BitcoinNetwork.mainnet);
+    });
+
+    // The split must be behaviour-preserving: same switch, two names.
+    it('reproduces the guard heights exactly on every network', () => {
+        const guard =
+            OPNetConsensus.consensus.CONTRACTS.MLDSA_IDENTITY_BINDING_GUARD[ChainIds.Bitcoin];
+        const reveal =
+            OPNetConsensus.consensus.CONTRACTS.MLDSA_REVEAL_REQUIRED_ON_NEW_LINK[ChainIds.Bitcoin];
+
+        expect(reveal).toStrictEqual(guard);
+    });
+
+    it('switches exactly at the mainnet boundary', () => {
+        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(957_377n)).toBe(false);
+        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(957_378n)).toBe(true);
+    });
+
+    it('uses the testnet height on testnet', () => {
+        useNetwork(BitcoinNetwork.testnet);
+
+        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(139_999n)).toBe(false);
+        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(140_000n)).toBe(true);
+    });
+
+    it('is active from genesis on regtest', () => {
+        useNetwork(BitcoinNetwork.regtest);
+
+        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(0n)).toBe(true);
+    });
+
+    it('fails closed for networks with no configured height', () => {
+        useNetwork(BitcoinNetwork.signet);
+        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(0n)).toBe(true);
+
+        useNetwork(BitcoinNetwork.mainnet, ChainIds.Fractal);
+        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(0n)).toBe(true);
+    });
+});
+
+/**
+ * The deploy-side mirror: a contract may not be deployed onto an address that is
+ * already an ML-DSA identity.
+ *
+ * A NEW rule, so unlike the two above it activates AHEAD of the tip rather than
+ * at the already-passed guard height.
+ */
+describe('ML-DSA deploy identity guard', () => {
+    beforeAll(() => {
+        OPNetConsensus.setBlockHeight(1n);
+    });
+
+    beforeEach(() => {
+        useNetwork(BitcoinNetwork.mainnet);
+    });
+
+    it('switches exactly at the mainnet boundary', () => {
+        expect(OPNetConsensus.enforcesMLDSADeployIdentityGuard(960_059n)).toBe(false);
+        expect(OPNetConsensus.enforcesMLDSADeployIdentityGuard(960_060n)).toBe(true);
+    });
+
+    // A new rule applied at an already-passed height would retroactively
+    // invalidate historical deployments.
+    it('activates after the guard it mirrors on mainnet', () => {
+        const guard =
+            OPNetConsensus.consensus.CONTRACTS.MLDSA_IDENTITY_BINDING_GUARD[ChainIds.Bitcoin]?.[
+                BitcoinNetwork.mainnet
+            ];
+        const deploy =
+            OPNetConsensus.consensus.CONTRACTS.MLDSA_DEPLOY_IDENTITY_GUARD[ChainIds.Bitcoin]?.[
+                BitcoinNetwork.mainnet
+            ];
+
+        expect(guard).toBeDefined();
+        expect(deploy).toBeDefined();
+        expect(deploy as bigint).toBeGreaterThan(guard as bigint);
+    });
+
+    it('fails closed for networks with no configured height', () => {
+        useNetwork(BitcoinNetwork.signet);
+        expect(OPNetConsensus.enforcesMLDSADeployIdentityGuard(0n)).toBe(true);
+
+        useNetwork(BitcoinNetwork.mainnet, ChainIds.Fractal);
+        expect(OPNetConsensus.enforcesMLDSADeployIdentityGuard(0n)).toBe(true);
+    });
 });

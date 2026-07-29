@@ -41,9 +41,15 @@ const INNOCENT_HASH = Uint8Array.from(
 
 const HEIGHT = 1_000_000n;
 
+const hex = (bytes: Uint8Array): string =>
+    Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+
 interface Harness {
     manager: VMManager;
     contracts: Set<string>;
+    identities: Set<string>;
+    pending: AddressMap<Uint8Array>;
+    assertNotClaimedIdentity: (contractAddress: Address) => Promise<void>;
     exists: {
         hashedExists: boolean;
         legacyExists: boolean;
@@ -55,6 +61,7 @@ interface Harness {
 
 function makeHarness(height: bigint = HEIGHT): Harness {
     const contracts = new Set<string>();
+    const identities = new Set<string>();
     const exists = {
         hashedExists: false,
         legacyExists: false,
@@ -65,18 +72,30 @@ function makeHarness(height: bigint = HEIGHT): Harness {
 
     const manager = Object.create(VMManager.prototype) as VMManager;
     const injected = manager as unknown as Record<string, unknown>;
+    const pending: AddressMap<Uint8Array> = new AddressMap();
 
     injected.vmBitcoinBlock = { height };
     injected.vmStorage = {
         getContractAt: (address: string) =>
             Promise.resolve(contracts.has(address.toLowerCase()) ? { address } : undefined),
         mldsaPublicKeyExists: () => Promise.resolve(exists),
+        getMLDSAPublicKeyFromHash: (key: Uint8Array) =>
+            Promise.resolve(identities.has(hex(key)) ? { hashedPublicKey: key } : null),
     };
     injected.mldsaToStore = new AddressMap();
     injected.mldsaToStoreLegacy = new AddressMap();
-    injected.mldsaToStoreByHash = new AddressMap();
+    injected.mldsaToStoreByHash = pending;
 
-    return { manager, contracts, exists };
+    const guard = injected.assertNotClaimedIdentity as (a: Address) => Promise<void>;
+
+    return {
+        manager,
+        contracts,
+        identities,
+        pending,
+        exists,
+        assertNotClaimedIdentity: (contractAddress: Address) => guard.call(manager, contractAddress),
+    };
 }
 
 function linkRequest(hashedPublicKey: Uint8Array, publicKey: Uint8Array | null = null): IMLDSAPublicKey {
@@ -94,6 +113,11 @@ function linkRequest(hashedPublicKey: Uint8Array, publicKey: Uint8Array | null =
 function markDeployed(h: Harness, hashedPublicKey: Uint8Array): void {
     h.contracts.add(new Address(hashedPublicKey).toHex().toLowerCase());
 }
+
+// A real ML-DSA-44 public key is 1312 bytes. Only the length matters here: the
+// signature itself is verified upstream in SharedInteractionParameters, not by
+// the VMManager guards under test.
+const REVEALED_KEY = new Uint8Array(1312);
 
 describe('ML-DSA identity binding guard (VMManager)', () => {
     beforeAll(() => {
@@ -123,7 +147,7 @@ describe('ML-DSA identity binding guard (VMManager)', () => {
             // A real ML-DSA key whose hash happens to be a contract address must
             // not slip through just because a signature was verified upstream.
             await expect(
-                h.manager.exposeMLDSAPublicKey(linkRequest(VICTIM_CONTRACT, new Uint8Array(1312))),
+                h.manager.exposeMLDSAPublicKey(linkRequest(VICTIM_CONTRACT, REVEALED_KEY)),
             ).rejects.toThrow(/may not claim a deployed contract address/);
         });
 
@@ -131,14 +155,43 @@ describe('ML-DSA identity binding guard (VMManager)', () => {
             const h = makeHarness();
             markDeployed(h, VICTIM_CONTRACT);
 
+            // Via the reveal path, which is the only way to create a new identity
+            // now that rule 1 is enforced on every network.
             await expect(
-                h.manager.addMLDSAInfoToStore(linkRequest(INNOCENT_HASH)),
-            ).rejects.not.toThrow(/deployed contract address/);
+                h.manager.exposeMLDSAPublicKey(linkRequest(INNOCENT_HASH, REVEALED_KEY)),
+            ).resolves.toBeUndefined();
         });
     });
 
     describe('rule 1 — a new link must reveal the ML-DSA key', () => {
-        it('rejects a new unrevealed link', async () => {
+        // Enforced on every configured network. Without it, any unclaimed 32-byte
+        // value can be adopted as an identity with no preimage proof -- including
+        // one that is already funded but not yet linked.
+        it('rejects a new unrevealed link (regtest enforces from genesis)', async () => {
+            const h = makeHarness();
+
+            await expect(
+                h.manager.addMLDSAInfoToStore(linkRequest(INNOCENT_HASH)),
+            ).rejects.toThrow(/must reveal the public key and a valid ML-DSA signature/);
+        });
+
+        it('rejects a new unrevealed link on mainnet at the activation height', async () => {
+            mockConfig.BITCOIN.NETWORK = 'mainnet';
+
+            const h = makeHarness(957_378n);
+            const request = { ...linkRequest(INNOCENT_HASH), insertedBlockHeight: 957_378n };
+
+            await expect(h.manager.addMLDSAInfoToStore(request)).rejects.toThrow(
+                /must reveal the public key and a valid ML-DSA signature/,
+            );
+        });
+
+        // Fails CLOSED, like the contract-address guard: a chain with no pre-fork
+        // history never depended on the loose behaviour, and defaulting a new
+        // network to "squattable" is never the safe choice.
+        it('enforces on a network with no configured height', async () => {
+            mockConfig.BITCOIN.NETWORK = 'signet';
+
             const h = makeHarness();
 
             await expect(
@@ -161,14 +214,66 @@ describe('ML-DSA identity binding guard (VMManager)', () => {
             const h = makeHarness();
 
             await expect(
-                h.manager.exposeMLDSAPublicKey(linkRequest(INNOCENT_HASH, new Uint8Array(1312))),
+                h.manager.exposeMLDSAPublicKey(linkRequest(INNOCENT_HASH, REVEALED_KEY)),
             ).resolves.toBeUndefined();
         });
     });
 
+    /**
+     * Rule 2 only asks whether the claimed hash is a contract AT LINK TIME, so
+     * reversing the order walks straight past it: claim the address of a contract
+     * you have not deployed yet, then deploy it. The deployer picks the salt, so
+     * the address is known before the link goes out and no race is involved.
+     */
+    describe('reverse ordering — may not deploy onto a claimed identity', () => {
+        it('rejects deploying to an address linked in an earlier block', async () => {
+            const h = makeHarness();
+            h.identities.add(hex(INNOCENT_HASH));
+
+            await expect(h.assertNotClaimedIdentity(new Address(INNOCENT_HASH))).rejects.toThrow(
+                /already linked to an ML-DSA identity/,
+            );
+        });
+
+        it('rejects deploying to an address claimed earlier in the SAME block', async () => {
+            const h = makeHarness();
+            // Not yet flushed to storage; only the pending map knows about it.
+            h.pending.set(new Address(INNOCENT_HASH), LEGACY_PUBKEY);
+
+            await expect(h.assertNotClaimedIdentity(new Address(INNOCENT_HASH))).rejects.toThrow(
+                /already linked to an ML-DSA identity/,
+            );
+        });
+
+        it('allows deploying to an unclaimed address', async () => {
+            const h = makeHarness();
+            h.identities.add(hex(VICTIM_CONTRACT));
+
+            await expect(
+                h.assertNotClaimedIdentity(new Address(INNOCENT_HASH)),
+            ).resolves.toBeUndefined();
+        });
+
+        it('is gated by its own activation height', async () => {
+            mockConfig.BITCOIN.NETWORK = 'mainnet';
+
+            const before = makeHarness(960_059n);
+            before.identities.add(hex(INNOCENT_HASH));
+            await expect(
+                before.assertNotClaimedIdentity(new Address(INNOCENT_HASH)),
+            ).resolves.toBeUndefined();
+
+            const after = makeHarness(960_060n);
+            after.identities.add(hex(INNOCENT_HASH));
+            await expect(
+                after.assertNotClaimedIdentity(new Address(INNOCENT_HASH)),
+            ).rejects.toThrow(/already linked to an ML-DSA identity/);
+        });
+    });
+
     describe('consensus gating', () => {
-        it('does not enforce either rule below the activation height', async () => {
-            // mainnet activates at 959_500; 900_000 is before the fork.
+        it('does not enforce the contract-address guard below the activation height', async () => {
+            // mainnet activates at 957_378; 900_000 is before the fork.
             mockConfig.BITCOIN.NETWORK = 'mainnet';
 
             const h = makeHarness(900_000n);
@@ -184,15 +289,15 @@ describe('ML-DSA identity binding guard (VMManager)', () => {
             await expect(h.manager.addMLDSAInfoToStore(request)).resolves.toBeUndefined();
         });
 
-        it('enforces both rules at and above the activation height', async () => {
+        it('enforces the contract-address guard at and above the activation height', async () => {
             mockConfig.BITCOIN.NETWORK = 'mainnet';
 
-            const h = makeHarness(959_500n);
+            const h = makeHarness(957_378n);
             markDeployed(h, VICTIM_CONTRACT);
 
             const request = {
                 ...linkRequest(VICTIM_CONTRACT),
-                insertedBlockHeight: 959_500n,
+                insertedBlockHeight: 957_378n,
             };
 
             await expect(h.manager.addMLDSAInfoToStore(request)).rejects.toThrow(

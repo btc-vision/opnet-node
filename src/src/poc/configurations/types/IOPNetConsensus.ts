@@ -180,22 +180,67 @@ export interface IOPNetConsensus<T extends Consensus> {
          * (Address.setMldsaKey stores a 32-byte input verbatim), and a link
          * request's Schnorr signature only proves the sender owns the BITCOIN
          * key being linked; it proves nothing about the claimed hash. From this
-         * height two rules apply:
-         *
-         *  1. A NEW link must reveal the ML-DSA public key and a valid ML-DSA
-         *     signature over it. Without the reveal nothing ties `hashedPublicKey`
-         *     to a key the sender actually holds, so any unclaimed 32-byte value
-         *     could be adopted as an identity. Re-linking an already linked key is
-         *     unaffected, so existing wallets keep working.
-         *  2. A link may not claim a `hashedPublicKey` that is already a deployed
-         *     contract address. Contract addresses share that same 32-byte space
-         *     and are never written to the ML-DSA store, so no uniqueness check
-         *     could see them.
+         * height a link may not claim a `hashedPublicKey` that is already a
+         * deployed contract address: contract addresses share that same 32-byte
+         * space and are never written to the ML-DSA store, so no uniqueness
+         * check could see them, and the claimant would then transact AS the
+         * contract.
          *
          * Rejecting these changes which transactions are valid, so this is a
          * HARD FORK and every node must use the same height.
          */
         readonly MLDSA_IDENTITY_BINDING_GUARD: {
+            readonly [key in ChainIds]?: {
+                readonly [key in BitcoinNetwork]?: bigint;
+            };
+        };
+
+        /**
+         * Block height at which a NEW ML-DSA link must reveal the ML-DSA public
+         * key and a valid ML-DSA signature over it.
+         *
+         * Without the reveal nothing ties `hashedPublicKey` to a key the sender
+         * actually holds, so an unclaimed 32-byte value can be squatted as an
+         * identity. That is worth closing, but unlike the contract-address guard
+         * it rejects transactions honest clients still build: not revealing is
+         * the protocol's documented default (a reveal costs ~3.7 KB on-chain for
+         * ML-DSA-44) and `@btc-vision/transaction` only started revealing by
+         * default in 1.8.9. Enabling it before clients have migrated bricks the
+         * first interaction of every new wallet.
+         *
+         * Leave unset until the ecosystem is on a revealing client. Unset means
+         * NOT enforced.
+         *
+         * Rejecting these changes which transactions are valid, so this is a
+         * HARD FORK and every node must use the same height.
+         */
+        readonly MLDSA_REVEAL_REQUIRED_ON_NEW_LINK: {
+            readonly [key in ChainIds]?: {
+                readonly [key in BitcoinNetwork]?: bigint;
+            };
+        };
+
+        /**
+         * Block height at which a contract may not be DEPLOYED onto an address
+         * that is already an ML-DSA identity.
+         *
+         * MLDSA_IDENTITY_BINDING_GUARD only asks whether the claimed hash is a
+         * contract at the moment of LINKING, so reversing the order walks past it:
+         * claim the address of a contract that does not exist yet, then deploy it.
+         * Contract addresses are `hash256(xonly(deployerPubKey) || saltHash ||
+         * hash256(bytecode))`, deterministic in inputs the deployer chooses, so the
+         * address is known before the link is broadcast and no race is involved.
+         *
+         * This is a genuinely NEW rule rather than a restatement of an existing
+         * one, so it gets its own height instead of sharing the guard's: applying
+         * it at the guard's already-passed activation would retroactively
+         * invalidate any historical deployment that happened to land on a claimed
+         * identity. Set it AHEAD of the tip.
+         *
+         * Rejecting these changes which transactions are valid, so this is a
+         * HARD FORK and every node must use the same height.
+         */
+        readonly MLDSA_DEPLOY_IDENTITY_GUARD: {
             readonly [key in ChainIds]?: {
                 readonly [key in BitcoinNetwork]?: bigint;
             };
