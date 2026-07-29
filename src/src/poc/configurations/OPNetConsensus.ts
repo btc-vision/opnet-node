@@ -150,6 +150,23 @@ class OPNetConsensusConfiguration extends Logger {
         return activation === undefined || blockHeight >= activation;
     }
 
+    /**
+     * Whether a Bitcoin key may hold only one ML-DSA identity, keyed on the
+     * parity-independent tweaked key rather than the 33-byte compressed key whose
+     * leading byte the sender chooses.
+     *
+     * Closes a chain-split vector, so it fails CLOSED like the guards above.
+     */
+    public enforcesMLDSATweakedIdentityUniqueness(blockHeight: bigint): boolean {
+        const chain =
+            OPNetConsensus.consensus.CONTRACTS.MLDSA_TWEAKED_IDENTITY_UNIQUENESS[
+                Config.BITCOIN.CHAIN_ID
+            ];
+        const activation = chain?.[Config.BITCOIN.NETWORK];
+
+        return activation === undefined || blockHeight >= activation;
+    }
+
     public get allowUnsafeSignatures(): boolean {
         if (!this.#consensus) {
             throw new Error('Consensus not set.');

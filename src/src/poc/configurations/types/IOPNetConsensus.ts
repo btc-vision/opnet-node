@@ -245,6 +245,33 @@ export interface IOPNetConsensus<T extends Consensus> {
                 readonly [key in BitcoinNetwork]?: bigint;
             };
         };
+
+        /**
+         * Block height at which one Bitcoin key may hold only ONE ML-DSA identity,
+         * keyed on the parity-independent tweaked key.
+         *
+         * Uniqueness is otherwise enforced on the 33-byte `legacyPublicKey`, whose
+         * leading parity byte is attacker-chosen: `OPNetHeader` reads it from the
+         * tapscript and only checks it is 0x02 or 0x03, while the script's
+         * OP_HASH256 commitment covers only the 32-byte x-only key. Taproot
+         * signatures are x-only, so 0x02||X and 0x03||X spend with the same
+         * signature and tweak to the same output key. Two links in two blocks
+         * therefore produce two rows sharing a `tweakedPublicKey` (that index is
+         * not unique), and identity resolution then picks whichever row Mongo
+         * returns -- a different `caller` per node, i.e. a CHAIN SPLIT.
+         *
+         * Requiring the reveal does not help: the attacker uses two genuine ML-DSA
+         * keypairs.
+         *
+         * Rejecting these changes which transactions are valid, so this is a
+         * HARD FORK and every node must use the same height. Set it AHEAD of the
+         * tip.
+         */
+        readonly MLDSA_TWEAKED_IDENTITY_UNIQUENESS: {
+            readonly [key in ChainIds]?: {
+                readonly [key in BitcoinNetwork]?: bigint;
+            };
+        };
     };
 
     readonly COMPRESSION: {

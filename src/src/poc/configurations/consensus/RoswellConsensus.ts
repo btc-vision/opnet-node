@@ -236,6 +236,17 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
                 [BitcoinNetwork.regtest]: 960_060n,
             },
         },
+
+        // Also new, also ahead of the tip on every network. Closes the
+        // attacker-chosen parity-byte hole that lets one Bitcoin key hold two
+        // ML-DSA identities and makes identity resolution node-dependent.
+        MLDSA_TWEAKED_IDENTITY_UNIQUENESS: {
+            [ChainIds.Bitcoin]: {
+                [BitcoinNetwork.mainnet]: 960_060n,
+                [BitcoinNetwork.testnet]: 960_060n,
+                [BitcoinNetwork.regtest]: 960_060n,
+            },
+        },
     },
 
     COMPRESSION: {

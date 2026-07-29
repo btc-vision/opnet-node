@@ -196,3 +196,59 @@ describe('ML-DSA deploy identity guard', () => {
         expect(OPNetConsensus.enforcesMLDSADeployIdentityGuard(0n)).toBe(true);
     });
 });
+
+/**
+ * One Bitcoin key, one identity — keyed on the parity-independent tweaked key.
+ *
+ * The 33-byte legacy key's leading parity byte is attacker-chosen and is not
+ * covered by the tapscript commitment, so uniqueness keyed on it lets one key
+ * claim two identities and makes `caller` node-dependent. Also a NEW rule, so it
+ * activates ahead of the tip.
+ */
+describe('ML-DSA tweaked identity uniqueness', () => {
+    beforeAll(() => {
+        OPNetConsensus.setBlockHeight(1n);
+    });
+
+    beforeEach(() => {
+        useNetwork(BitcoinNetwork.mainnet);
+    });
+
+    it('switches exactly at the mainnet boundary', () => {
+        expect(OPNetConsensus.enforcesMLDSATweakedIdentityUniqueness(960_059n)).toBe(false);
+        expect(OPNetConsensus.enforcesMLDSATweakedIdentityUniqueness(960_060n)).toBe(true);
+    });
+
+    it('activates after the reveal rule on mainnet', () => {
+        const reveal =
+            OPNetConsensus.consensus.CONTRACTS.MLDSA_REVEAL_REQUIRED_ON_NEW_LINK[
+                ChainIds.Bitcoin
+            ]?.[BitcoinNetwork.mainnet];
+        const uniqueness =
+            OPNetConsensus.consensus.CONTRACTS.MLDSA_TWEAKED_IDENTITY_UNIQUENESS[
+                ChainIds.Bitcoin
+            ]?.[BitcoinNetwork.mainnet];
+
+        expect(reveal).toBeDefined();
+        expect(uniqueness).toBeDefined();
+        expect(uniqueness as bigint).toBeGreaterThan(reveal as bigint);
+    });
+
+    // Both new rules ship as one fork.
+    it('shares the deploy guard heights', () => {
+        const deploy =
+            OPNetConsensus.consensus.CONTRACTS.MLDSA_DEPLOY_IDENTITY_GUARD[ChainIds.Bitcoin];
+        const uniqueness =
+            OPNetConsensus.consensus.CONTRACTS.MLDSA_TWEAKED_IDENTITY_UNIQUENESS[ChainIds.Bitcoin];
+
+        expect(uniqueness).toStrictEqual(deploy);
+    });
+
+    it('fails closed for networks with no configured height', () => {
+        useNetwork(BitcoinNetwork.signet);
+        expect(OPNetConsensus.enforcesMLDSATweakedIdentityUniqueness(0n)).toBe(true);
+
+        useNetwork(BitcoinNetwork.mainnet, ChainIds.Fractal);
+        expect(OPNetConsensus.enforcesMLDSATweakedIdentityUniqueness(0n)).toBe(true);
+    });
+});

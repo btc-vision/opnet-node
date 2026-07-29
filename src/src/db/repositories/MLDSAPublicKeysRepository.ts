@@ -204,7 +204,21 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
             ],
         };
 
-        const result = await this.queryOne(criteria, currentSession);
+        // Unlike getByHashedPublicKey / getByLegacyPublicKey, whose filters are on
+        // unique indexes and match at most one document, this $or spans three
+        // fields and `tweakedPublicKey` is NOT unique -- so it can match several.
+        // The result becomes `caller`, so an unsorted findOne returning whatever
+        // Mongo picks first means two nodes can execute the same block differently.
+        //
+        // Tie-break on `hashedPublicKey`, NOT `_id`: ObjectIds are generated
+        // per-process, so nodes holding the same logical rows would still disagree.
+        // `hashedPublicKey` is unique, hence a total order, and identical
+        // everywhere. With a single match the sort is a no-op.
+        const result = await this.queryOne(criteria, currentSession, {
+            insertedBlockHeight: 1,
+            hashedPublicKey: 1,
+        });
+
         if (result) {
             delete (result as Document)._id;
         }

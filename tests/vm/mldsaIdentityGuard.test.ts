@@ -39,6 +39,15 @@ const INNOCENT_HASH = Uint8Array.from(
     Buffer.from('1111111111111111111111111111111111111111111111111111111111111111', 'hex'),
 );
 
+// The parity-independent tweaked key both 0x02||X and 0x03||X collapse to.
+const TWEAKED_KEY = Uint8Array.from(
+    Buffer.from('da4710964f7852695de2da025290e24af6d8c281de5a0b902b7135fd9fd74d21', 'hex'),
+);
+
+const OTHER_HASH = Uint8Array.from(
+    Buffer.from('2222222222222222222222222222222222222222222222222222222222222222', 'hex'),
+);
+
 const HEIGHT = 1_000_000n;
 
 const hex = (bytes: Uint8Array): string =>
@@ -48,6 +57,8 @@ interface Harness {
     manager: VMManager;
     contracts: Set<string>;
     identities: Set<string>;
+    /** tweakedPublicKey hex -> hashedPublicKey already bound to it */
+    boundByTweaked: Map<string, Uint8Array>;
     pending: AddressMap<Uint8Array>;
     assertNotClaimedIdentity: (contractAddress: Address) => Promise<void>;
     exists: {
@@ -62,6 +73,7 @@ interface Harness {
 function makeHarness(height: bigint = HEIGHT): Harness {
     const contracts = new Set<string>();
     const identities = new Set<string>();
+    const boundByTweaked = new Map<string, Uint8Array>();
     const exists = {
         hashedExists: false,
         legacyExists: false,
@@ -81,6 +93,10 @@ function makeHarness(height: bigint = HEIGHT): Harness {
         mldsaPublicKeyExists: () => Promise.resolve(exists),
         getMLDSAPublicKeyFromHash: (key: Uint8Array) =>
             Promise.resolve(identities.has(hex(key)) ? { hashedPublicKey: key } : null),
+        getMLDSAByLegacy: (tweaked: Uint8Array) => {
+            const bound = boundByTweaked.get(hex(tweaked));
+            return Promise.resolve(bound ? { hashedPublicKey: bound } : null);
+        },
     };
     injected.mldsaToStore = new AddressMap();
     injected.mldsaToStoreLegacy = new AddressMap();
@@ -92,6 +108,7 @@ function makeHarness(height: bigint = HEIGHT): Harness {
         manager,
         contracts,
         identities,
+        boundByTweaked,
         pending,
         exists,
         assertNotClaimedIdentity: (contractAddress: Address) => guard.call(manager, contractAddress),
@@ -103,7 +120,7 @@ function linkRequest(hashedPublicKey: Uint8Array, publicKey: Uint8Array | null =
         level: MLDSASecurityLevel.LEVEL2,
         hashedPublicKey,
         legacyPublicKey: LEGACY_PUBKEY,
-        tweakedPublicKey: new Uint8Array(32),
+        tweakedPublicKey: TWEAKED_KEY,
         publicKey,
         insertedBlockHeight: HEIGHT,
         exposedBlockHeight: null,
@@ -268,6 +285,89 @@ describe('ML-DSA identity binding guard (VMManager)', () => {
             await expect(
                 after.assertNotClaimedIdentity(new Address(INNOCENT_HASH)),
             ).rejects.toThrow(/already linked to an ML-DSA identity/);
+        });
+    });
+
+    /**
+     * The parity byte of the 33-byte legacy key is attacker-chosen and is not
+     * covered by the tapscript's OP_HASH256 commitment, so 0x02||X and 0x03||X
+     * spend with the same signature, are both valid points, and tweak to the same
+     * output key. Uniqueness keyed on the 33-byte value therefore lets ONE Bitcoin
+     * key claim TWO identities in two blocks, after which identity resolution is
+     * node-dependent — a chain split.
+     */
+    describe('one Bitcoin key, one identity (parity-byte hole)', () => {
+        it('rejects a second identity for a tweaked key already bound', async () => {
+            const h = makeHarness();
+            // First link, e.g. via 0x02||X, already committed in an earlier block.
+            h.boundByTweaked.set(hex(TWEAKED_KEY), INNOCENT_HASH);
+
+            // Second link from the SAME Bitcoin key via 0x03||X, different identity.
+            await expect(
+                h.manager.exposeMLDSAPublicKey(linkRequest(OTHER_HASH, REVEALED_KEY)),
+            ).rejects.toThrow(/already linked to a different ML-DSA identity/);
+        });
+
+        it('rejects it on the unrevealed path too', async () => {
+            const h = makeHarness();
+            h.boundByTweaked.set(hex(TWEAKED_KEY), INNOCENT_HASH);
+
+            await expect(h.manager.addMLDSAInfoToStore(linkRequest(OTHER_HASH))).rejects.toThrow(
+                /already linked to a different ML-DSA identity/,
+            );
+        });
+
+        // Revealing is no defence: the attacker holds both ML-DSA keypairs.
+        it('rejects even with a valid reveal', async () => {
+            const h = makeHarness();
+            h.boundByTweaked.set(hex(TWEAKED_KEY), INNOCENT_HASH);
+            h.exists.publicKeyExists = true;
+
+            await expect(
+                h.manager.exposeMLDSAPublicKey(linkRequest(OTHER_HASH, REVEALED_KEY)),
+            ).rejects.toThrow(/already linked to a different ML-DSA identity/);
+        });
+
+        it('allows re-linking the SAME identity', async () => {
+            const h = makeHarness();
+            h.boundByTweaked.set(hex(TWEAKED_KEY), INNOCENT_HASH);
+            h.exists.hashedExists = true;
+            h.exists.legacyExists = true;
+            h.exists.sameId = true;
+
+            await expect(
+                h.manager.addMLDSAInfoToStore(linkRequest(INNOCENT_HASH)),
+            ).resolves.toBeUndefined();
+        });
+
+        it('allows a first link when the tweaked key is unbound', async () => {
+            const h = makeHarness();
+
+            await expect(
+                h.manager.exposeMLDSAPublicKey(linkRequest(INNOCENT_HASH, REVEALED_KEY)),
+            ).resolves.toBeUndefined();
+        });
+
+        it('is gated by its own activation height', async () => {
+            mockConfig.BITCOIN.NETWORK = 'mainnet';
+
+            const before = makeHarness(960_059n);
+            before.boundByTweaked.set(hex(TWEAKED_KEY), INNOCENT_HASH);
+            await expect(
+                before.manager.exposeMLDSAPublicKey({
+                    ...linkRequest(OTHER_HASH, REVEALED_KEY),
+                    insertedBlockHeight: 960_059n,
+                }),
+            ).resolves.toBeUndefined();
+
+            const after = makeHarness(960_060n);
+            after.boundByTweaked.set(hex(TWEAKED_KEY), INNOCENT_HASH);
+            await expect(
+                after.manager.exposeMLDSAPublicKey({
+                    ...linkRequest(OTHER_HASH, REVEALED_KEY),
+                    insertedBlockHeight: 960_060n,
+                }),
+            ).rejects.toThrow(/already linked to a different ML-DSA identity/);
         });
     });
 

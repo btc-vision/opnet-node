@@ -731,6 +731,7 @@ export class VMManager extends Logger {
         const exists = await this.shouldInsertMLDSAKey(
             mldsaPublicKey.hashedPublicKey,
             mldsaPublicKey.legacyPublicKey,
+            mldsaPublicKey.tweakedPublicKey,
             mldsaPublicKey.level,
         );
 
@@ -779,6 +780,7 @@ export class VMManager extends Logger {
         const exists = await this.shouldInsertMLDSAKey(
             mldsaPublicKey.hashedPublicKey,
             mldsaPublicKey.legacyPublicKey,
+            mldsaPublicKey.tweakedPublicKey,
             mldsaPublicKey.level,
             true,
         );
@@ -913,13 +915,61 @@ export class VMManager extends Logger {
         }
     }
 
+    /**
+     * One Bitcoin key, one OPNet identity.
+     *
+     * Uniqueness is otherwise enforced on the 33-byte `legacyPublicKey`, whose
+     * leading byte is the compressed-point parity prefix -- and that byte is
+     * attacker-chosen. `OPNetHeader.decodeHeader` reads it from the tapscript and
+     * only checks it is 0x02 or 0x03, while the script's OP_HASH256 commitment
+     * covers just the 32-byte x-only key; taproot signatures are x-only, so
+     * 0x02||X and 0x03||X spend with the SAME signature. Both are valid points,
+     * and `EcKeyPair.tweakPublicKey` normalises to even-Y, so both tweak to the
+     * same output key.
+     *
+     * So the same Bitcoin key can present two distinct `legacyPublicKey` values
+     * and claim two identities, one per prefix, in two different blocks (the
+     * in-block `mldsaToStoreLegacy` check is parity-independent but is wiped every
+     * block). The `tweakedPublicKey` index is deliberately NOT unique, so nothing
+     * catches it. Two rows then match `getByHashedOrLegacy`'s tweaked-key branch
+     * and the winner is whatever Mongo returns first -- a different `caller` on
+     * different nodes, i.e. a chain split.
+     *
+     * Revealing does not help: the attacker generates two genuine ML-DSA keypairs
+     * and satisfies the reveal both times.
+     *
+     * Key on the parity-independent tweaked key instead. Re-linking the SAME
+     * identity still passes, so this only rejects a second, different one.
+     */
+    private async assertTweakedKeyUnclaimed(
+        hashedPublicKey: Uint8Array,
+        tweakedPublicKey: Uint8Array,
+    ): Promise<void> {
+        if (!OPNetConsensus.enforcesMLDSATweakedIdentityUniqueness(this.vmBitcoinBlock.height)) {
+            return;
+        }
+
+        const existing = await this.vmStorage.getMLDSAByLegacy(
+            tweakedPublicKey,
+            this.vmBitcoinBlock.height,
+        );
+
+        if (existing && !equals(existing.hashedPublicKey, hashedPublicKey)) {
+            throw new Error(
+                'OP_NET: Bitcoin key is already linked to a different ML-DSA identity.',
+            );
+        }
+    }
+
     private async shouldInsertMLDSAKey(
         hashedPublicKey: Uint8Array,
         legacyPublicKey: Uint8Array,
+        tweakedPublicKey: Uint8Array,
         level: MLDSASecurityLevel,
         isExpose: boolean = false,
     ): Promise<boolean> {
         await this.assertNotContractAddress(hashedPublicKey);
+        await this.assertTweakedKeyUnclaimed(hashedPublicKey, tweakedPublicKey);
 
         // Verify it does not exist in the database.
         const exists = await this.vmStorage.mldsaPublicKeyExists(hashedPublicKey, legacyPublicKey);
