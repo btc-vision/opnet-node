@@ -126,10 +126,16 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 const mldsa = mldsaMap.get(i) ?? null;
 
                 if (key.length === 64) {
-                    // 32 bytes = mldsaHashedPublicKey input, always derive p2op from it
+                    // 32 bytes = mldsaHashedPublicKey input, always derive p2op from it.
+                    //
+                    // `mldsaHashedPublicKey` is echoed unconditionally on purpose: for a
+                    // 32-byte query it IS the identity, and callers resolve the address
+                    // and p2op from it. It therefore says nothing about whether a link
+                    // exists -- use `mldsaLinked` for that.
                     const info: PublicKeyInfo = {
                         p2op: this.p2op(keyBytes, this.network),
                         mldsaHashedPublicKey: key,
+                        mldsaLinked: !!mldsa,
                     };
 
                     if (mldsa) {
@@ -336,6 +342,8 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             info.lowByte = tweakedKey[0];
         }
 
+        info.mldsaLinked = !!mldsa;
+
         if (mldsa) {
             info.mldsaHashedPublicKey = toHex(new Uint8Array(mldsa.hashedPublicKey.buffer));
             info.mldsaLevel = mldsa.level;
@@ -382,6 +390,10 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 new Uint8Array(publicKey.mldsaHashedPublicKey.buffer),
             );
         }
+
+        // Contracts carry `mldsaHashedPublicKey` on the document itself (it is the
+        // contract public key), so presence of that field is not linkage either.
+        base.mldsaLinked = !!publicKey.mldsa;
 
         if (publicKey.mldsa) {
             base.mldsaHashedPublicKey = toHex(
