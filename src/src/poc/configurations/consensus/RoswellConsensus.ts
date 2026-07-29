@@ -217,6 +217,27 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
             },
         },
 
+        // The reveal requirement is RETIRED from these heights. Not revealing is
+        // the protocol's documented default, and requiring it rejected the link
+        // request every pre-1.8.9 client builds — every new wallet's first
+        // interaction. MLDSA_IDENTITY_BINDING_GUARD, which blocked the exploit that
+        // actually happened, stays in force.
+        //
+        // mainnet is a sunset rather than a rewind of the activation above: the
+        // rule really was enforced from 957_378 in v1.1.2, so 957_378..sunset
+        // replays byte-identically and no reindex is needed. On testnet/regtest the
+        // sunset equals the activation, i.e. never enforced there at all.
+        //
+        // MUST be at or ahead of the tip when deployed. A height already behind the
+        // tip retroactively re-validates the links rejected in between.
+        MLDSA_REVEAL_SUNSET: {
+            [ChainIds.Bitcoin]: {
+                [BitcoinNetwork.mainnet]: 960_083n,
+                [BitcoinNetwork.testnet]: 140_000n,
+                [BitcoinNetwork.regtest]: 0n,
+            },
+        },
+
         // The only genuinely NEW rule in this change set, so it activates AHEAD of
         // the tip on every network rather than sharing the guard's already-passed
         // height: turning it on retroactively could invalidate a historical

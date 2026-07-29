@@ -221,6 +221,37 @@ export interface IOPNetConsensus<T extends Consensus> {
         };
 
         /**
+         * Block height at which MLDSA_REVEAL_REQUIRED_ON_NEW_LINK STOPS being
+         * enforced. At and above this height a new link no longer has to reveal.
+         *
+         * The rule is being retired: not revealing is the protocol's documented
+         * default, and requiring it rejects the link request every
+         * `@btc-vision/transaction` below 1.8.9 builds — every new wallet's first
+         * interaction. The contract-address guard
+         * (MLDSA_IDENTITY_BINDING_GUARD) is what stopped the observed exploit and
+         * remains in force.
+         *
+         * Expressed as a sunset rather than by rewinding the activation height
+         * because the rule genuinely WAS enforced from 957_378 on mainnet in
+         * v1.1.2. Rewinding would retroactively re-validate every link rejected
+         * since then and fork from every released node; ending it at a height
+         * leaves that history byte-identical and needs no reindex.
+         *
+         * Set it AT or AHEAD of the tip. A height already behind the tip
+         * retroactively re-validates the links rejected in between.
+         *
+         * Undefined means no sunset — the rule stays enforced.
+         *
+         * Relaxing this changes which transactions are valid, so it is a HARD FORK
+         * and every node must use the same height.
+         */
+        readonly MLDSA_REVEAL_SUNSET: {
+            readonly [key in ChainIds]?: {
+                readonly [key in BitcoinNetwork]?: bigint;
+            };
+        };
+
+        /**
          * Block height at which a contract may not be DEPLOYED onto an address
          * that is already an ML-DSA identity.
          *

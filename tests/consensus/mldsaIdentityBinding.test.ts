@@ -123,22 +123,53 @@ describe('ML-DSA reveal requirement', () => {
         expect(reveal).toStrictEqual(guard);
     });
 
-    it('switches exactly at the mainnet boundary', () => {
-        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(957_377n)).toBe(false);
-        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(957_378n)).toBe(true);
-    });
-
-    it('uses the testnet height on testnet', () => {
+    // Sunset == activation on the test chains, i.e. never enforced there.
+    it('is never enforced on testnet', () => {
         useNetwork(BitcoinNetwork.testnet);
 
         expect(OPNetConsensus.requiresMLDSARevealOnNewLink(139_999n)).toBe(false);
-        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(140_000n)).toBe(true);
+        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(140_000n)).toBe(false);
+        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(10_000_000n)).toBe(false);
     });
 
-    it('is active from genesis on regtest', () => {
+    it('is never enforced on regtest', () => {
         useNetwork(BitcoinNetwork.regtest);
 
-        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(0n)).toBe(true);
+        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(0n)).toBe(false);
+        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(10_000_000n)).toBe(false);
+    });
+
+    /**
+     * The rule is retired, but the window it WAS enforced over must stay intact:
+     * 957_378..960_082 on mainnet replays exactly as v1.1.2 executed it. Rewinding
+     * the activation instead of sunsetting would re-validate every link rejected in
+     * that window and fork from every released node.
+     */
+    it('still enforces over the historical mainnet window', () => {
+        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(957_377n)).toBe(false);
+        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(957_378n)).toBe(true);
+        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(960_082n)).toBe(true);
+    });
+
+    it('stops enforcing at the mainnet sunset', () => {
+        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(960_083n)).toBe(false);
+        expect(OPNetConsensus.requiresMLDSARevealOnNewLink(1_000_000n)).toBe(false);
+    });
+
+    // A sunset behind the tip would retroactively re-validate rejected links.
+    it('sunsets at or after the height it activated on mainnet', () => {
+        const activation =
+            OPNetConsensus.consensus.CONTRACTS.MLDSA_REVEAL_REQUIRED_ON_NEW_LINK[
+                ChainIds.Bitcoin
+            ]?.[BitcoinNetwork.mainnet];
+        const sunset =
+            OPNetConsensus.consensus.CONTRACTS.MLDSA_REVEAL_SUNSET[ChainIds.Bitcoin]?.[
+                BitcoinNetwork.mainnet
+            ];
+
+        expect(activation).toBeDefined();
+        expect(sunset).toBeDefined();
+        expect(sunset as bigint).toBeGreaterThanOrEqual(activation as bigint);
     });
 
     it('fails closed for networks with no configured height', () => {

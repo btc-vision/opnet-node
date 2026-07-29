@@ -108,18 +108,31 @@ class OPNetConsensusConfiguration extends Logger {
      * Whether a link request that creates a NEW identity must reveal the ML-DSA
      * public key and a signature over it.
      *
-     * Split out of MLDSA_IDENTITY_BINDING_GUARD so the two rules can move
-     * independently; the configured heights currently match it exactly, so this
-     * reproduces the behaviour v1.1.2 already enforces.
+     * WINDOWED: enforced from the activation height up to, but not including, the
+     * sunset height. The rule is being retired -- not revealing is the protocol's
+     * documented default (an ML-DSA-44 reveal costs ~3.7 KB on-chain) and it
+     * rejects the link request every `@btc-vision/transaction` below 1.8.9 builds,
+     * which is every new wallet's first interaction. The contract-address guard is
+     * what actually stopped the observed exploit.
      *
-     * This is the ONLY rule that stops an attacker adopting a 32-byte identity
-     * they hold no preimage for -- including one that already holds a balance but
-     * has never been linked -- so it fails CLOSED: a network with no configured
-     * height enforces from genesis. It does reject the link request that
-     * `@btc-vision/transaction` below 1.8.9 builds, so clients must be on a
-     * revealing build.
+     * A sunset rather than a rewind of the activation height, because the rule WAS
+     * enforced from 957_378 on mainnet in v1.1.2. Moving the activation forward
+     * would retroactively re-validate every link rejected in between and fork from
+     * every released node; ending it at a height leaves that history untouched and
+     * needs no reindex.
+     *
+     * Still fails CLOSED before the sunset: a network with no configured
+     * activation enforces from genesis.
      */
     public requiresMLDSARevealOnNewLink(blockHeight: bigint): boolean {
+        const sunsetChain =
+            OPNetConsensus.consensus.CONTRACTS.MLDSA_REVEAL_SUNSET[Config.BITCOIN.CHAIN_ID];
+        const sunset = sunsetChain?.[Config.BITCOIN.NETWORK];
+
+        if (sunset !== undefined && blockHeight >= sunset) {
+            return false;
+        }
+
         const chain =
             OPNetConsensus.consensus.CONTRACTS.MLDSA_REVEAL_REQUIRED_ON_NEW_LINK[
                 Config.BITCOIN.CHAIN_ID

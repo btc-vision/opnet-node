@@ -142,7 +142,8 @@ describe('ML-DSA identity binding guard (VMManager)', () => {
     });
 
     beforeEach(() => {
-        // regtest enforces from genesis, so the guard is active by default here.
+        // regtest enforces the CONTRACT-ADDRESS guard from genesis, so rule 2 is
+        // active by default here. The reveal requirement is sunset on regtest.
         mockConfig.BITCOIN.NETWORK = 'regtest';
         mockConfig.BITCOIN.CHAIN_ID = 0;
     });
@@ -172,8 +173,7 @@ describe('ML-DSA identity binding guard (VMManager)', () => {
             const h = makeHarness();
             markDeployed(h, VICTIM_CONTRACT);
 
-            // Via the reveal path, which is the only way to create a new identity
-            // now that rule 1 is enforced on every network.
+            // Via the reveal path, so the assertion is about rule 2 alone.
             await expect(
                 h.manager.exposeMLDSAPublicKey(linkRequest(INNOCENT_HASH, REVEALED_KEY)),
             ).resolves.toBeUndefined();
@@ -181,18 +181,19 @@ describe('ML-DSA identity binding guard (VMManager)', () => {
     });
 
     describe('rule 1 — a new link must reveal the ML-DSA key', () => {
-        // Enforced on every configured network. Without it, any unclaimed 32-byte
-        // value can be adopted as an identity with no preimage proof -- including
-        // one that is already funded but not yet linked.
-        it('rejects a new unrevealed link (regtest enforces from genesis)', async () => {
+        // RETIRED. Not revealing is the protocol's documented default and the
+        // requirement rejected every pre-1.8.9 client's first link. The
+        // contract-address guard is what stopped the exploit and stays in force.
+        it('allows a new unrevealed link on regtest (never enforced there)', async () => {
             const h = makeHarness();
 
             await expect(
                 h.manager.addMLDSAInfoToStore(linkRequest(INNOCENT_HASH)),
-            ).rejects.toThrow(/must reveal the public key and a valid ML-DSA signature/);
+            ).resolves.toBeUndefined();
         });
 
-        it('rejects a new unrevealed link on mainnet at the activation height', async () => {
+        // The window it WAS enforced over must replay unchanged.
+        it('still rejects inside the historical mainnet window', async () => {
             mockConfig.BITCOIN.NETWORK = 'mainnet';
 
             const h = makeHarness(957_378n);
@@ -201,6 +202,15 @@ describe('ML-DSA identity binding guard (VMManager)', () => {
             await expect(h.manager.addMLDSAInfoToStore(request)).rejects.toThrow(
                 /must reveal the public key and a valid ML-DSA signature/,
             );
+        });
+
+        it('allows it from the mainnet sunset onward', async () => {
+            mockConfig.BITCOIN.NETWORK = 'mainnet';
+
+            const h = makeHarness(960_083n);
+            const request = { ...linkRequest(INNOCENT_HASH), insertedBlockHeight: 960_083n };
+
+            await expect(h.manager.addMLDSAInfoToStore(request)).resolves.toBeUndefined();
         });
 
         // Fails CLOSED, like the contract-address guard: a chain with no pre-fork
