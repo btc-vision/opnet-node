@@ -132,6 +132,6 @@
         "gulp-eslint-new": "^2.6.2",
         "patch-package": "^8.0.1",
         "prettier": "^3.9.6",
-        "vitest": "^4.1.10"
+        "vitest": "^5.0.0"
     }
 }
